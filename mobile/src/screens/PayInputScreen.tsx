@@ -1,0 +1,174 @@
+import { useCallback, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
+import { FieldInput } from '../components/FieldInput';
+import { CalendarPickerModal } from '../components/CalendarPickerModal';
+import { Ionicons } from '@expo/vector-icons';
+import { Alert } from '../alert';
+import { useFocusEffect } from '@react-navigation/native';
+import type { RootScreenProps } from '../navigation/types';
+import { getAttendanceByMonth, getPayRecord, getWorkplace, makeId, savePayRecord } from '../storage';
+import { AttendanceRecord, Workplace, buildChecklist } from '../types';
+import { calcDiff, calcMonthlySummary, formatWon } from '../payCalc';
+import { formatYearMonth, todayDateString } from '../utils/date';
+import { colors, radius, shadow, spacing } from '../theme';
+import { LoadingScreen } from '../components/LoadingScreen';
+
+type Props = RootScreenProps<'PayInput'>;
+
+export default function PayInputScreen({ navigation, route }: Props) {
+  const { workplaceId, yearMonth } = route.params;
+  const [workplace, setWorkplace] = useState<Workplace | null>(null);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [actualPay, setActualPay] = useState('');
+  const [payDate, setPayDate] = useState(todayDateString());
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [memo, setMemo] = useState('');
+  const [existingId, setExistingId] = useState<string | undefined>(undefined);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const [w, list, existing] = await Promise.all([
+          getWorkplace(workplaceId),
+          getAttendanceByMonth(workplaceId, yearMonth),
+          getPayRecord(workplaceId, yearMonth),
+        ]);
+        setWorkplace(w ?? null);
+        setRecords(list);
+        if (existing) {
+          setExistingId(existing.id);
+          if (existing.actualPay != null) setActualPay(String(existing.actualPay));
+          if (existing.payDate) setPayDate(existing.payDate);
+          if (existing.memo) setMemo(existing.memo);
+        }
+      })();
+    }, [workplaceId, yearMonth])
+  );
+
+  if (!workplace) return <LoadingScreen />;
+
+  const summary = calcMonthlySummary(records, workplace, yearMonth);
+
+  const handleSave = async () => {
+    const amount = Number(actualPay);
+    if (!Number.isFinite(amount) || amount < 0) {
+      Alert.alert('실제 입금액을 올바르게 입력해주세요.');
+      return;
+    }
+    const diff = calcDiff(summary.expectedPay, amount);
+    await savePayRecord({
+      id: existingId ?? makeId(),
+      workplaceId,
+      yearMonth,
+      expectedPay: summary.expectedPay,
+      actualPay: amount,
+      payDate,
+      memo: memo.trim() || undefined,
+      diff,
+      checklist: buildChecklist(diff),
+      updatedAt: new Date().toISOString(),
+    });
+    navigation.replace('PayCompare', { workplaceId, yearMonth });
+  };
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여</Text>
+
+        <View style={styles.card}>
+          <View style={styles.cardIconWrap}>
+            <Ionicons name="calculator-outline" size={18} color={colors.primaryDark} />
+          </View>
+          <View>
+            <Text style={styles.label}>예상 급여</Text>
+            <Text style={styles.expectedValue}>{formatWon(summary.expectedPay)}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.fieldLabel}>실제 입금액</Text>
+        <FieldInput
+          icon="cash-outline"
+          value={actualPay}
+          onChangeText={setActualPay}
+          keyboardType="number-pad"
+          placeholder="예: 410000"
+          suffix="원"
+        />
+
+        <Text style={styles.fieldLabel}>입금일</Text>
+        <Pressable
+          onPress={() => setCalendarVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="입금일 선택"
+        >
+          <View pointerEvents="none">
+            <FieldInput icon="calendar-outline" value={payDate} onChangeText={() => {}} placeholder="날짜 선택" />
+          </View>
+        </Pressable>
+        <CalendarPickerModal
+          visible={calendarVisible}
+          value={payDate}
+          onClose={() => setCalendarVisible(false)}
+          onSelect={setPayDate}
+        />
+
+        <Text style={styles.fieldLabel}>메모 (선택)</Text>
+        <FieldInput
+          icon="create-outline"
+          value={memo}
+          onChangeText={setMemo}
+          placeholder="메모를 입력하세요"
+        />
+
+        <Pressable
+          style={styles.saveButton}
+          onPress={handleSave}
+          accessibilityRole="button"
+          accessibilityLabel="저장하기"
+        >
+          <Text style={styles.saveButtonText}>저장하기</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.card,
+  },
+  cardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: { fontSize: 13, fontWeight: '600', color: colors.subtext },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
+  expectedValue: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
+  saveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 6,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    ...shadow.card,
+  },
+  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+});
