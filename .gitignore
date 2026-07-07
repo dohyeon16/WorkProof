@@ -1,0 +1,11 @@
+﻿# Local reference files
+.claude/
+*.pdf
+SKILL.md
+Setup_Guide_Windows.md
+WorkProof_*.md
+^WorkProof/
+project_memo.txt
+screen__ex/
+ui-ux-pro-max-skill-main/
+ui-ux-pro-max-skill/
