@@ -28,10 +28,11 @@ export interface ProviderConfig {
 const GOOGLE_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '').trim();
 const KAKAO_CLIENT_ID = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID ?? '').trim();
 const KAKAO_CLIENT_SECRET = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_SECRET ?? '').trim();
-const NAVER_CLIENT_ID = (process.env.EXPO_PUBLIC_NAVER_CLIENT_ID ?? '').trim();
-const NAVER_CLIENT_SECRET = (process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET ?? '').trim();
 
-export function getProviderConfig(provider: 'google' | 'kakao' | 'naver'): ProviderConfig {
+// Naver is handled separately (see naverIdentityWeb.ts) via the official
+// web-only JS SDK, which needs no client secret and no discovery-document
+// PKCE exchange — so it's not part of this generic provider config.
+export function getProviderConfig(provider: 'google' | 'kakao'): ProviderConfig {
   switch (provider) {
     case 'google':
       return {
@@ -53,7 +54,10 @@ export function getProviderConfig(provider: 'google' | 'kakao' | 'naver'): Provi
       return {
         clientId: KAKAO_CLIENT_ID,
         clientSecret: KAKAO_CLIENT_SECRET || undefined,
-        scopes: ['account_email', 'profile_nickname'],
+        // account_email requires the Kakao app to have the email consent item
+        // enabled (business app review); many dev apps can't turn it on, so
+        // we only request the nickname and treat email as optional below.
+        scopes: ['profile_nickname'],
         discovery: {
           authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
           tokenEndpoint: 'https://kauth.kakao.com/oauth/token',
@@ -66,26 +70,9 @@ export function getProviderConfig(provider: 'google' | 'kakao' | 'naver'): Provi
           name: raw.kakao_account?.profile?.nickname ?? '카카오 사용자',
         }),
       };
-    case 'naver':
-      return {
-        clientId: NAVER_CLIENT_ID,
-        clientSecret: NAVER_CLIENT_SECRET || undefined,
-        scopes: [],
-        discovery: {
-          authorizationEndpoint: 'https://nid.naver.com/oauth2.0/authorize',
-          tokenEndpoint: 'https://nid.naver.com/oauth2.0/token',
-          userInfoEndpoint: 'https://openapi.naver.com/v1/nid/me',
-        },
-        mapProfile: (raw) => ({
-          provider: 'naver',
-          providerId: String(raw.response?.id),
-          email: raw.response?.email ?? '',
-          name: raw.response?.name ?? '네이버 사용자',
-        }),
-      };
   }
 }
 
-export function isProviderConfigured(provider: 'google' | 'kakao' | 'naver'): boolean {
+export function isProviderConfigured(provider: 'google' | 'kakao'): boolean {
   return getProviderConfig(provider).clientId.length > 0;
 }

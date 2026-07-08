@@ -12,7 +12,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Splash: undefined;
-  Login: undefined;
+  Login: { prefillEmail?: string } | undefined;
   Signup: undefined;
   ResetPassword: undefined;
   OnboardingIntro: undefined;

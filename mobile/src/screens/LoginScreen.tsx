@@ -9,25 +9,13 @@ import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
 import { getAccount, isOnboardingDone, saveAccount, setLoggedIn } from '../storage';
 import { colors, fonts, radius, shadow, spacing } from '../theme';
-import { loginWithGoogle, loginWithKakao, loginWithNaver } from '../auth/socialLogin';
+import { SOCIAL_LOGIN, SOCIAL_LABEL } from '../auth/socialLogin';
 import type { AuthProvider } from '../types';
 
 type Props = RootScreenProps<'Login'>;
 
-const SOCIAL_LOGIN = {
-  google: loginWithGoogle,
-  kakao: loginWithKakao,
-  naver: loginWithNaver,
-} as const;
-
-const SOCIAL_LABEL: Record<'google' | 'kakao' | 'naver', string> = {
-  google: 'Google',
-  kakao: '카카오',
-  naver: '네이버',
-};
-
-export default function LoginScreen({ navigation }: Props) {
-  const [email, setEmail] = useState('');
+export default function LoginScreen({ navigation, route }: Props) {
+  const [email, setEmail] = useState(route.params?.prefillEmail ?? '');
   const [password, setPassword] = useState('');
   const [saveId, setSaveId] = useState(true);
   const [socialLoading, setSocialLoading] = useState<AuthProvider | null>(null);

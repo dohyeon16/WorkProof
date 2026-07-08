@@ -193,6 +193,11 @@ export async function setLoggedIn(value: boolean): Promise<void> {
   }
 }
 
+// 새 계정은 이 기기에 남아있던 이전 근무지/기록/급여 데이터를 이어받지 않고 초기 상태로 시작해야 함
+export async function clearAllData(): Promise<void> {
+  await AsyncStorage.multiRemove(Object.values(KEYS));
+}
+
 // ---------- Onboarding ----------
 
 export async function isOnboardingDone(): Promise<boolean> {

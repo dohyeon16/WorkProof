@@ -5,7 +5,7 @@ import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
-import { getAccount, setLoggedIn } from '../storage';
+import { clearAllData, getAccount, setLoggedIn } from '../storage';
 import { Account } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 
@@ -53,6 +53,24 @@ export default function MoreScreen({ navigation }: Props) {
     ]);
   };
 
+  const handleResetApp = () => {
+    Alert.alert(
+      '앱 초기화',
+      '계정, 근무지, 근태 기록 등 이 기기에 저장된 모든 데이터가 삭제되고 로그인 화면으로 돌아가요. 계속할까요?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '초기화',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllData();
+            navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.profileCard}>
@@ -89,6 +107,16 @@ export default function MoreScreen({ navigation }: Props) {
       >
         <Ionicons name="log-out-outline" size={16} color={colors.danger} />
         <Text style={styles.logoutButtonText}>로그아웃</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.resetButton}
+        onPress={handleResetApp}
+        accessibilityRole="button"
+        accessibilityLabel="앱 초기화"
+      >
+        <Ionicons name="refresh-outline" size={16} color={colors.subtext} />
+        <Text style={styles.resetButtonText}>앱 초기화 (모든 데이터 삭제)</Text>
       </Pressable>
 
       <Text style={styles.version}>WorkProof v1.0.0</Text>
@@ -149,5 +177,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   logoutButtonText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  resetButtonText: { color: colors.subtext, fontWeight: '600', fontSize: 12 },
   version: { textAlign: 'center', color: colors.subtext, fontSize: 12, marginTop: spacing.md },
 });

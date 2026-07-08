@@ -4,10 +4,13 @@ import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Checkbox } from '../components/Checkbox';
 import { Ionicons } from '@expo/vector-icons';
+import { GoogleLogo } from '../components/GoogleLogo';
 import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
-import { saveAccount, setLoggedIn } from '../storage';
-import { colors, radius, shadow, spacing } from '../theme';
+import { clearAllData, saveAccount } from '../storage';
+import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { SOCIAL_LOGIN, SOCIAL_LABEL } from '../auth/socialLogin';
+import type { AuthProvider } from '../types';
 
 type Props = RootScreenProps<'Signup'>;
 
@@ -71,6 +74,15 @@ export default function SignupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [finalAgree, setFinalAgree] = useState(false);
 
+  // 소셜 회원가입 (Step 1에서 진입 시 Step 2를 건너뛰고 Step 3으로 이동)
+  const [socialLoading, setSocialLoading] = useState<AuthProvider | null>(null);
+  const [socialProfile, setSocialProfile] = useState<{
+    email: string;
+    name: string;
+    provider: AuthProvider;
+    providerId: string;
+  } | null>(null);
+
   const toggleAll = () => {
     const next = !allAgreed;
     setTermsService(next);
@@ -81,6 +93,8 @@ export default function SignupScreen({ navigation }: Props) {
   const handleBack = () => {
     if (step === 1) {
       navigation.goBack();
+    } else if (step === 3 && socialProfile) {
+      setStep(1);
     } else {
       setStep((s) => s - 1);
     }
@@ -91,7 +105,44 @@ export default function SignupScreen({ navigation }: Props) {
       Alert.alert('필수 약관에 동의해주세요.');
       return;
     }
+    setSocialProfile(null);
     setStep(2);
+  };
+
+  const handleSocialSignup = async (provider: 'google' | 'kakao' | 'naver') => {
+    if (socialLoading) return;
+    if (!termsService || !termsPrivacy) {
+      Alert.alert('필수 약관에 동의해주세요.');
+      return;
+    }
+    setSocialLoading(provider);
+    try {
+      const result = await SOCIAL_LOGIN[provider]();
+      if (result.status === 'cancelled') {
+        return;
+      }
+      if (result.status === 'not_configured') {
+        Alert.alert(
+          `${SOCIAL_LABEL[provider]} 회원가입 준비 중`,
+          '아직 발급받은 앱 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 Client ID를 등록해주세요.'
+        );
+        return;
+      }
+      if (result.status === 'error') {
+        Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 실패`, result.message);
+        return;
+      }
+      setSocialProfile({
+        email: result.profile.email,
+        name: result.profile.name,
+        provider: result.profile.provider,
+        providerId: result.profile.providerId,
+      });
+      setName(result.profile.name);
+      setStep(3);
+    } finally {
+      setSocialLoading(null);
+    }
   };
 
   const handleNextFromStep2 = () => {
@@ -124,14 +175,27 @@ export default function SignupScreen({ navigation }: Props) {
       Alert.alert('필수 약관 및 개인정보 수집·이용에 동의해주세요.');
       return;
     }
+    const signupEmail = socialProfile ? socialProfile.email : getFinalEmail();
+    await clearAllData();
     await saveAccount({
-      email: getFinalEmail(),
-      password,
+      email: signupEmail,
+      password: socialProfile ? undefined : password,
       name: name.trim(),
       createdAt: new Date().toISOString(),
+      provider: socialProfile?.provider,
+      providerId: socialProfile?.providerId,
     });
-    await setLoggedIn(true);
-    navigation.reset({ index: 0, routes: [{ name: 'OnboardingIntro' }] });
+
+    if (socialProfile) {
+      Alert.alert(
+        '회원가입 완료',
+        `${SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정으로 가입했어요. 같은 방법으로 로그인해주세요.`
+      );
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    } else {
+      Alert.alert('회원가입 완료', '가입하신 이메일과 비밀번호로 로그인해주세요.');
+      navigation.reset({ index: 0, routes: [{ name: 'Login', params: { prefillEmail: signupEmail } }] });
+    }
   };
 
   const meta = STEP_META[step];
@@ -209,6 +273,52 @@ export default function SignupScreen({ navigation }: Props) {
             >
               <Text style={styles.primaryButtonText}>다음으로</Text>
             </Pressable>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>또는 소셜 계정으로 가입</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Pressable
+              style={[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy]}
+              onPress={() => handleSocialSignup('kakao')}
+              disabled={socialLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="카카오로 회원가입"
+            >
+              <Ionicons name="chatbubble" size={16} color="#1B1F1E" />
+              <Text style={styles.kakaoButtonText}>
+                {socialLoading === 'kakao' ? '연결하는 중...' : '카카오로 회원가입'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy]}
+              onPress={() => handleSocialSignup('google')}
+              disabled={socialLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Google로 회원가입"
+            >
+              <GoogleLogo size={18} />
+              <Text style={styles.googleButtonText}>
+                {socialLoading === 'google' ? '연결하는 중...' : 'Google로 회원가입'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy]}
+              onPress={() => handleSocialSignup('naver')}
+              disabled={socialLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="네이버로 회원가입"
+            >
+              <Text style={styles.naverLogo}>N</Text>
+              <Text style={styles.naverButtonText}>
+                {socialLoading === 'naver' ? '연결하는 중...' : '네이버로 회원가입'}
+              </Text>
+            </Pressable>
+
             <Pressable
               style={styles.footer}
               onPress={() => navigation.goBack()}
@@ -307,6 +417,16 @@ export default function SignupScreen({ navigation }: Props) {
 
         {step === 3 && (
           <View>
+            {socialProfile && (
+              <View style={styles.noticeCard}>
+                <Ionicons name="link" size={20} color={colors.primaryDark} />
+                <Text style={styles.noticeText}>
+                  {SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정
+                  {socialProfile.email ? `(${socialProfile.email})` : ''}으로 가입을 완료해요. 닉네임만
+                  확인해주세요.
+                </Text>
+              </View>
+            )}
             <Text style={styles.label}>이름 또는 닉네임</Text>
             <FieldInput icon="person-outline" placeholder="도현" value={name} onChangeText={setName} />
             <Text style={styles.help}>WorkProof에서 사용할 이름을 입력해주세요.</Text>
@@ -449,4 +569,44 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   footer: { marginTop: spacing.lg, alignItems: 'center' },
   footerText: { fontSize: 13, color: colors.subtext },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg, gap: spacing.sm },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.subtext, fontSize: 12 },
+  socialButtonBusy: { opacity: 0.6 },
+  kakaoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#FEE500',
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 6,
+    marginBottom: spacing.sm,
+  },
+  kakaoButtonText: { color: '#1B1F1E', fontWeight: '700', fontSize: 15 },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#747775',
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 6,
+    marginBottom: spacing.sm,
+  },
+  googleButtonText: { color: '#1F1F1F', fontFamily: fonts.medium, fontSize: 15 },
+  naverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#03C75A',
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 6,
+    marginBottom: spacing.sm,
+  },
+  naverLogo: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  naverButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
