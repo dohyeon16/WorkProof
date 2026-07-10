@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,7 @@ function buildGrid(yearMonth: string): (string | null)[] {
 }
 
 export default function RecordsCalendarScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [yearMonth, setYearMonth] = useState(currentYearMonth());
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -79,7 +81,7 @@ export default function RecordsCalendarScreen({ navigation }: Props) {
   const today = todayDateString();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.monthNav}>
         <Pressable
           onPress={() => setYearMonth((v) => shiftYearMonth(v, -1))}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +12,7 @@ import { colors, radius, shadow, spacing } from '../theme';
 type Props = RootScreenProps<'ResetPassword'>;
 
 export default function ResetPasswordScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'verify' | 'reset'>('verify');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +61,14 @@ export default function ResetPasswordScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Pressable
           style={styles.backButton}
           onPress={() => navigation.goBack()}

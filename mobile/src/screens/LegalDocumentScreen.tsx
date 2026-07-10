@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../navigation/types';
@@ -9,10 +10,11 @@ type Props = RootScreenProps<'LegalDocument'>;
 
 export default function LegalDocumentScreen({ navigation, route }: Props) {
   const doc = LEGAL_DOCUMENTS[route.params.doc];
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm + 2 }]}>
         <Pressable
           onPress={() => navigation.goBack()}
           hitSlop={8}

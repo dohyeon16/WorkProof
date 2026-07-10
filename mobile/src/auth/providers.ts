@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { AuthDiscoveryDocument } from 'expo-auth-session';
 import type { AuthProvider } from '../types';
 
@@ -26,7 +27,14 @@ export interface ProviderConfig {
 // would silently stay undefined in a native build, so each var is read here
 // as its own literal reference rather than through a shared helper.
 const GOOGLE_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '').trim();
+// Google's "Web application" client type (GOOGLE_CLIENT_ID above, used by
+// googleIdentityWeb.ts) only accepts http(s) redirect URIs — it rejects the
+// workproof:// custom scheme this native PKCE flow needs. Android requires
+// its own "Android" client type (package name + SHA-1, with "Custom URI
+// scheme" enabled under Advanced settings) — see OAUTH_SETUP.md.
+const GOOGLE_ANDROID_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '').trim();
 const KAKAO_CLIENT_ID = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID ?? '').trim();
+console.log('Kakao configured:', Boolean(process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID));
 const KAKAO_CLIENT_SECRET = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_SECRET ?? '').trim();
 
 // Naver is handled separately (see naverIdentityWeb.ts) via the official
@@ -36,7 +44,7 @@ export function getProviderConfig(provider: 'google' | 'kakao'): ProviderConfig 
   switch (provider) {
     case 'google':
       return {
-        clientId: GOOGLE_CLIENT_ID,
+        clientId: Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_CLIENT_ID,
         scopes: ['openid', 'profile', 'email'],
         discovery: {
           authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',

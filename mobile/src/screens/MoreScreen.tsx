@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,6 +32,7 @@ const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; action: (nav:
 ];
 
 export default function MoreScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [account, setAccount] = useState<Account | null>(null);
 
   useFocusEffect(
@@ -72,7 +74,7 @@ export default function MoreScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Ionicons name="person" size={24} color={colors.primaryDark} />

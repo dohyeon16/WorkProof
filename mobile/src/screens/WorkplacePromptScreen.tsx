@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../navigation/types';
@@ -7,8 +8,9 @@ import { colors, radius, shadow, spacing } from '../theme';
 type Props = RootScreenProps<'WorkplacePrompt'>;
 
 export default function WorkplacePromptScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
       <View style={styles.illustrationWrap}>
         <View style={styles.mapCard}>
           <Ionicons name="map-outline" size={64} color={colors.primaryLight} />

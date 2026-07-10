@@ -10,6 +10,7 @@ import OnboardingValuesScreen from '../screens/OnboardingValuesScreen';
 import NotifPermissionScreen from '../screens/NotifPermissionScreen';
 import WorkplacePromptScreen from '../screens/WorkplacePromptScreen';
 import WorkplaceFormScreen from '../screens/WorkplaceFormScreen';
+import WorkplacePlacePickerScreen from '../screens/WorkplacePlacePickerScreen';
 import WorkplaceRegisteredScreen from '../screens/WorkplaceRegisteredScreen';
 import WorkplaceSwitchScreen from '../screens/WorkplaceSwitchScreen';
 import AttendanceCheckScreen from '../screens/AttendanceCheckScreen';
@@ -66,6 +67,11 @@ export default function RootNavigator() {
         name="WorkplaceForm"
         component={WorkplaceFormScreen}
         options={({ route }) => ({ title: route.params?.id ? '근무지 수정' : '근무지 등록' })}
+      />
+      <Stack.Screen
+        name="WorkplacePlacePicker"
+        component={WorkplacePlacePickerScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
       />
       <Stack.Screen
         name="WorkplaceRegistered"

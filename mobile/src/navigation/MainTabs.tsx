@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
@@ -28,6 +29,7 @@ const LABELS: Record<keyof MainTabParamList, string> = {
 };
 
 export default function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -36,7 +38,10 @@ export default function MainTabs() {
         tabBarInactiveTintColor: colors.subtext,
         tabBarLabel: LABELS[route.name],
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarStyle: styles.tabBar,
+        // 고정 height/paddingBottom은 제스처 내비게이션 바(홈 인디케이터) 영역을
+        // 가려서 마지막 탭이 시스템 바 밑에 깔릴 수 있다. insets.bottom을 더해
+        // 기기별 안전영역을 확보한다.
+        tabBarStyle: [styles.tabBar, { height: 56 + insets.bottom, paddingBottom: 10 + insets.bottom }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarIcon: ({ color, size, focused }) => (
           <Ionicons name={ICONS[route.name][focused ? 0 : 1]} size={size} color={color} />

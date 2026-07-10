@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +12,7 @@ import { colors, radius, shadow, spacing } from '../theme';
 type Props = RootScreenProps<'WorkplaceSwitch'>;
 
 export default function WorkplaceSwitchScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workplaces, setWorkplaces] = useState<Workplace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -71,7 +73,7 @@ export default function WorkplaceSwitchScreen({ navigation }: Props) {
         )}
       />
       <Pressable
-        style={styles.addButton}
+        style={[styles.addButton, { marginBottom: insets.bottom }]}
         onPress={() => navigation.navigate('WorkplaceForm', {})}
         accessibilityRole="button"
         accessibilityLabel="새 근무지 추가"

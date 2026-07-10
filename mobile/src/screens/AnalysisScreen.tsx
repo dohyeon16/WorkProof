@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 type Props = MainTabScreenProps<'Analysis'>;
 
 export default function AnalysisScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [payRecords, setPayRecords] = useState<PayRecord[]>([]);
   const yearMonth = currentYearMonth();
@@ -50,7 +52,7 @@ export default function AnalysisScreen({ navigation }: Props) {
   const thisMonth = payRecords.find((p) => p.yearMonth === yearMonth);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
       <Text style={styles.title}>급여 분석</Text>
 
       <Pressable

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Image, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Alert } from '../alert';
@@ -83,6 +84,7 @@ async function shareFile(item: EvidenceFile) {
 }
 
 export default function VaultScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [files, setFiles] = useState<EvidenceFile[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -227,7 +229,7 @@ export default function VaultScreen({ navigation }: Props) {
         data={files}
         keyExtractor={(f) => f.id}
         numColumns={3}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + spacing.md }]}
         ListHeaderComponent={<Text style={styles.title}>증빙 보관함</Text>}
         ListEmptyComponent={
           <View style={styles.emptyListWrap}>

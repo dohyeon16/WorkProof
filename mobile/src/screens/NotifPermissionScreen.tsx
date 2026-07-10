@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import type { RootScreenProps } from '../navigation/types';
 import { getWorkplaces } from '../storage';
 import { rescheduleAllPaydayReminders } from '../notifications';
+import { isExpoGo } from '../utils/expoGo';
 import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = RootScreenProps<'NotifPermission'>;
@@ -26,14 +27,19 @@ export default function NotifPermissionScreen({ navigation, route }: Props) {
   const handleAllow = async () => {
     setRequesting(true);
     let status: string | undefined;
-    try {
-      status = (await Notifications.requestPermissionsAsync()).status;
-      if (status === 'granted') {
-        const workplaces = await getWorkplaces();
-        await rescheduleAllPaydayReminders(workplaces);
+    if (Platform.OS === 'android' && isExpoGo()) {
+      console.log('[notifications] Remote push skipped in Expo Go');
+    } else {
+      try {
+        const Notifications = await import('expo-notifications');
+        status = (await Notifications.requestPermissionsAsync()).status;
+        if (status === 'granted') {
+          const workplaces = await getWorkplaces();
+          await rescheduleAllPaydayReminders(workplaces);
+        }
+      } catch {
+        // 웹 등 미지원 환경에서는 조용히 넘어감
       }
-    } catch {
-      // 웹 등 미지원 환경에서는 조용히 넘어감
     }
     setRequesting(false);
 
@@ -44,8 +50,9 @@ export default function NotifPermissionScreen({ navigation, route }: Props) {
     }
   };
 
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
       <View style={styles.illustrationWrap}>
         <View style={styles.blob} />
         <Ionicons name="sparkles" size={16} color={colors.accent} style={styles.sparkleTopLeft} />

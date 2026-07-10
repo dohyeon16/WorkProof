@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { useEffect, type ReactNode } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +12,8 @@ import {
 import RootNavigator from './src/navigation/RootNavigator';
 import { AlertHost } from './src/alert';
 import { colors } from './src/theme';
+import { resumeNaverRedirectIfPending } from './src/auth/naverIdentityWeb';
+import type { RootStackParamList } from './src/navigation/types';
 
 function AppShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
@@ -32,6 +34,33 @@ export default function App() {
     NotoSansKR_500Medium,
     NotoSansKR_700Bold,
   });
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+
+  // 네이버 로그인/회원가입은 전체 페이지 리다이렉트라 앱이 재부팅된다.
+  // 돌아왔을 때(정상적인 재로드는 onReady로, 뒤로가기로 인한 bfcache 복원은
+  // pageshow로) 대기 중이던 리다이렉트가 있으면 원래 화면으로 결과를 전달한다.
+  const resumeNaverRedirect = async () => {
+    if (Platform.OS !== 'web') return;
+    const resume = await resumeNaverRedirectIfPending();
+    const nav = navigationRef.current;
+    if (!resume || !nav?.isReady()) return;
+    const params = { naverResume: { mode: resume.mode, result: resume.result } };
+    if (nav.getCurrentRoute()?.name === resume.screen) {
+      nav.setParams(params);
+    } else {
+      nav.reset({ index: 0, routes: [{ name: resume.screen, params }] });
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onPageShow = (event: Event) => {
+      if ((event as { persisted?: boolean }).persisted) resumeNaverRedirect();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!fontsLoaded) {
     return <View style={styles.loadingGate} />;
@@ -40,7 +69,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppShell>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
           <RootNavigator />
         </NavigationContainer>
         <StatusBar style="auto" />

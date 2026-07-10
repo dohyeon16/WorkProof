@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../navigation/types';
@@ -14,8 +15,9 @@ const FEATURES = [
 ];
 
 export default function OnboardingIntroScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
       <View style={styles.illustrationWrap}>
         <View style={styles.blob} />
         <Ionicons name="leaf-outline" size={22} color={colors.primary} style={styles.leafLeft} />

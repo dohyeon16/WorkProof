@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Checkbox } from '../components/Checkbox';
@@ -9,7 +10,7 @@ import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
 import { clearAllData, saveAccount } from '../storage';
 import { colors, fonts, radius, shadow, spacing } from '../theme';
-import { SOCIAL_LOGIN, SOCIAL_LABEL } from '../auth/socialLogin';
+import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../auth/socialLogin';
 import type { AuthProvider } from '../types';
 
 type Props = RootScreenProps<'Signup'>;
@@ -49,7 +50,8 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-export default function SignupScreen({ navigation }: Props) {
+export default function SignupScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
 
   // Step 1: 약관 동의
@@ -109,6 +111,40 @@ export default function SignupScreen({ navigation }: Props) {
     setStep(2);
   };
 
+  const finishSocialSignup = (provider: 'google' | 'kakao' | 'naver', result: SocialLoginResult) => {
+    if (result.status === 'cancelled') {
+      return;
+    }
+    if (result.status === 'not_configured') {
+      Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 준비 중`, result.reason);
+      return;
+    }
+    if (result.status === 'error') {
+      Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 실패`, result.message);
+      return;
+    }
+    setSocialProfile({
+      email: result.profile.email,
+      name: result.profile.name,
+      provider: result.profile.provider,
+      providerId: result.profile.providerId,
+    });
+    setName(result.profile.name);
+    setStep(3);
+  };
+
+  // 네이버는 전체 페이지 리다이렉트로 처리되므로, 리다이렉트에서 돌아온 뒤
+  // App.tsx가 이 화면에 route.params.naverResume로 결과를 전달해준다.
+  useEffect(() => {
+    const resume = route.params?.naverResume;
+    if (!resume) return;
+    navigation.setParams({ naverResume: undefined });
+    setSocialLoading('naver');
+    finishSocialSignup('naver', resume.result);
+    setSocialLoading(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.naverResume]);
+
   const handleSocialSignup = async (provider: 'google' | 'kakao' | 'naver') => {
     if (socialLoading) return;
     if (!termsService || !termsPrivacy) {
@@ -116,30 +152,18 @@ export default function SignupScreen({ navigation }: Props) {
       return;
     }
     setSocialLoading(provider);
+    if (provider === 'naver') {
+      // 웹은 정상적인 경우 이 탭이 네이버로 이동해버리므로 아래 줄로 돌아오지
+      // 않는다. Client ID 미설정 등 리다이렉트가 아예 일어나지 않은 경우에만
+      // 결과가 반환된다. Android는 네이티브 SDK 플로우라 바로 결과가 온다.
+      const result = await loginWithNaver('signup', 'Signup');
+      finishSocialSignup('naver', result);
+      setSocialLoading(null);
+      return;
+    }
     try {
       const result = await SOCIAL_LOGIN[provider]();
-      if (result.status === 'cancelled') {
-        return;
-      }
-      if (result.status === 'not_configured') {
-        Alert.alert(
-          `${SOCIAL_LABEL[provider]} 회원가입 준비 중`,
-          '아직 발급받은 앱 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 Client ID를 등록해주세요.'
-        );
-        return;
-      }
-      if (result.status === 'error') {
-        Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 실패`, result.message);
-        return;
-      }
-      setSocialProfile({
-        email: result.profile.email,
-        name: result.profile.name,
-        provider: result.profile.provider,
-        providerId: result.profile.providerId,
-      });
-      setName(result.profile.name);
-      setStep(3);
+      finishSocialSignup(provider, result);
     } finally {
       setSocialLoading(null);
     }
@@ -202,7 +226,14 @@ export default function SignupScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Pressable
           style={styles.backButton}
           onPress={handleBack}

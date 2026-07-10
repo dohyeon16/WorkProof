@@ -130,8 +130,13 @@ export default function ReportScreen({ navigation, route }: Props) {
         dialogTitle: `WorkProof 리포트 - ${formatYearMonth(yearMonth)}`,
       });
       navigation.navigate('ShareComplete', { workplaceId, yearMonth, intent });
-    } catch {
-      Alert.alert('리포트 생성 실패', '잠시 후 다시 시도해주세요.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Full error (with stack, if any) goes to the Metro console — open the
+      // in-app dev menu "Show Dev Menu" > "Debug Remote JS" / `npx expo start`
+      // terminal to see it. The Alert only carries the message string.
+      console.error('[ReportScreen] PDF generate failed:', err);
+      Alert.alert('리포트 생성 실패', __DEV__ ? message : '잠시 후 다시 시도해주세요.');
     } finally {
       setGenerating(false);
     }

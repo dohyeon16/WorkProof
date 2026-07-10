@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
 import {
@@ -15,6 +26,8 @@ import {
   setActiveWorkplaceId,
 } from '../storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../notifications';
+import { extractTextFromDocument } from '../ocr/visionOcr';
+import type { EvidenceKind } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
@@ -29,6 +42,12 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [weeklyAllowance, setWeeklyAllowance] = useState(true);
   const [breakMinutesPerShift, setBreakMinutesPerShift] = useState('30');
   const [contractPhotoUri, setContractPhotoUri] = useState<string | undefined>(undefined);
+  const [contractFileKind, setContractFileKind] = useState<EvidenceKind | undefined>(undefined);
+  const [contractOcrText, setContractOcrText] = useState<string | undefined>(undefined);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [latitude, setLatitude] = useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = useState<number | undefined>(undefined);
+  const [address, setAddress] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(!editingId);
 
   useEffect(() => {
@@ -41,12 +60,56 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setWeeklyAllowance(w.weeklyAllowance);
         setBreakMinutesPerShift(String(w.breakMinutesPerShift));
         setContractPhotoUri(w.contractPhotoUri);
+        setContractFileKind(w.contractFileKind);
+        setContractOcrText(w.contractOcrText);
+        setLatitude(w.latitude);
+        setLongitude(w.longitude);
+        setAddress(w.address);
       }
       setLoaded(true);
     });
   }, [editingId]);
 
-  const handlePickPhoto = async () => {
+  // 지도에서 근무지를 검색해 고르고 돌아오면 App.tsx의 네이버 리다이렉트 복귀
+  // 처리와 같은 방식으로, WorkplacePlacePicker가 이 화면의 params에 결과를
+  // 담아 navigate로 되돌아온다.
+  useEffect(() => {
+    if (route.params?.pickedLatitude == null || route.params?.pickedLongitude == null) return;
+    setLatitude(route.params.pickedLatitude);
+    setLongitude(route.params.pickedLongitude);
+    setAddress(route.params.pickedAddress);
+    if (route.params.pickedName) setName(route.params.pickedName);
+    navigation.setParams({
+      pickedLatitude: undefined,
+      pickedLongitude: undefined,
+      pickedAddress: undefined,
+      pickedName: undefined,
+    });
+  }, [route.params?.pickedLatitude, route.params?.pickedLongitude, route.params?.pickedAddress, route.params?.pickedName]);
+
+  const runOcr = async (uri: string, mimeType: string) => {
+    setOcrLoading(true);
+    setContractOcrText(undefined);
+    try {
+      const result = await extractTextFromDocument(uri, mimeType);
+      if (result.status === 'not_configured') {
+        Alert.alert(
+          'OCR 준비 중',
+          '아직 Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
+        );
+        return;
+      }
+      if (result.status === 'error') {
+        Alert.alert('텍스트 추출 실패', result.message);
+        return;
+      }
+      setContractOcrText(result.text);
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('사진 접근 권한이 필요해요', '설정에서 권한을 허용해주세요.');
@@ -56,9 +119,33 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       mediaTypes: ['images'],
       quality: 0.7,
     });
-    if (!result.canceled && result.assets[0]) {
-      setContractPhotoUri(result.assets[0].uri);
-    }
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setContractPhotoUri(asset.uri);
+    setContractFileKind('image');
+    await runOcr(asset.uri, asset.mimeType ?? 'image/jpeg');
+  };
+
+  const handlePickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const mimeType =
+      asset.mimeType ?? (asset.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+    setContractPhotoUri(asset.uri);
+    setContractFileKind(mimeType === 'application/pdf' ? 'pdf' : 'image');
+    await runOcr(asset.uri, mimeType);
+  };
+
+  const handlePickContract = () => {
+    Alert.alert('근로계약서 사본 첨부', '사진 또는 PDF 파일로 첨부할 수 있어요.', [
+      { text: '사진 보관함에서 선택', onPress: handlePickImage },
+      { text: '파일에서 선택 (PDF 등)', onPress: handlePickDocument },
+      { text: '취소', style: 'cancel' },
+    ]);
   };
 
   const handleSave = async () => {
@@ -67,7 +154,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     const breakMin = Number(breakMinutesPerShift);
 
     if (!name.trim()) {
-      Alert.alert('근무지명을 입력해주세요.');
+      Alert.alert('근무지를 선택해주세요', '지도에서 근무지를 검색해 선택해주세요.');
       return;
     }
     if (!Number.isFinite(wage) || wage <= 0) {
@@ -93,6 +180,11 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       weeklyAllowance,
       breakMinutesPerShift: breakMin,
       contractPhotoUri,
+      contractFileKind,
+      contractOcrText,
+      latitude,
+      longitude,
+      address,
       createdAt: new Date().toISOString(),
     };
     await saveWorkplace(workplace);
@@ -136,13 +228,28 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>근무지명</Text>
-        <FieldInput
-          icon="business-outline"
-          value={name}
-          onChangeText={setName}
-          placeholder="예: OO카페 강남점"
-        />
+        <Text style={styles.label}>근무지</Text>
+        <Pressable
+          style={styles.placeCard}
+          onPress={() => navigation.navigate('WorkplacePlacePicker', { latitude, longitude })}
+          accessibilityRole="button"
+          accessibilityLabel="지도에서 근무지 검색"
+        >
+          <View style={styles.placeIcon}>
+            <Ionicons name="location" size={20} color={colors.primaryDark} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {name ? (
+              <>
+                <Text style={styles.placeName}>{name}</Text>
+                <Text style={styles.placeSubtext}>{address ?? '탭해서 위치 변경'}</Text>
+              </>
+            ) : (
+              <Text style={styles.placeName}>지도에서 근무지 검색하기</Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+        </Pressable>
 
         <Text style={styles.label}>시급</Text>
         <FieldInput
@@ -195,19 +302,46 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         <Text style={styles.label}>근로계약서 사본 첨부 (선택)</Text>
         <Pressable
           style={styles.photoPicker}
-          onPress={handlePickPhoto}
+          onPress={handlePickContract}
           accessibilityRole="button"
-          accessibilityLabel="근로계약서 사본 사진 추가"
+          accessibilityLabel="근로계약서 사본 첨부"
         >
           {contractPhotoUri ? (
-            <Image source={{ uri: contractPhotoUri }} style={styles.photoPreview} />
+            contractFileKind === 'pdf' ? (
+              <View style={styles.pdfPreview}>
+                <Ionicons name="document-text-outline" size={32} color={colors.primaryDark} />
+                <Text style={styles.pdfPreviewText} numberOfLines={1}>
+                  PDF 첨부됨
+                </Text>
+              </View>
+            ) : (
+              <Image source={{ uri: contractPhotoUri }} style={styles.photoPreview} />
+            )
           ) : (
             <>
               <Ionicons name="camera-outline" size={26} color={colors.subtext} />
-              <Text style={styles.photoPickerText}>사진 추가</Text>
+              <Text style={styles.photoPickerText}>사진/PDF 추가</Text>
             </>
           )}
         </Pressable>
+
+        {ocrLoading && (
+          <View style={styles.ocrStatusRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.ocrStatusText}>계약서 텍스트를 인식하는 중...</Text>
+          </View>
+        )}
+        {!ocrLoading && contractOcrText && (
+          <View style={styles.ocrCard}>
+            <View style={styles.ocrCardHeader}>
+              <Ionicons name="sparkles-outline" size={14} color={colors.primaryDark} />
+              <Text style={styles.ocrCardTitle}>인식된 계약서 텍스트</Text>
+            </View>
+            <ScrollView style={styles.ocrTextScroll} nestedScrollEnabled>
+              <Text style={styles.ocrText}>{contractOcrText}</Text>
+            </ScrollView>
+          </View>
+        )}
 
         <Pressable
           style={styles.saveButton}
@@ -250,6 +384,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  placeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginBottom: spacing.md,
+  },
+  placeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeName: { fontSize: 14, fontWeight: '700', color: colors.text },
+  placeSubtext: { fontSize: 12, color: colors.subtext, marginTop: 2 },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
@@ -281,4 +436,27 @@ const styles = StyleSheet.create({
   },
   photoPickerText: { fontSize: 12, color: colors.subtext },
   photoPreview: { width: '100%', height: 140 },
+  pdfPreview: { paddingVertical: spacing.md, alignItems: 'center', gap: spacing.xs },
+  pdfPreviewText: { fontSize: 12, color: colors.primaryDark, fontWeight: '700' },
+  ocrStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
+  ocrStatusText: { fontSize: 12, color: colors.subtext },
+  ocrCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
+  ocrCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs },
+  ocrCardTitle: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  ocrTextScroll: { maxHeight: 160 },
+  ocrText: { fontSize: 12, color: colors.text, lineHeight: 18 },
 });

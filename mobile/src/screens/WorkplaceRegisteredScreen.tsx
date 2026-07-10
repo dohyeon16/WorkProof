@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Confetti } from '../components/Confetti';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,8 +22,9 @@ export default function WorkplaceRegisteredScreen({ navigation, route }: Props) 
     navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
   };
 
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
       <View style={styles.celebrationWrap}>
         <Confetti size={220} />
         <View style={styles.iconCircle}>

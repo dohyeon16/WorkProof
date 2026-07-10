@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../navigation/types';
@@ -38,8 +39,9 @@ function ValueIcon({ icon }: { icon: IconSpec }) {
 }
 
 export default function OnboardingValuesScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
       <View style={styles.logoRow}>
         <View style={styles.logoBadge}>
           <Ionicons name="checkmark-done" size={16} color="#fff" />

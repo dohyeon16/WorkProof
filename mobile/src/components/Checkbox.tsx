@@ -34,6 +34,6 @@ export function Checkbox({ checked, onToggle, label, bold, size = 20, style }: C
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  label: { fontSize: 13, color: colors.text, flex: 1 },
+  label: { fontSize: 13, color: colors.text, flexShrink: 1 },
   labelBold: { fontWeight: '700', fontSize: 14 },
 });

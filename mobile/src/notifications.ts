@@ -1,15 +1,6 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import type { Workplace } from './types';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+import { isExpoGo } from './utils/expoGo';
 
 const PAYDAY_REMINDER_ID_PREFIX = 'payday-reminder-';
 const PAYDAY_REMINDER_HOUR = 10;
@@ -19,8 +10,42 @@ function safeMonthlyDay(payDay: number): number {
   return Math.min(Math.max(payDay, 1), 28);
 }
 
+/**
+ * expo-notifications는 임포트되는 순간(모듈 최상단 부수효과로) 원격 푸시 토큰 리스너를 등록하는데,
+ * 이 과정에서 SDK 53+ Android Expo Go에서는 예외를 던진다. 그래서 해당 조합에서는 아예 임포트하지 않는다.
+ */
+function isRemotePushUnavailable(): boolean {
+  return Platform.OS === 'android' && isExpoGo();
+}
+
+let handlerRegistered = false;
+
+async function loadNotifications(): Promise<typeof import('expo-notifications') | null> {
+  if (Platform.OS === 'web') return null;
+  if (isRemotePushUnavailable()) {
+    console.log('[notifications] Remote push skipped in Expo Go');
+    return null;
+  }
+
+  const Notifications = await import('expo-notifications');
+  if (!handlerRegistered) {
+    handlerRegistered = true;
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  }
+  return Notifications;
+}
+
 export async function schedulePaydayReminder(workplace: Workplace): Promise<void> {
-  if (Platform.OS === 'web') return; // expo-notifications 스케줄링은 웹 미지원
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') return;
 
@@ -50,13 +75,15 @@ export async function schedulePaydayReminder(workplace: Workplace): Promise<void
 }
 
 export async function cancelPaydayReminder(workplaceId: string): Promise<void> {
-  if (Platform.OS === 'web') return;
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(`${PAYDAY_REMINDER_ID_PREFIX}${workplaceId}`).catch(() => {});
 }
 
 /** 알림 권한이 이미 허용된 상태라면, 등록된 모든 근무지의 급여일 알림을 다시 예약(설정 변경 반영)한다. */
 export async function rescheduleAllPaydayReminders(workplaces: Workplace[]): Promise<void> {
-  if (Platform.OS === 'web') return;
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') return;
   await Promise.all(workplaces.map((w) => schedulePaydayReminder(w)));

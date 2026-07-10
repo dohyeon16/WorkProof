@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +16,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 type Props = MainTabScreenProps<'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [payRecord, setPayRecord] = useState<PayRecord | undefined>(undefined);
@@ -68,7 +70,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm + 2 }]}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
             <Ionicons name="checkmark-done" size={14} color="#fff" />
