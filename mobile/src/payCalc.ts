@@ -12,7 +12,7 @@ export const BREAK_REQUIRED_MINUTES = 4 * 60;
 export function shiftDurationMinutes(clockIn: string, clockOut: string): number {
   const inM = toMinutes(clockIn);
   let outM = toMinutes(clockOut);
-  if (outM <= inM) outM += 24 * 60;
+  if (outM < inM) outM += 24 * 60;
   return outM - inM;
 }
 

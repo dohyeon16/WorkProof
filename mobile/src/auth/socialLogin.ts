@@ -5,6 +5,7 @@ import { getProviderConfig, isProviderConfigured, type SocialProfile } from './p
 import { loginWithGoogleWeb } from './googleIdentityWeb';
 import { loginWithKakaoNative } from './kakaoNative';
 import { loginWithNaverNative } from './naverNative';
+import { isExpoGo, loginWithProviderExpoGo } from './expoGoOAuth';
 import {
   startNaverRedirect,
   type NaverRedirectMode,
@@ -32,6 +33,13 @@ function notConfiguredReason(provider: 'google' | 'kakao'): string {
       '등록한 뒤 값을 채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.'
     );
   }
+  if (provider === 'google' && Platform.OS === 'ios') {
+    return (
+      'Google iOS Client ID(EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) 설정이 필요해요. ' +
+      'Bundle ID(com.workproof.app)를 Google Cloud Console의 "iOS" 클라이언트로 등록한 뒤 값을 ' +
+      '채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.'
+    );
+  }
   if (provider === 'kakao') {
     return 'Kakao Client ID(EXPO_PUBLIC_KAKAO_CLIENT_ID)가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고하세요.';
   }
@@ -49,11 +57,24 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
     return loginWithGoogleWeb();
   }
 
-  // Kakao on Android uses the native SDK (src/auth/kakaoNative.ts) instead of
-  // this browser-based AuthSession flow — it opens the Kakao app/native login
-  // sheet directly and needs its own Native App Key. Web and iOS keep the
-  // REST-API-key + PKCE flow below.
-  if (provider === 'kakao' && Platform.OS === 'android') {
+  // Expo Go can't use custom URL schemes or the Kakao/Naver native modules
+  // at all, so every non-web provider routes through the FastAPI OAuth
+  // bridge (expoGoOAuth.ts) instead of the AuthSession/native-SDK flows
+  // below. This must be checked before the Kakao-native branch — Expo Go
+  // would otherwise hit the native SDK, which isn't linked in Expo Go and
+  // throws immediately.
+  if (Platform.OS !== 'web' && isExpoGo()) {
+    return loginWithProviderExpoGo(provider);
+  }
+
+  // Kakao on native builds (Android and iOS) uses the native SDK
+  // (src/auth/kakaoNative.ts) instead of this browser-based AuthSession flow
+  // — it opens the Kakao app/native login sheet directly and needs its own
+  // Native App Key. The iOS web-redirect PKCE flow used to hit KOE006
+  // because Kakao's REST API flow doesn't recognize a bare custom-scheme
+  // redirect from a non-registered "iOS" platform — the native SDK sidesteps
+  // that entirely. Only web keeps the REST-API-key + PKCE flow below.
+  if (provider === 'kakao' && Platform.OS !== 'web') {
     return loginWithKakaoNative();
   }
 
@@ -120,6 +141,9 @@ export const loginWithKakao = () => loginWithProvider('kakao');
 // This function is the single place that decides how Naver login runs per
 // platform — it replaces the old hardcoded "Platform.OS !== 'web' ⇒
 // not_configured" block that used to live inside naverIdentityWeb.ts.
+// Android and iOS both use the official native SDK
+// (src/auth/naverNative.ts) — its `serviceUrlSchemeIOS` init option is
+// already wired to the shared `workproof` scheme for iOS.
 export async function loginWithNaver(
   mode: NaverRedirectMode,
   screen: NaverRedirectScreen
@@ -127,13 +151,12 @@ export async function loginWithNaver(
   if (Platform.OS === 'web') {
     return startNaverRedirect(mode, screen);
   }
-  if (Platform.OS === 'android') {
-    return loginWithNaverNative();
+  // See the Expo Go branch in loginWithProvider() above — same reasoning
+  // applies here, Naver's native SDK isn't linked in Expo Go either.
+  if (isExpoGo()) {
+    return loginWithProviderExpoGo('naver');
   }
-  return {
-    status: 'not_configured',
-    reason: 'iOS 네이버 로그인은 아직 지원하지 않아요.',
-  };
+  return loginWithNaverNative();
 }
 
 export const SOCIAL_LOGIN = {

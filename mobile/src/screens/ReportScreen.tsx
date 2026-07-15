@@ -106,7 +106,7 @@ export default function ReportScreen({ navigation, route }: Props) {
         // 파일은 캐시 디렉터리에 있어 OS가 언제든 지울 수 있으므로, 문서 디렉터리로 복사해 보관함에 등록한다.
         const fileName = `WorkProof_${yearMonth}_리포트_${makeId()}.pdf`;
         const destination = new File(Paths.document, fileName);
-        await new File(uri).copy(destination, { overwrite: true });
+        await new File(uri).copy(destination);
         await addEvidenceFile({
           id: makeId(),
           workplaceId,

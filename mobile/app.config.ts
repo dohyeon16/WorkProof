@@ -15,6 +15,11 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'light',
   ios: {
     supportsTablet: true,
+    // Required for the "iOS" (bundle-id-scoped) OAuth client types that
+    // Google/Kakao/Naver each need for native login on iOS — see the Google/
+    // Kakao/Naver sections in mobile/OAUTH_SETUP.md. Matches android.package
+    // below so the same value can be registered across all three consoles.
+    bundleIdentifier: 'com.workproof.app',
   },
   android: {
     package: 'com.workproof.app',
@@ -36,7 +41,6 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-dev-client',
-    'expo-sharing',
     'expo-notifications',
     'expo-image-picker',
     'expo-document-picker',
@@ -70,8 +74,9 @@ const config: ExpoConfig = {
         kakaoAppKey: process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY ?? '',
         // Without this, the plugin force-writes android.kotlinVersion=1.5.10
         // into gradle.properties (its hardcoded default), which is below the
-        // minimum Kotlin version SDK 57 / RN 0.86 requires (2.1.20) and fails
-        // the `expo-root-project` Gradle plugin during root project evaluation.
+        // minimum Kotlin version this Expo SDK/RN pairing requires (2.1.20)
+        // and fails the `expo-root-project` Gradle plugin during root
+        // project evaluation.
         kotlinVersion: '2.1.20',
       },
     ],

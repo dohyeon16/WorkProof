@@ -2,13 +2,16 @@ import { Platform } from 'react-native';
 import { login, getProfile } from '@react-native-seoul/kakao-login';
 import type { SocialLoginResult } from './socialLogin';
 
-// Android-only native Kakao login. This is deliberately separate from the
-// browser-based AuthSession/PKCE flow in socialLogin.ts (which still handles
-// web and iOS) — Kakao's native SDK opens the Kakao app/native login sheet
-// directly instead of a browser redirect, and needs its own "Native App Key"
-// (EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY), baked into the native build at prebuild
-// time via the @react-native-seoul/kakao-login config plugin in
-// app.config.ts — see OAUTH_SETUP.md.
+// Native-build-only (Android + iOS) Kakao login. This is deliberately
+// separate from the browser-based AuthSession/PKCE flow in socialLogin.ts
+// (which now only handles web) — Kakao's native SDK opens the Kakao
+// app/native login sheet directly instead of a browser redirect, and needs
+// its own "Native App Key" (EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY), baked into
+// the native build at prebuild time via the @react-native-seoul/kakao-login
+// config plugin in app.config.ts — see OAUTH_SETUP.md. The same key/plugin
+// config is shared by both platforms: on iOS it becomes the Info.plist
+// KAKAO_APP_KEY plus the kakao{KEY}://oauth URL scheme; on Android it's
+// baked into AndroidManifest/strings.xml.
 //
 // The plugin bakes the key into the native project; this env var is only
 // read here (at runtime) to decide whether to attempt login at all, so a
@@ -16,15 +19,15 @@ import type { SocialLoginResult } from './socialLogin';
 const KAKAO_NATIVE_APP_KEY = (process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY ?? '').trim();
 console.log('Kakao Native configured:', Boolean(process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY));
 
-const NOT_ANDROID_REASON = 'Kakao 네이티브 로그인은 Android 전용이에요.';
+const NOT_NATIVE_REASON = 'Kakao 네이티브 로그인은 iOS/Android 앱에서만 지원돼요.';
 const NOT_CONFIGURED_REASON =
-  'Kakao Android Native App Key(EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY)가 설정되지 않았어요. ' +
-  '카카오 콘솔에 패키지명(com.workproof.app)과 키 해시를 등록한 뒤 발급받은 Native App Key를 채워주세요. ' +
-  'mobile/OAUTH_SETUP.md 안내를 참고하세요.';
+  'Kakao Native App Key(EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY)가 설정되지 않았어요. ' +
+  '카카오 콘솔에 패키지명/Bundle ID(com.workproof.app)와 키 해시(Android)를 등록한 뒤 발급받은 ' +
+  'Native App Key를 채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.';
 
 export async function loginWithKakaoNative(): Promise<SocialLoginResult> {
-  if (Platform.OS !== 'android') {
-    return { status: 'not_configured', reason: NOT_ANDROID_REASON };
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    return { status: 'not_configured', reason: NOT_NATIVE_REASON };
   }
   if (!KAKAO_NATIVE_APP_KEY) {
     return { status: 'not_configured', reason: NOT_CONFIGURED_REASON };
