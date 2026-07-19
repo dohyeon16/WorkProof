@@ -196,7 +196,25 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
 키가 비어있으면 첨부 자체는 되지만 "OCR 준비 중" 안내만 뜨고 텍스트 추출은
 건너뜁니다.
 
-## 3-3. Expo Go 전용 소셜 로그인 (FastAPI OAuth Bridge)
+## 3-3. 근로계약서 AI 요약 (Google Gemini)
+
+위 OCR로 텍스트 추출이 끝나면 이어서 [Gemini API](https://ai.google.dev/api/generate-content)
+(`models/gemini-2.5-flash:generateContent`)를 호출해 계약서 내용을 근무조건
+위주로 요약·정리합니다(`src/ai/geminiSummary.ts`). 백엔드가 없는 이 앱 구조상
+다른 키들과 마찬가지로 `EXPO_PUBLIC_*`로 앱 번들에 그대로 심기는 하지만,
+**무료 티어 키**라 유출되어도 금전 피해는 없고 일일 요청 한도(무료 티어 기준
+`gemini-2.5-flash` 하루 250건) 소진 정도가 최악의 시나리오입니다.
+
+1. [Google AI Studio](https://aistudio.google.com/apikey)에서 API 키 발급(Google
+   Cloud 프로젝트와 별도로 무료로 바로 만들 수 있음)
+2. 발급된 키를 `EXPO_PUBLIC_GEMINI_API_KEY`에 입력
+3. 무료 티어 한도를 넘기면 요약만 실패하고(계약서 원문 OCR 텍스트는 그대로
+   남음) 앱의 다른 기능에는 영향이 없습니다
+
+키가 비어있으면 OCR 텍스트 추출까지는 되지만 "AI 요약 준비 중" 안내만 뜨고
+요약은 건너뜁니다.
+
+## 3-4. Expo Go 전용 소셜 로그인 (FastAPI OAuth Bridge)
 
 유료 Apple Developer 계정이 없으면 iOS Development Build(`npx expo run:ios`, EAS 개발
 빌드)를 만들 수 없어서, 위 3절의 네이티브 SDK 로그인을 iPhone에서 테스트할 방법이

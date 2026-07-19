@@ -8,6 +8,7 @@ export interface Workplace {
   contractPhotoUri?: string; // 근로계약서 사본(사진 또는 PDF, 선택)
   contractFileKind?: EvidenceKind; // 첨부된 사본의 형식
   contractOcrText?: string; // OCR로 추출한 계약서 텍스트(선택, 추출 실패 시 비어있음)
+  contractSummary?: string; // 위 텍스트를 AI로 요약·정리한 내용(선택)
   latitude?: number; // 실제 근무지 GPS 위치(선택)
   longitude?: number;
   address?: string; // 역지오코딩으로 얻은 주소(선택, 실패 시 좌표만 저장)

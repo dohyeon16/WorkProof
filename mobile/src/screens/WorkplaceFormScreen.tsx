@@ -10,6 +10,7 @@ import {
   Switch,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import {
 } from '../storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../notifications';
 import { extractTextFromDocument } from '../ocr/visionOcr';
+import { summarizeContractText } from '../ai/geminiSummary';
 import type { EvidenceKind } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -45,6 +47,8 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [contractFileKind, setContractFileKind] = useState<EvidenceKind | undefined>(undefined);
   const [contractOcrText, setContractOcrText] = useState<string | undefined>(undefined);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [contractSummary, setContractSummary] = useState<string | undefined>(undefined);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [address, setAddress] = useState<string | undefined>(undefined);
@@ -62,6 +66,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setContractPhotoUri(w.contractPhotoUri);
         setContractFileKind(w.contractFileKind);
         setContractOcrText(w.contractOcrText);
+        setContractSummary(w.contractSummary);
         setLatitude(w.latitude);
         setLongitude(w.longitude);
         setAddress(w.address);
@@ -87,9 +92,32 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     });
   }, [route.params?.pickedLatitude, route.params?.pickedLongitude, route.params?.pickedAddress, route.params?.pickedName]);
 
+  const runSummary = async (text: string) => {
+    setSummaryLoading(true);
+    setContractSummary(undefined);
+    try {
+      const result = await summarizeContractText(text);
+      if (result.status === 'not_configured') {
+        Alert.alert(
+          'AI 요약 준비 중',
+          '아직 Gemini API 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
+        );
+        return;
+      }
+      if (result.status === 'error') {
+        Alert.alert('AI 요약 실패', result.message);
+        return;
+      }
+      setContractSummary(result.summary);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   const runOcr = async (uri: string, mimeType: string) => {
     setOcrLoading(true);
     setContractOcrText(undefined);
+    setContractSummary(undefined);
     try {
       const result = await extractTextFromDocument(uri, mimeType);
       if (result.status === 'not_configured') {
@@ -104,6 +132,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         return;
       }
       setContractOcrText(result.text);
+      await runSummary(result.text);
     } finally {
       setOcrLoading(false);
     }
@@ -182,6 +211,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       contractPhotoUri,
       contractFileKind,
       contractOcrText,
+      contractSummary,
       latitude,
       longitude,
       address,
@@ -217,6 +247,8 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     ]);
   };
 
+  const insets = useSafeAreaInsets();
+
   if (!loaded) return <LoadingScreen />;
 
   const wageNum = Number(hourlyWage);
@@ -227,7 +259,11 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.label}>근무지</Text>
         <Pressable
           style={styles.placeCard}
@@ -340,6 +376,45 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
             <ScrollView style={styles.ocrTextScroll} nestedScrollEnabled>
               <Text style={styles.ocrText}>{contractOcrText}</Text>
             </ScrollView>
+          </View>
+        )}
+
+        {summaryLoading && (
+          <View style={styles.ocrStatusRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.ocrStatusText}>계약서 내용을 AI로 요약하는 중...</Text>
+          </View>
+        )}
+        {!ocrLoading && !summaryLoading && contractOcrText && (
+          <View style={styles.summaryCard}>
+            <View style={styles.ocrCardHeader}>
+              <Ionicons name="bulb-outline" size={14} color={colors.primaryDark} />
+              <Text style={styles.ocrCardTitle}>AI 요약</Text>
+            </View>
+            {contractSummary ? (
+              <>
+                <Text style={styles.summaryText}>{contractSummary}</Text>
+                <Pressable
+                  style={styles.summaryRetryButton}
+                  onPress={() => runSummary(contractOcrText)}
+                  accessibilityRole="button"
+                  accessibilityLabel="다시 요약하기"
+                >
+                  <Ionicons name="refresh-outline" size={13} color={colors.primaryDark} />
+                  <Text style={styles.summaryRetryText}>다시 요약하기</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={styles.summaryRetryButton}
+                onPress={() => runSummary(contractOcrText)}
+                accessibilityRole="button"
+                accessibilityLabel="AI로 요약하기"
+              >
+                <Ionicons name="sparkles-outline" size={13} color={colors.primaryDark} />
+                <Text style={styles.summaryRetryText}>AI로 요약하기</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -459,4 +534,20 @@ const styles = StyleSheet.create({
   ocrCardTitle: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
   ocrTextScroll: { maxHeight: 160 },
   ocrText: { fontSize: 12, color: colors.text, lineHeight: 18 },
+  summaryCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
+  summaryText: { fontSize: 13, color: colors.text, lineHeight: 19 },
+  summaryRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  summaryRetryText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
 });
