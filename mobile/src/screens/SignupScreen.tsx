@@ -368,6 +368,7 @@ export default function SignupScreen({ navigation, route }: Props) {
               onDomainChange={setEmailDomain}
               customDomain={emailCustomDomain}
               onCustomDomainChange={setEmailCustomDomain}
+              showPreview
             />
             <Text style={styles.label}>비밀번호</Text>
             <FieldInput

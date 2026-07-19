@@ -162,6 +162,17 @@ export async function renameEvidenceFile(id: string, name: string): Promise<void
   await writeList(KEYS.evidence, list);
 }
 
+export async function updateEvidenceAnalysis(
+  id: string,
+  analysis: { ocrText?: string; summary?: string }
+): Promise<void> {
+  const list = await getAllEvidenceFiles();
+  const idx = list.findIndex((f) => f.id === id);
+  if (idx === -1) return;
+  list[idx] = { ...list[idx], ...analysis };
+  await writeList(KEYS.evidence, list);
+}
+
 export async function deleteEvidenceFile(id: string): Promise<void> {
   const list = await getAllEvidenceFiles();
   await writeList(

@@ -26,7 +26,7 @@ export default function LegalDocumentScreen({ navigation, route }: Props) {
         <Text style={styles.headerTitle}>{doc.title}</Text>
         <View style={{ width: 24 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}>
         <Text style={styles.updatedAt}>최종 개정일: {doc.updatedAt}</Text>
         <Text style={styles.intro}>{doc.intro}</Text>
         {doc.sections.map((section) => (

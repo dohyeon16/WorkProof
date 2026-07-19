@@ -75,6 +75,7 @@ export default function MoreScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
+      <Text style={styles.title}>더보기</Text>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Ionicons name="person" size={24} color={colors.primaryDark} />
@@ -128,6 +129,7 @@ export default function MoreScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
+  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',

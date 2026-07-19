@@ -56,6 +56,8 @@ export interface EvidenceFile {
   kind: EvidenceKind;
   size: number | null; // bytes
   addedAt: string;
+  ocrText?: string; // OCR로 추출한 텍스트(이미지/PDF 분석 시, 선택)
+  summary?: string; // 위 텍스트를 AI로 요약·정리한 내용(선택)
 }
 
 export type AuthProvider = 'local' | 'google' | 'kakao' | 'naver';

@@ -1,4 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 import MainTabs from './MainTabs';
 import SplashScreen from '../screens/SplashScreen';
@@ -24,6 +25,18 @@ import LegalDocumentScreen from '../screens/LegalDocumentScreen';
 import { colors } from '../theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Main(탭 내비게이터)에는 헤더가 없어서 title이 화면에 보이진 않지만, 탭에서
+// 스택으로 화면을 열면 그 화면의 뒤로가기 버튼 라벨로 이 title이 쓰인다.
+// title을 안 주면 라우트 이름인 "Main"이 영어 그대로 노출되므로, 현재 포커스된
+// 탭에 맞는 짧은 한글 라벨을 돌려준다.
+const TAB_BACK_TITLES: Record<string, string> = {
+  Home: '홈',
+  Records: '기록',
+  Analysis: '분석',
+  Vault: '보관함',
+  More: '더보기',
+};
 
 export default function RootNavigator() {
   return (
@@ -61,7 +74,9 @@ export default function RootNavigator() {
       <Stack.Screen
         name="WorkplacePrompt"
         component={WorkplacePromptScreen}
-        options={{ headerShown: false }}
+        // 헤더는 숨기지만, 온보딩에서 여기서 근무지 등록 화면을 열 때 뒤로가기
+        // 라벨이 라우트명("WorkplacePrompt") 영어로 뜨지 않도록 한글 title을 준다.
+        options={{ headerShown: false, title: '이전' }}
       />
       <Stack.Screen
         name="WorkplaceForm"
@@ -78,7 +93,14 @@ export default function RootNavigator() {
         component={WorkplaceRegisteredScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="Main"
+        component={MainTabs}
+        options={({ route }) => {
+          const tab = getFocusedRouteNameFromRoute(route) ?? 'Home';
+          return { headerShown: false, title: TAB_BACK_TITLES[tab] ?? '홈' };
+        }}
+      />
       <Stack.Screen
         name="WorkplaceSwitch"
         component={WorkplaceSwitchScreen}

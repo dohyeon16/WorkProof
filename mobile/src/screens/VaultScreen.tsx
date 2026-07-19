@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Image, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
@@ -17,11 +17,13 @@ import {
   getEvidenceByWorkplace,
   makeId,
   renameEvidenceFile,
+  updateEvidenceAnalysis,
 } from '../storage';
 import { EvidenceFile, EvidenceKind, Workplace } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../utils/webOpen';
+import { analyzeContract, mimeTypeForKind } from '../ai/analyzeContract';
 
 type Props = MainTabScreenProps<'Vault'>;
 
@@ -83,13 +85,15 @@ async function shareFile(item: EvidenceFile) {
   }
 }
 
-export default function VaultScreen({ navigation }: Props) {
+export default function VaultScreen(_props: Props) {
   const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [files, setFiles] = useState<EvidenceFile[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<EvidenceFile | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [analyzingName, setAnalyzingName] = useState<string | null>(null);
+  const [summaryTarget, setSummaryTarget] = useState<EvidenceFile | null>(null);
 
   const load = useCallback(async () => {
     const w = await getActiveOrFirstWorkplace();
@@ -176,6 +180,39 @@ export default function VaultScreen({ navigation }: Props) {
     openFile(item);
   };
 
+  // 이미지/PDF 증빙을 OCR로 읽어 AI 요약까지 만들어 저장한다.
+  const runAnalysis = async (item: EvidenceFile) => {
+    if (item.kind === 'file') {
+      Alert.alert('분석할 수 없는 형식', '이미지 또는 PDF 파일만 텍스트를 인식할 수 있어요.');
+      return;
+    }
+    setAnalyzingName(item.name);
+    try {
+      const result = await analyzeContract(item.uri, mimeTypeForKind(item.kind, item.name));
+      if (result.status === 'ocr_not_configured') {
+        Alert.alert('OCR 준비 중', 'Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md를 참고해주세요.');
+        return;
+      }
+      if (result.status === 'ocr_error') {
+        Alert.alert('텍스트 추출 실패', result.message);
+        return;
+      }
+      // 요약이 실패해도 추출된 텍스트는 저장해 다시 시도할 수 있게 한다.
+      const summary = result.status === 'success' ? result.summary : undefined;
+      await updateEvidenceAnalysis(item.id, { ocrText: result.ocrText, summary });
+      await load();
+      const updated: EvidenceFile = { ...item, ocrText: result.ocrText, summary };
+      setSummaryTarget(updated);
+      if (result.status === 'summary_not_configured') {
+        Alert.alert('AI 요약 준비 중', 'Gemini API 키가 설정되지 않아 텍스트만 추출했어요.');
+      } else if (result.status === 'summary_error') {
+        Alert.alert('AI 요약 실패', result.message);
+      }
+    } finally {
+      setAnalyzingName(null);
+    }
+  };
+
   const handleDelete = (id: string) => {
     Alert.alert('파일 삭제', '이 파일을 삭제할까요?', [
       { text: '삭제', style: 'destructive', onPress: async () => { await deleteEvidenceFile(id); load(); } },
@@ -201,8 +238,13 @@ export default function VaultScreen({ navigation }: Props) {
   };
 
   const handleMenu = (item: EvidenceFile) => {
+    const canAnalyze = item.kind === 'image' || item.kind === 'pdf';
+    const analyzeAction = item.summary
+      ? { text: 'AI 요약 보기', onPress: () => setSummaryTarget(item) }
+      : { text: 'AI로 분석·요약', onPress: () => runAnalysis(item) };
     Alert.alert(item.name, undefined, [
       { text: '열기', onPress: () => handleOpen(item) },
+      ...(canAnalyze ? [analyzeAction] : []),
       { text: '이름 변경', onPress: () => startRename(item) },
       { text: '공유하기', onPress: () => shareFile(item) },
       { text: '삭제', style: 'destructive', onPress: () => handleDelete(item.id) },
@@ -253,12 +295,23 @@ export default function VaultScreen({ navigation }: Props) {
               </Text>
               <Text style={styles.fileMeta}>{formatBytes(item.size)}</Text>
             </Pressable>
+            {item.summary ? (
+              <Pressable
+                style={styles.summaryBadge}
+                onPress={() => setSummaryTarget(item)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name} AI 요약 보기`}
+              >
+                <Ionicons name="sparkles" size={11} color="#fff" />
+              </Pressable>
+            ) : null}
             <Pressable
               style={styles.menuButton}
               onPress={() => handleMenu(item)}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={`${item.name} 더보기 (이름 변경, 공유, 삭제)`}
+              accessibilityLabel={`${item.name} 더보기 (AI 분석, 이름 변경, 공유, 삭제)`}
             >
               <Ionicons name="ellipsis-vertical" size={14} color={colors.subtext} />
             </Pressable>
@@ -320,6 +373,75 @@ export default function VaultScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!analyzingName} transparent animationType="fade">
+        <View style={styles.analyzingBackdrop}>
+          <View style={styles.analyzingCard}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.analyzingText}>계약서를 분석하는 중...</Text>
+            <Text style={styles.analyzingSub} numberOfLines={1}>
+              {analyzingName}
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!summaryTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSummaryTarget(null)}
+      >
+        <View style={styles.summaryBackdrop}>
+          <View style={styles.summaryModalCard}>
+            <View style={styles.summaryModalHeader}>
+              <View style={styles.summaryModalTitleWrap}>
+                <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
+                <Text style={styles.summaryModalTitle} numberOfLines={1}>
+                  AI 요약
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setSummaryTarget(null)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="요약 닫기"
+              >
+                <Ionicons name="close" size={22} color={colors.subtext} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.summaryModalScroll}>
+              {summaryTarget?.summary ? (
+                <Text style={styles.summaryModalText}>{summaryTarget.summary}</Text>
+              ) : (
+                <Text style={styles.summaryModalEmpty}>
+                  아직 요약이 없어요. 아래에서 다시 시도해주세요.
+                </Text>
+              )}
+              {summaryTarget?.ocrText ? (
+                <>
+                  <Text style={styles.summaryModalSectionLabel}>인식된 원문</Text>
+                  <Text style={styles.summaryModalOcr}>{summaryTarget.ocrText}</Text>
+                </>
+              ) : null}
+            </ScrollView>
+            <Pressable
+              style={styles.summaryModalRetry}
+              onPress={() => {
+                const target = summaryTarget;
+                if (!target) return;
+                setSummaryTarget(null);
+                runAnalysis(target);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="다시 분석하기"
+            >
+              <Ionicons name="refresh-outline" size={14} color="#fff" />
+              <Text style={styles.summaryModalRetryText}>다시 분석하기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -352,6 +474,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryBadge: {
+    position: 'absolute',
+    top: -6,
+    left: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -431,4 +566,67 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   renameSaveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  analyzingBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  analyzingCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+    maxWidth: 280,
+  },
+  analyzingText: { fontSize: 14, fontWeight: '700', color: colors.text },
+  analyzingSub: { fontSize: 12, color: colors.subtext, maxWidth: 200 },
+  summaryBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  summaryModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  summaryModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  summaryModalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  summaryModalTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  summaryModalScroll: { flexGrow: 0 },
+  summaryModalText: { fontSize: 13, color: colors.text, lineHeight: 20 },
+  summaryModalEmpty: { fontSize: 13, color: colors.subtext, lineHeight: 20 },
+  summaryModalSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.subtext,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  summaryModalOcr: { fontSize: 12, color: colors.subtext, lineHeight: 18 },
+  summaryModalRetry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+  summaryModalRetryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

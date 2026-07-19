@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import {
   useFonts,
   NotoSansKR_400Regular,
@@ -67,7 +67,7 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AppShell>
         <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
           <RootNavigator />

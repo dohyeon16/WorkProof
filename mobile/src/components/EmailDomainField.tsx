@@ -28,6 +28,8 @@ interface EmailDomainFieldProps {
   customDomain: string;
   onCustomDomainChange: (v: string) => void;
   localPlaceholder?: string;
+  /** 아이디 + 선택한 도메인을 합친 최종 이메일을 아래에 미리 보여준다(회원가입 화면). */
+  showPreview?: boolean;
 }
 
 /** '아이디' 입력 + 도메인 칩(gmail.com 등) + 직접입력을 묶은 이메일 입력 UI. 로그인/회원가입에서 공용으로 쓴다. */
@@ -39,7 +41,10 @@ export function EmailDomainField({
   customDomain,
   onCustomDomainChange,
   localPlaceholder = '아이디',
+  showPreview = false,
 }: EmailDomainFieldProps) {
+  const resolvedDomain = domain === 'custom' ? customDomain.trim() : domain;
+  const previewEmail = local.trim() && resolvedDomain ? `${local.trim()}@${resolvedDomain}` : null;
   return (
     <View>
       <FieldInput
@@ -50,6 +55,11 @@ export function EmailDomainField({
         value={local}
         onChangeText={onLocalChange}
       />
+      {showPreview && previewEmail && (
+        <Text style={styles.previewText} numberOfLines={1}>
+          {previewEmail}
+        </Text>
+      )}
       <View style={styles.domainChipsRow}>
         {EMAIL_DOMAINS.map((d) => (
           <Pressable
@@ -87,6 +97,13 @@ export function EmailDomainField({
 }
 
 const styles = StyleSheet.create({
+  previewText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primaryDark,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
   domainChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
