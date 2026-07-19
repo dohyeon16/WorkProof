@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
+import { EmailDomainField, buildEmail, parseEmail } from '../components/EmailDomainField';
 import { Checkbox } from '../components/Checkbox';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleLogo } from '../components/GoogleLogo';
@@ -17,7 +18,10 @@ type Props = RootScreenProps<'Login'>;
 
 export default function LoginScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState(route.params?.prefillEmail ?? '');
+  const prefill = parseEmail(route.params?.prefillEmail ?? '');
+  const [emailLocal, setEmailLocal] = useState(prefill.local);
+  const [emailDomain, setEmailDomain] = useState(prefill.domain);
+  const [emailCustomDomain, setEmailCustomDomain] = useState(prefill.customDomain);
   const [password, setPassword] = useState('');
   const [saveId, setSaveId] = useState(true);
   const [socialLoading, setSocialLoading] = useState<AuthProvider | null>(null);
@@ -38,16 +42,17 @@ export default function LoginScreen({ navigation, route }: Props) {
   };
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
+    if (!emailLocal.trim() || !password) {
       Alert.alert('이메일과 비밀번호를 입력해주세요.');
       return;
     }
+    const email = buildEmail(emailLocal, emailDomain, emailCustomDomain);
     const account = await getAccount();
     if (!account) {
       Alert.alert('가입된 계정이 없어요', '먼저 회원가입을 진행해주세요.');
       return;
     }
-    if (account.email !== email.trim() || account.password !== password) {
+    if (account.email !== email || account.password !== password) {
       Alert.alert('로그인 실패', '이메일 또는 비밀번호가 일치하지 않아요.');
       return;
     }
@@ -131,13 +136,13 @@ export default function LoginScreen({ navigation, route }: Props) {
         <Text style={styles.subtitle}>계정으로 로그인하세요.</Text>
 
         <View style={styles.form}>
-          <FieldInput
-            icon="mail-outline"
-            placeholder="이메일 주소"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+          <EmailDomainField
+            local={emailLocal}
+            onLocalChange={setEmailLocal}
+            domain={emailDomain}
+            onDomainChange={setEmailDomain}
+            customDomain={emailCustomDomain}
+            onCustomDomainChange={setEmailCustomDomain}
           />
           <FieldInput
             icon="lock-closed-outline"

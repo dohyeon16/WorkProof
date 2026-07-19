@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
+import { EmailDomainField, EMAIL_DOMAINS, buildEmail } from '../components/EmailDomainField';
 import { Checkbox } from '../components/Checkbox';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleLogo } from '../components/GoogleLogo';
@@ -17,7 +18,6 @@ type Props = RootScreenProps<'Signup'>;
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,16}$/;
-const EMAIL_DOMAINS = ['gmail.com', 'naver.com', 'daum.net', 'kakao.com', 'nate.com', 'icloud.com', 'outlook.com'];
 
 const STEP_META: Record<number, { title: string; subtitle: string }> = {
   1: { title: '회원가입 (1/3)', subtitle: '약관에 동의하고 계정 정보를 입력해주세요.' },
@@ -67,10 +67,7 @@ export default function SignupScreen({ navigation, route }: Props) {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
 
-  const getFinalEmail = () => {
-    const domain = emailDomain === 'custom' ? emailCustomDomain.trim() : emailDomain;
-    return `${emailLocal.trim()}@${domain}`;
-  };
+  const getFinalEmail = () => buildEmail(emailLocal, emailDomain, emailCustomDomain);
 
   // Step 3: 프로필
   const [name, setName] = useState('');
@@ -364,48 +361,14 @@ export default function SignupScreen({ navigation, route }: Props) {
         {step === 2 && (
           <View>
             <Text style={styles.label}>이메일</Text>
-            <FieldInput
-              icon="mail-outline"
-              placeholder="아이디"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={emailLocal}
-              onChangeText={setEmailLocal}
+            <EmailDomainField
+              local={emailLocal}
+              onLocalChange={setEmailLocal}
+              domain={emailDomain}
+              onDomainChange={setEmailDomain}
+              customDomain={emailCustomDomain}
+              onCustomDomainChange={setEmailCustomDomain}
             />
-            <View style={styles.domainChipsRow}>
-              {EMAIL_DOMAINS.map((d) => (
-                <Pressable
-                  key={d}
-                  style={[styles.domainChip, emailDomain === d && styles.domainChipActive]}
-                  onPress={() => setEmailDomain(d)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`도메인 @${d} 선택`}
-                >
-                  <Text style={[styles.domainChipText, emailDomain === d && styles.domainChipTextActive]}>
-                    @{d}
-                  </Text>
-                </Pressable>
-              ))}
-              <Pressable
-                style={[styles.domainChip, emailDomain === 'custom' && styles.domainChipActive]}
-                onPress={() => setEmailDomain('custom')}
-                accessibilityRole="button"
-                accessibilityLabel="도메인 직접 입력 선택"
-              >
-                <Text style={[styles.domainChipText, emailDomain === 'custom' && styles.domainChipTextActive]}>
-                  직접입력
-                </Text>
-              </Pressable>
-            </View>
-            {emailDomain === 'custom' && (
-              <FieldInput
-                icon="globe-outline"
-                placeholder="도메인 입력 (예: mycompany.co.kr)"
-                autoCapitalize="none"
-                value={emailCustomDomain}
-                onChangeText={setEmailCustomDomain}
-              />
-            )}
             <Text style={styles.label}>비밀번호</Text>
             <FieldInput
               icon="lock-closed-outline"
@@ -561,23 +524,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  domainChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm + 2,
-  },
-  domainChip: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  domainChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  domainChipText: { fontSize: 12, color: colors.subtext },
-  domainChipTextActive: { color: '#fff', fontWeight: '700' },
   help: { fontSize: 12, color: colors.subtext, marginTop: -spacing.xs, marginBottom: spacing.md },
   noticeCard: {
     flexDirection: 'row',
