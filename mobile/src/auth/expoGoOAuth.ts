@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import type { SocialLoginResult } from './socialLogin';
 
@@ -59,8 +59,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function createBridgeSession(provider: BridgeProvider): Promise<CreateSessionResponse> {
-  const res = await fetch(`${AUTH_API_URL}/auth/session/${provider}`, { method: 'POST' });
+async function createBridgeSession(
+  provider: BridgeProvider,
+  returnUrl: string
+): Promise<CreateSessionResponse> {
+  // return_url을 백엔드에 넘겨두면, provider 콜백 처리가 끝난 뒤 백엔드가 이
+  // URL로 302 리디렉션한다. openAuthSessionAsync가 그 복귀 URL을 감지해 인증
+  // 브라우저를 스스로 닫으므로, Render 성공 페이지가 정상 흐름에서 안 보인다.
+  const res = await fetch(`${AUTH_API_URL}/auth/session/${provider}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ return_url: returnUrl }),
+  });
   if (!res.ok) {
     throw new Error(`로그인 세션을 만들지 못했어요. (${res.status})`);
   }
@@ -92,32 +102,66 @@ function toSocialLoginResult(profile: BridgeProfile): SocialLoginResult {
   };
 }
 
+// 인증 브라우저를 닫는 건 항상 베스트-에포트다 — 이미 복귀 URL을 감지해
+// openAuthSessionAsync가 스스로 닫은 경우가 대부분이라 no-op이고, 닫기 실패가
+// OAuth 성공을 실패로 뒤집으면 안 되므로 모든 예외를 삼킨다.
+function dismissAuthBrowser(): void {
+  try {
+    WebBrowser.dismissAuthSession();
+  } catch {
+    // 일부 플랫폼엔 dismissAuthSession이 없다 — 무시한다.
+  }
+  WebBrowser.dismissBrowser().catch(() => {});
+}
+
 export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise<SocialLoginResult> {
   if (!AUTH_API_URL) {
     return notConfiguredResult();
   }
 
+  // 앱 복귀 URL. Expo Go에서는 실행 중인 tunnel/LAN 주소에 맞춘 exp(s):// URL을,
+  // dev-client/독립 앱에서는 app.config.ts의 workproof:// 스킴을 런타임에 만든다
+  // (예전 exp.direct 주소 하드코딩 금지). 백엔드는 이 스킴만 허용 목록으로 검증한다.
+  const returnUrl = AuthSession.makeRedirectUri({ scheme: 'workproof', path: 'auth-complete' });
+
   let session: CreateSessionResponse;
   try {
-    session = await createBridgeSession(provider);
+    session = await createBridgeSession(provider, returnUrl);
   } catch (err) {
     return { status: 'error', message: err instanceof Error ? err.message : String(err) };
   }
   const { session_id: sessionId, login_url: loginUrl } = session;
 
-  // openBrowserAsync's resolved promise is only a reliable "user closed the
-  // browser" signal on iOS ({ type: 'cancel' | 'dismiss' }) — on Android it
-  // resolves immediately with { type: 'opened' } once the Custom Tab is
-  // shown, not when it's closed, so browserClosed stays false there and the
-  // poll loop below falls back to the overall timeout instead.
-  let browserClosed = false;
-  WebBrowser.openBrowserAsync(loginUrl)
-    .then(() => {
-      browserClosed = true;
+  // openAuthSessionAsync는 복귀 URL(returnUrl)로의 리디렉션을 감지하면 인증
+  // 브라우저를 자동으로 닫고 { type: 'success' }로 resolve한다. 사용자가 직접
+  // 브라우저를 닫으면 { type: 'cancel' | 'dismiss' }로 resolve한다. 다만 최종
+  // 프로필/에러는 여전히 세션 폴링으로 받아온다(복귀 URL엔 민감정보를 싣지
+  // 않으므로). 그래서 브라우저 세션과 폴링을 병행한다.
+  // 복귀 URL 감지(type === 'success')가 아닌 방식으로 브라우저가 닫혔는지
+  // 여부만 추적한다. 그런 종료는 "사용자가 직접 닫음 → 취소" 후보다. 최종
+  // 성공/실패 판정은 아래 세션 폴링이 담당하므로 result 객체 자체는 보관하지
+  // 않는다.
+  let browserClosedWithoutRedirect = false;
+  const authPromise = WebBrowser.openAuthSessionAsync(loginUrl, returnUrl)
+    .then((result) => {
+      if (result.type !== 'success') browserClosedWithoutRedirect = true;
     })
     .catch(() => {
-      browserClosed = true;
+      // 브라우저 열기/닫기 자체 실패 — 폴링 타임아웃까지는 결과를 기다려본다.
+      browserClosedWithoutRedirect = true;
     });
+
+  // 세션 정리·브라우저 닫기를 한 번만 수행하도록 감싼 종료 헬퍼.
+  let settled = false;
+  const finish = (result: SocialLoginResult): SocialLoginResult => {
+    if (settled) return result;
+    settled = true;
+    dismissAuthBrowser();
+    deleteBridgeSession(sessionId);
+    return result;
+  };
+  // authPromise가 매달린 채로 끝나지 않도록 미리 참조만 걸어둔다(unhandled 방지).
+  void authPromise;
 
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   try {
@@ -133,26 +177,22 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
       }
 
       if (statusRes.status === 'success') {
-        if (Platform.OS === 'ios') await WebBrowser.dismissBrowser().catch(() => {});
-        deleteBridgeSession(sessionId);
-        return toSocialLoginResult(statusRes.profile);
+        return finish(toSocialLoginResult(statusRes.profile));
       }
       if (statusRes.status === 'error') {
-        if (Platform.OS === 'ios') await WebBrowser.dismissBrowser().catch(() => {});
-        deleteBridgeSession(sessionId);
-        return { status: 'error', message: statusRes.message ?? '로그인에 실패했어요.' };
+        return finish({ status: 'error', message: statusRes.message ?? '로그인에 실패했어요.' });
       }
-      if (browserClosed) {
-        deleteBridgeSession(sessionId);
-        return { status: 'cancelled' };
+      // 세션이 아직 pending인데 브라우저가 복귀 URL이 아닌 방식으로 닫혔다면
+      // (사용자가 직접 닫음) 취소로 처리한다. 복귀 URL 감지로 닫힌 경우
+      // (type === 'success')는 이 플래그가 서지 않으므로, 다음 폴링에서 결과가
+      // 곧 채워진다.
+      if (browserClosedWithoutRedirect) {
+        return finish({ status: 'cancelled' });
       }
     }
   } catch (err) {
-    deleteBridgeSession(sessionId);
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return finish({ status: 'error', message: err instanceof Error ? err.message : String(err) });
   }
 
-  if (Platform.OS === 'ios') await WebBrowser.dismissBrowser().catch(() => {});
-  deleteBridgeSession(sessionId);
-  return { status: 'error', message: '로그인 시간이 초과됐어요. 다시 시도해주세요.' };
+  return finish({ status: 'error', message: '로그인 시간이 초과됐어요. 다시 시도해주세요.' });
 }

@@ -19,6 +19,14 @@ type Props = RootScreenProps<'Signup'>;
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,16}$/;
 
+// Step 3 상단에 로그인한 소셜 계정을 간단히 보여줄 때 이메일을 마스킹한다.
+// 예: abcdef@gmail.com → abc***@gmail.com
+function maskEmail(email: string): string {
+  const at = email.indexOf('@');
+  if (at <= 0) return email;
+  return `${email.slice(0, Math.min(3, at))}***@${email.slice(at + 1)}`;
+}
+
 const STEP_META: Record<number, { title: string; subtitle: string }> = {
   1: { title: '회원가입 (1/3)', subtitle: '약관에 동의하고 계정 정보를 입력해주세요.' },
   2: { title: '회원가입 (2/3)', subtitle: '계정 정보를 입력해주세요.' },
@@ -81,6 +89,16 @@ export default function SignupScreen({ navigation, route }: Props) {
     provider: AuthProvider;
     providerId: string;
   } | null>(null);
+  // 소셜 인증 성공 직후 Step 3 상단에 잠깐 뜨는 "인증 완료" 안내(토스트 성격).
+  // 아직 최종 회원가입은 아니므로 시스템 팝업 대신 화면 내 안내로만 표시하고,
+  // 잠시 뒤 자동으로 사라진다.
+  const [authNoticeVisible, setAuthNoticeVisible] = useState(false);
+
+  useEffect(() => {
+    if (!authNoticeVisible) return;
+    const timer = setTimeout(() => setAuthNoticeVisible(false), 3500);
+    return () => clearTimeout(timer);
+  }, [authNoticeVisible]);
 
   const toggleAll = () => {
     const next = !allAgreed;
@@ -126,7 +144,11 @@ export default function SignupScreen({ navigation, route }: Props) {
       provider: result.profile.provider,
       providerId: result.profile.providerId,
     });
-    setName(result.profile.name);
+    // provider가 이름을 주지 않았으면(빈 문자열) 비워두고 직접 입력하게 둔다.
+    setName(result.profile.name ?? '');
+    // 인증은 됐지만 최종 가입 전이므로 시스템 팝업이 아니라 Step 3 상단의
+    // 짧은 화면 내 안내로만 알린다.
+    setAuthNoticeVisible(true);
     setStep(3);
   };
 
@@ -227,11 +249,14 @@ export default function SignupScreen({ navigation, route }: Props) {
     });
 
     if (socialProfile) {
-      Alert.alert(
-        '회원가입 완료',
-        `${SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정으로 가입했어요. 같은 방법으로 로그인해주세요.`
-      );
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      // 최종 계정 생성이 끝난 지금에서만 시스템 팝업으로 완료를 알린다.
+      // 확인을 누르면 로그인 화면으로 이동한다.
+      Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
+        {
+          text: '확인',
+          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+        },
+      ]);
     } else {
       Alert.alert('회원가입 완료', '가입하신 이메일과 비밀번호로 로그인해주세요.');
       navigation.reset({ index: 0, routes: [{ name: 'Login', params: { prefillEmail: signupEmail } }] });
@@ -431,14 +456,25 @@ export default function SignupScreen({ navigation, route }: Props) {
 
         {step === 3 && (
           <View>
+            {socialProfile && authNoticeVisible && (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Text style={styles.successBannerText}>
+                  {SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정 인증이
+                  완료되었어요.
+                </Text>
+              </View>
+            )}
             {socialProfile && (
               <View style={styles.noticeCard}>
                 <Ionicons name="link" size={20} color={colors.primaryDark} />
-                <Text style={styles.noticeText}>
-                  {SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정
-                  {socialProfile.email ? `(${socialProfile.email})` : ''}으로 가입을 완료해요. 닉네임만
-                  확인해주세요.
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.noticeAccount}>
+                    {SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정
+                    {socialProfile.email ? ` · ${maskEmail(socialProfile.email)}` : ''}
+                  </Text>
+                  <Text style={styles.noticeText}>가입 정보를 확인해주세요.</Text>
+                </View>
               </View>
             )}
             <Text style={styles.label}>이름 또는 닉네임</Text>
@@ -555,6 +591,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   noticeText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 18 },
+  noticeAccount: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm + 4,
+    marginBottom: spacing.sm,
+  },
+  successBannerText: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.success },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

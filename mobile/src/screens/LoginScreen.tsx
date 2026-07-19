@@ -26,18 +26,19 @@ export default function LoginScreen({ navigation, route }: Props) {
   const [saveId, setSaveId] = useState(true);
   const [socialLoading, setSocialLoading] = useState<AuthProvider | null>(null);
 
-  const enterAppAfterLogin = async () => {
+  // Alert의 '확인'을 누른 뒤에 홈(또는 온보딩)으로 이동한다. 이메일/소셜
+  // 로그인이 각자 다른 안내 문구를 쓰되 이동 로직은 공유한다.
+  const goHomeAfterLogin = async () => {
     const onboardingDone = await isOnboardingDone();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: onboardingDone ? 'Main' : 'OnboardingIntro' }],
+    });
+  };
+
+  const enterAppAfterLogin = () => {
     Alert.alert('로그인 성공', '로그인에 성공하였습니다.', [
-      {
-        text: '확인',
-        onPress: () => {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: onboardingDone ? 'Main' : 'OnboardingIntro' }],
-          });
-        },
-      },
+      { text: '확인', onPress: () => void goHomeAfterLogin() },
     ]);
   };
 
@@ -57,7 +58,7 @@ export default function LoginScreen({ navigation, route }: Props) {
       return;
     }
     await setLoggedIn(true);
-    await enterAppAfterLogin();
+    enterAppAfterLogin();
   };
 
   const finishSocialLogin = async (provider: 'google' | 'kakao' | 'naver', result: SocialLoginResult) => {
@@ -81,7 +82,11 @@ export default function LoginScreen({ navigation, route }: Props) {
       return;
     }
     await setLoggedIn(true);
-    await enterAppAfterLogin();
+    // 소셜 인증 성공 → 앱 복귀 직후 앱 내부 팝업만 짧게 표시한다(Render 성공
+    // 웹페이지는 정상 흐름에서 더 이상 보이지 않는다). 확인 후 홈으로 이동.
+    Alert.alert('로그인 완료', '로그인되었습니다.', [
+      { text: '확인', onPress: () => void goHomeAfterLogin() },
+    ]);
   };
 
   // 네이버는 전체 페이지 리다이렉트로 처리되므로, 리다이렉트에서 돌아온 뒤

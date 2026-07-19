@@ -8,13 +8,20 @@ secrets) and hands the mobile app a normalized profile through a short-lived
 polling session instead of a redirect.
 
 Flow:
-  1. App calls POST /auth/session/{provider} -> gets {session_id, login_url}.
-  2. App opens login_url in an in-app browser; user logs in with the
-     provider.
+  1. App calls POST /auth/session/{provider} with an app return_url ->
+     gets {session_id, login_url}.
+  2. App opens login_url in an in-app auth session
+     (WebBrowser.openAuthSessionAsync); user logs in with the provider.
   3. Provider redirects to GET /auth/{provider}/callback?code=...&state=...
-     on this server, which exchanges the code, fetches the profile, stores
-     it against the session, and shows a "return to the app" page.
-  4. App polls GET /auth/session/{session_id} until status is
+     on this server, which exchanges the code, fetches the profile, and
+     stores it against the session.
+  4. Instead of showing a "return to the app" HTML page, the callback
+     immediately 302-redirects to the app's return_url (with only
+     oauth_status + session_id in the query). That custom-scheme redirect
+     is what makes the in-app auth session close itself and hand control
+     back to the app. The minimal HTML page is only a fallback for when no
+     valid return_url is known (e.g. a legacy client or an expired session).
+  5. App polls GET /auth/session/{session_id} until status is
      success/error, then calls DELETE /auth/session/{session_id}.
 """
 
@@ -22,13 +29,13 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 load_dotenv()
@@ -42,6 +49,63 @@ if not SESSION_SIGNING_SECRET:
     )
 
 FRONTEND_ALLOWED_ORIGIN = os.environ.get("FRONTEND_ALLOWED_ORIGIN", "")
+
+# open-redirect 방지: 콜백이 302로 되돌아갈 수 있는 return_url은 앱이 실제로
+# 쓰는 정확한 커스텀 스킴 형태만 허용한다(스킴만 보는 느슨한 방식 금지).
+#   - dev-client/독립 앱: 정확히 workproof://auth-complete
+#   - Expo Go: exp:// 또는 exps:// 이고 경로가 /--/auth-complete로 끝나는 것만
+#     (터널·LAN 호스트는 런타임마다 바뀌므로 호스트는 고정하지 않는다)
+# username/password/fragment가 붙은 URL, 파싱 실패, http/https 등 그 외 전부 거부.
+WORKPROOF_RETURN_HOST = "auth-complete"
+EXPO_RETURN_PATH_SUFFIX = "/--/auth-complete"
+
+# 웹 플랫폼은 이 브리지(Render)를 아예 거치지 않는다 — 웹 소셜 로그인은
+# googleIdentityWeb / naverIdentityWeb / AuthSession 웹 플로우로 직접 처리되고,
+# 여기 return_url로는 http/https origin이 오지 않는다. 그래서 웹 origin 허용
+# 목록은 두지 않는다(현재 웹은 이 return_url 메커니즘 미사용).
+
+# return_url이 없거나 유효하지 않을 때만 보여주는 최소 fallback HTML 문구.
+# 정상적인 Expo Go 흐름에서는 이 페이지가 보이지 않는다(앱으로 바로 302된다).
+FALLBACK_RETURN_MESSAGE = "인증이 완료되었습니다. 앱으로 돌아가주세요."
+
+
+def is_valid_return_url(url: Optional[str]) -> bool:
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        # 파싱 실패는 안전하게 거부한다.
+        return False
+
+    # 자격증명 삽입/프래그먼트 우회 방지: userinfo·fragment가 있으면 거부.
+    if parsed.username or parsed.password or parsed.fragment:
+        return False
+
+    scheme = parsed.scheme.lower()
+
+    if scheme == "workproof":
+        # 정확히 workproof://auth-complete만 허용(여분 경로/쿼리/파라미터 불가).
+        return (
+            parsed.netloc == WORKPROOF_RETURN_HOST
+            and parsed.path in ("", "/")
+            and not parsed.query
+            and not parsed.params
+        )
+
+    if scheme in ("exp", "exps"):
+        # exp(s)://<host>/--/auth-complete 형태만 허용(호스트는 런타임 값).
+        return parsed.path.endswith(EXPO_RETURN_PATH_SUFFIX)
+
+    return False
+
+
+def build_app_redirect(return_url: str, oauth_status: str, session_id: str) -> str:
+    # 민감정보(액세스 토큰·authorization code·client secret·개인정보)는 절대
+    # 붙이지 않는다. 앱은 session_id로 서버를 다시 폴링해 결과를 가져온다.
+    query = urlencode({"oauth_status": oauth_status, "session_id": session_id})
+    separator = "&" if "?" in return_url else "?"
+    return f"{return_url}{separator}{query}"
 
 PROVIDERS = {
     "google": {
@@ -106,6 +170,9 @@ class OAuthSession:
     status: str = "pending"  # pending | success | error
     profile: Optional[dict] = None
     message: Optional[str] = None
+    # 세션 생성 시 앱이 넘겨준 복귀 URL. 콜백이 여기로 302한다. 없거나 스킴이
+    # 허용 목록에 없으면 fallback HTML을 쓴다(is_valid_return_url로 검증).
+    return_url: Optional[str] = None
 
 
 sessions: dict[str, OAuthSession] = {}
@@ -171,6 +238,20 @@ def render_result_page(message: str) -> str:
 <p>{message}</p>
 </body>
 </html>"""
+
+
+def finish_callback(session: OAuthSession, session_id: str, oauth_status: str):
+    """콜백의 최종 응답을 만든다.
+
+    유효한 return_url이 있으면 성공/실패 모두 앱으로 302 리디렉션한다(사용자가
+    Render 화면에 머물지 않게). 그래야 openAuthSessionAsync가 앱 복귀 URL을
+    감지해 인증 브라우저를 스스로 닫는다. return_url이 없거나 유효하지 않은
+    경우에만 최소 fallback HTML을 보여준다.
+    """
+    if is_valid_return_url(session.return_url):
+        redirect_url = build_app_redirect(session.return_url, oauth_status, session_id)
+        return RedirectResponse(redirect_url, status_code=302)
+    return HTMLResponse(render_result_page(FALLBACK_RETURN_MESSAGE))
 
 
 def normalize_profile(provider: str, raw: dict) -> dict:
@@ -243,8 +324,23 @@ async def create_session(provider: str, request: Request) -> dict:
     if not cfg["client_id"]:
         raise HTTPException(503, f"{provider} 로그인이 서버에 설정되지 않았어요.")
 
+    # 앱 복귀 URL(return_url)은 선택 JSON 바디로 받는다. 바디가 없거나 JSON이
+    # 아니어도(구버전 클라이언트) 세션 생성은 성공하고, 그 경우 콜백은 fallback
+    # HTML을 쓴다. 검증되지 않은 스킴은 저장하지 않아 open redirect를 막는다.
+    return_url: Optional[str] = None
+    try:
+        payload = await request.json()
+        if isinstance(payload, dict):
+            raw_return = payload.get("return_url")
+            if isinstance(raw_return, str) and is_valid_return_url(raw_return.strip()):
+                return_url = raw_return.strip()
+    except Exception:
+        return_url = None
+
     session_id = os.urandom(32).hex()
-    sessions[session_id] = OAuthSession(provider=provider, created_at=time.time())
+    sessions[session_id] = OAuthSession(
+        provider=provider, created_at=time.time(), return_url=return_url
+    )
 
     redirect_uri = f"{get_base_url(request)}/auth/{provider}/callback"
     params = {
@@ -268,7 +364,7 @@ async def oauth_callback(
     code: Optional[str] = None,
     state: Optional[str] = None,
     error: Optional[str] = None,
-) -> HTMLResponse:
+) -> Response:
     if provider not in PROVIDERS:
         return HTMLResponse(render_result_page("잘못된 요청이에요."), status_code=404)
     if not state:
@@ -289,26 +385,31 @@ async def oauth_callback(
         )
 
     if error:
+        # provider가 돌려준 원본 오류(error)는 서버 로그에만 남기고, 사용자에게는
+        # 최소 상태만 넘긴다(민감정보·원본 오류 노출 금지).
+        print(f"[oauth] {provider} callback returned error param: {error!r}")
         session.status = "error"
         session.message = "로그인이 취소되었거나 실패했어요."
-        return HTMLResponse(render_result_page("로그인이 취소됐어요. WorkProof 앱으로 돌아가세요."))
+        return finish_callback(session, session_id, "error")
 
     if not code:
         session.status = "error"
         session.message = "authorization code를 받지 못했어요."
-        return HTMLResponse(render_result_page("로그인에 실패했어요. WorkProof 앱으로 돌아가세요."))
+        return finish_callback(session, session_id, "error")
 
     redirect_uri = f"{get_base_url(request)}/auth/{provider}/callback"
     try:
         profile = await exchange_and_fetch_profile(provider, code, redirect_uri)
-    except Exception:
+    except Exception as exc:
+        # 토큰 교환/프로필 조회 실패의 상세(토큰·secret 포함 가능)는 서버 로그로만.
+        print(f"[oauth] {provider} code exchange/profile fetch failed: {exc!r}")
         session.status = "error"
         session.message = "로그인 처리 중 오류가 발생했어요."
-        return HTMLResponse(render_result_page("로그인에 실패했어요. WorkProof 앱으로 돌아가세요."))
+        return finish_callback(session, session_id, "error")
 
     session.status = "success"
     session.profile = profile
-    return HTMLResponse(render_result_page("로그인 완료! WorkProof 앱으로 돌아가세요."))
+    return finish_callback(session, session_id, "success")
 
 
 @app.get("/auth/session/{session_id}")
