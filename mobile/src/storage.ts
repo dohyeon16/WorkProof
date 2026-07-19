@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceRecord, EvidenceFile, PayRecord, Workplace } from './types';
+import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, Workplace } from './types';
 
 const KEYS = {
   workplaces: '@workproof/workplaces',
@@ -162,14 +162,66 @@ export async function renameEvidenceFile(id: string, name: string): Promise<void
   await writeList(KEYS.evidence, list);
 }
 
+// 특정 증빙 파일에 OCR·AI 요약 결과를 병합해 저장한다. 넘긴 필드만 갱신하므로
+// 다른 일반 증빙 파일이나 파일의 기존 메타데이터(이름/uri 등)에는 영향을 주지 않는다.
 export async function updateEvidenceAnalysis(
   id: string,
-  analysis: { ocrText?: string; summary?: string }
+  analysis: {
+    ocrText?: string;
+    aiSummary?: string;
+    documentType?: EvidenceDocumentType;
+    analyzedAt?: string;
+  }
 ): Promise<void> {
   const list = await getAllEvidenceFiles();
   const idx = list.findIndex((f) => f.id === id);
   if (idx === -1) return;
   list[idx] = { ...list[idx], ...analysis };
+  await writeList(KEYS.evidence, list);
+}
+
+// 근무지 등록 화면에서 첨부·분석한 근로계약서를 증빙 보관함에 등록/갱신한다.
+// 같은 근무지에 같은 URI가 이미 있으면 중복 저장하지 않고 그 항목을 갱신한다
+// (URI가 중복 판별 기준). 항상 documentType을 'employment_contract'로 표시하므로,
+// 일반 증빙·리포트 파일(이 함수를 거치지 않음)에는 영향이 없다.
+export async function saveContractEvidence(input: {
+  workplaceId: string;
+  name: string;
+  uri: string;
+  kind: EvidenceKind;
+  mimeType?: string;
+  size?: number | null;
+  ocrText?: string;
+  aiSummary?: string;
+  analyzedAt?: string;
+  evidenceId?: string; // 갱신 대상을 URI 대신 ID로 지정하고 싶을 때
+}): Promise<void> {
+  const list = await getAllEvidenceFiles();
+  // URI 또는 evidenceId가 이미 있으면 중복 생성하지 않고 그 항목을 갱신한다.
+  const idx = list.findIndex(
+    (f) =>
+      (input.evidenceId != null && f.id === input.evidenceId) ||
+      (f.workplaceId === input.workplaceId && f.uri === input.uri)
+  );
+  const existing = idx >= 0 ? list[idx] : null;
+  const file: EvidenceFile = {
+    id: existing?.id ?? makeId(),
+    workplaceId: input.workplaceId,
+    // 기존 항목이면 사용자가 보관함에서 바꾼 이름을 유지한다.
+    name: existing?.name ?? input.name,
+    uri: input.uri,
+    kind: input.kind,
+    mimeType: input.mimeType ?? existing?.mimeType,
+    size: input.size ?? existing?.size ?? null,
+    addedAt: existing?.addedAt ?? new Date().toISOString(),
+    // OCR이 실패했으면 ocrText가 없을 수 있다. 이전에 성공한 값이 있으면 지우지 않는다.
+    ocrText: input.ocrText ?? existing?.ocrText,
+    aiSummary: input.aiSummary ?? existing?.aiSummary,
+    documentType: 'employment_contract',
+    analyzedAt: input.analyzedAt ?? existing?.analyzedAt,
+  };
+  if (existing) list[idx] = file;
+  else list.push(file);
   await writeList(KEYS.evidence, list);
 }
 

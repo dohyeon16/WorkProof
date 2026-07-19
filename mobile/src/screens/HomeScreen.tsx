@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
 import { getAttendanceByMonth, getPayRecord, getActiveOrFirstWorkplace } from '../storage';
 import { AttendanceRecord, PayRecord, Workplace } from '../types';
-import { calcMonthlySummary, formatMinutesAsHours, formatWon, shiftWorkedMinutes } from '../payCalc';
+import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../payCalc';
 import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../utils/date';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -178,7 +178,9 @@ export default function HomeScreen({ navigation }: Props) {
                 {item.clockIn} ~ {item.clockOut || '진행중'}
               </Text>
             </View>
-            <Text style={styles.recordHours}>{formatMinutesAsHours(shiftWorkedMinutes(item))}</Text>
+            <Text style={styles.recordHours}>
+              {item.clockOut ? formatWorkDuration(shiftWorkedMinutes(item)) : '근무 중'}
+            </Text>
           </View>
         )}
         contentContainerStyle={styles.listContent}

@@ -129,6 +129,23 @@ export function formatMinutesAsHours(minutes: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
+/**
+ * 근무 1건의 실 근무시간을 "8시간 30분"까지 표기한다. 최근 근무 기록과 달력 상세
+ * 카드가 공통으로 쓰는 포맷 함수. NaN/음수는 0분으로 방어한다.
+ * - 510분 → "8시간 30분"
+ * - 480분 → "8시간"
+ * - 25분  → "25분"
+ * - 0분   → "0시간"
+ */
+export function formatWorkDuration(totalMinutes: number): string {
+  const safe = Number.isFinite(totalMinutes) && totalMinutes > 0 ? Math.round(totalMinutes) : 0;
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  if (m === 0) return `${h}시간`;
+  if (h === 0) return `${m}분`;
+  return `${h}시간 ${m}분`;
+}
+
 export function formatWon(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
 }

@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GoogleLogo } from '../components/GoogleLogo';
 import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
-import { clearAllData, saveAccount } from '../storage';
+import { clearAllData, getAccount, saveAccount } from '../storage';
 import { colors, fonts, radius, shadow, spacing } from '../theme';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../auth/socialLogin';
 import type { AuthProvider } from '../types';
@@ -196,6 +196,25 @@ export default function SignupScreen({ navigation, route }: Props) {
       Alert.alert('필수 약관 및 개인정보 수집·이용에 동의해주세요.');
       return;
     }
+    // 소셜 로그인은 provider가 신규/기존을 직접 구분해주지 않는다 — 브리지
+    // 백엔드는 프로필만 돌려줄 뿐 계정 관리를 하지 않으므로, "회원가입" 버튼을
+    // 눌렀어도 이미 같은 소셜 계정(provider + providerId)이 이 기기에 저장돼
+    // 있으면 데이터를 지우지 않고 로그인으로 안내한다.
+    if (socialProfile) {
+      const existing = await getAccount();
+      const alreadyRegistered =
+        existing?.provider === socialProfile.provider &&
+        existing?.providerId === socialProfile.providerId;
+      if (alreadyRegistered) {
+        Alert.alert(
+          '이미 가입된 계정이에요',
+          `${SOCIAL_LABEL[socialProfile.provider as 'google' | 'kakao' | 'naver']} 계정으로 이미 가입돼 있어요. 로그인해주세요.`
+        );
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        return;
+      }
+    }
+
     const signupEmail = socialProfile ? socialProfile.email : getFinalEmail();
     await clearAllData();
     await saveAccount({

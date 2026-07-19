@@ -23,12 +23,14 @@ import {
   getWorkplace,
   getWorkplaces,
   makeId,
+  saveContractEvidence,
   saveWorkplace,
   setActiveWorkplaceId,
 } from '../storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../notifications';
 import { extractTextFromDocument } from '../ocr/visionOcr';
 import { summarizeContractText } from '../ai/geminiSummary';
+import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
 import type { EvidenceKind } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -44,7 +46,13 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [weeklyAllowance, setWeeklyAllowance] = useState(true);
   const [breakMinutesPerShift, setBreakMinutesPerShift] = useState('30');
   const [contractPhotoUri, setContractPhotoUri] = useState<string | undefined>(undefined);
+  // 저장용 URI(웹은 idb:// 참조)는 <Image>가 못 그리므로, 미리보기용 URI를 따로 둔다.
+  const [contractDisplayUri, setContractDisplayUri] = useState<string | undefined>(undefined);
   const [contractFileKind, setContractFileKind] = useState<EvidenceKind | undefined>(undefined);
+  const [contractFileName, setContractFileName] = useState<string | undefined>(undefined);
+  const [contractFileSize, setContractFileSize] = useState<number | null>(null);
+  const [contractMimeType, setContractMimeType] = useState<string | undefined>(undefined);
+  const [contractAnalyzedAt, setContractAnalyzedAt] = useState<string | undefined>(undefined);
   const [contractOcrText, setContractOcrText] = useState<string | undefined>(undefined);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [contractSummary, setContractSummary] = useState<string | undefined>(undefined);
@@ -65,6 +73,15 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setBreakMinutesPerShift(String(w.breakMinutesPerShift));
         setContractPhotoUri(w.contractPhotoUri);
         setContractFileKind(w.contractFileKind);
+        // 이전에 저장된 계약서에는 원본 파일명이 없으므로 기본 이름을 채워둔다
+        // (보관함에 이미 있으면 그 이름을 유지한다 — saveContractEvidence 참고).
+        if (w.contractPhotoUri) {
+          setContractFileName(`근로계약서.${w.contractFileKind === 'pdf' ? 'pdf' : 'jpg'}`);
+          setContractMimeType(w.contractFileKind === 'pdf' ? 'application/pdf' : 'image/jpeg');
+          // 저장된 참조(idb://)를 미리보기용으로 되돌린다.
+          const stored = w.contractPhotoUri;
+          resolveReadableUri(stored).then((d) => setContractDisplayUri(d ?? undefined));
+        }
         setContractOcrText(w.contractOcrText);
         setContractSummary(w.contractSummary);
         setLatitude(w.latitude);
@@ -132,6 +149,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         return;
       }
       setContractOcrText(result.text);
+      setContractAnalyzedAt(new Date().toISOString());
       await runSummary(result.text);
     } finally {
       setOcrLoading(false);
@@ -139,34 +157,63 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   };
 
   const handlePickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한이 필요해요', '설정에서 권한을 허용해주세요.');
-      return;
+    // 웹은 권한 개념이 없고, 권한 요청을 await하면 파일 다이얼로그가 user-gesture를
+    // 잃어 안 열릴 수 있으므로 네이티브에서만 권한을 확인한다.
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('사진 접근 권한이 필요해요', '설정에서 권한을 허용해주세요.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
+      base64: Platform.OS === 'web',
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    setContractPhotoUri(asset.uri);
-    setContractFileKind('image');
-    await runOcr(asset.uri, asset.mimeType ?? 'image/jpeg');
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const name = asset.fileName ?? `근로계약서_${Date.now()}.jpg`;
+    try {
+      // 선택기의 임시 URI를 영구 저장소(네이티브 documentDirectory / 웹 data: URI)로 옮긴다.
+      const uri = await persistPickedFile({ uri: asset.uri, name, mimeType, base64: asset.base64 });
+      setContractPhotoUri(uri);
+      setContractDisplayUri((await resolveReadableUri(uri)) ?? undefined);
+      setContractFileKind('image');
+      setContractFileName(name);
+      setContractFileSize(asset.fileSize ?? null);
+      setContractMimeType(mimeType);
+      await runOcr(uri, mimeType);
+    } catch (e) {
+      console.warn('[WorkplaceForm] 계약서 사진 저장 실패:', e);
+      Alert.alert('사진을 첨부하지 못했어요', '다시 시도해주세요.');
+    }
   };
 
   const handlePickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: ['application/pdf', 'image/*'],
       copyToCacheDirectory: true,
+      base64: Platform.OS === 'web',
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     const mimeType =
       asset.mimeType ?? (asset.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-    setContractPhotoUri(asset.uri);
-    setContractFileKind(mimeType === 'application/pdf' ? 'pdf' : 'image');
-    await runOcr(asset.uri, mimeType);
+    try {
+      const uri = await persistPickedFile({ uri: asset.uri, name: asset.name, mimeType, base64: asset.base64 });
+      setContractPhotoUri(uri);
+      setContractDisplayUri((await resolveReadableUri(uri)) ?? undefined);
+      setContractFileKind(mimeType === 'application/pdf' ? 'pdf' : 'image');
+      setContractFileName(asset.name);
+      setContractFileSize(asset.size ?? null);
+      setContractMimeType(mimeType);
+      await runOcr(uri, mimeType);
+    } catch (e) {
+      console.warn('[WorkplaceForm] 계약서 파일 저장 실패:', e);
+      Alert.alert('파일을 첨부하지 못했어요', '다시 시도해주세요.');
+    }
   };
 
   const handlePickContract = () => {
@@ -219,6 +266,29 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     };
     await saveWorkplace(workplace);
     schedulePaydayReminder(workplace).catch(() => {});
+
+    // 근무지 저장이 확정된 지금(=취소가 아닌 시점)에만 계약서를 증빙 보관함에 남긴다.
+    // 계약서 파일이 첨부돼 있으면 OCR 성공 여부와 무관하게 저장한다:
+    //  - OCR 성공: ocrText(+요약 성공 시 aiSummary)와 analyzedAt까지 저장
+    //  - OCR/요약 실패: 파일만 저장 → 보관함에서 'AI로 분석하기'로 나중에 재시도
+    // 증빙 저장이 실패해도 근무지 등록 자체는 막지 않도록 예외를 삼킨다.
+    if (contractPhotoUri) {
+      try {
+        await saveContractEvidence({
+          workplaceId: id,
+          name: contractFileName ?? `근로계약서.${contractFileKind === 'pdf' ? 'pdf' : 'jpg'}`,
+          uri: contractPhotoUri,
+          kind: contractFileKind ?? 'image',
+          mimeType: contractMimeType,
+          size: contractFileSize,
+          ocrText: contractOcrText,
+          aiSummary: contractSummary,
+          analyzedAt: contractOcrText ? contractAnalyzedAt ?? new Date().toISOString() : undefined,
+        });
+      } catch (e) {
+        console.warn('계약서 증빙 저장 실패:', e);
+      }
+    }
 
     if (!editingId && existingWorkplaces.length === 0) {
       await setActiveWorkplaceId(id);
@@ -350,8 +420,15 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
                   PDF 첨부됨
                 </Text>
               </View>
+            ) : contractDisplayUri ? (
+              <Image source={{ uri: contractDisplayUri }} style={styles.photoPreview} />
             ) : (
-              <Image source={{ uri: contractPhotoUri }} style={styles.photoPreview} />
+              <View style={styles.pdfPreview}>
+                <Ionicons name="image-outline" size={32} color={colors.primaryDark} />
+                <Text style={styles.pdfPreviewText} numberOfLines={1}>
+                  이미지 첨부됨
+                </Text>
+              </View>
             )
           ) : (
             <>

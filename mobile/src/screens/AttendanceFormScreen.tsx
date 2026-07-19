@@ -32,6 +32,8 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [clockIn, setClockIn] = useState('');
   const [clockOut, setClockOut] = useState('');
   const [breakMinutes, setBreakMinutes] = useState(0);
+  // 휴게시간 휠을 조작하는 동안 화면 스크롤을 잠근다(네이티브).
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const clockOutRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
@@ -108,6 +110,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={scrollEnabled}
       >
         <Text style={styles.label}>날짜</Text>
         <Pressable
@@ -158,6 +161,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
           onChange={setBreakMinutes}
           suffix="분"
           disabled={isShortShift}
+          onActiveChange={(active) => setScrollEnabled(!active)}
         />
         <Text style={styles.help}>
           {isShortShift

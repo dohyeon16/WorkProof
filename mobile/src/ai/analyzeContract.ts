@@ -26,8 +26,12 @@ export function mimeTypeForKind(kind: EvidenceKind, name?: string): string {
   return 'image/jpeg';
 }
 
-export async function analyzeContract(uri: string, mimeType: string): Promise<AnalyzeResult> {
-  const ocr = await extractTextFromDocument(uri, mimeType);
+export async function analyzeContract(
+  uri: string,
+  mimeType: string,
+  debug?: { name?: string; size?: number | null }
+): Promise<AnalyzeResult> {
+  const ocr = await extractTextFromDocument(uri, mimeType, debug);
   if (ocr.status === 'not_configured') return { status: 'ocr_not_configured' };
   if (ocr.status === 'error') return { status: 'ocr_error', message: ocr.message };
 

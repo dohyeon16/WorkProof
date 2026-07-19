@@ -16,6 +16,11 @@ interface WheelPickerProps {
   onChange: (value: number) => void;
   suffix?: string;
   disabled?: boolean;
+  /**
+   * 휠을 만지는(드래그하는) 동안 true, 끝나면 false. 부모 ScrollView가 이 값으로
+   * scrollEnabled를 토글해 휠 조작 중 화면이 같이 스크롤되지 않게 한다(네이티브).
+   */
+  onActiveChange?: (active: boolean) => void;
 }
 
 /**
@@ -26,7 +31,7 @@ interface WheelPickerProps {
  * PanResponder + 단일 Animated.Value로 전체 이동을 직접 계산·소유해 항상 정확한
  * 항목 위치로만 멈추도록 한다.
  */
-export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disabled }: WheelPickerProps) {
+export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disabled, onActiveChange }: WheelPickerProps) {
   const data = useMemo(() => {
     const arr: number[] = [];
     for (let n = min; n <= max; n += step) arr.push(n);
@@ -42,10 +47,24 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
   const lastEmittedValue = useRef(value);
   const disabledRef = useRef(disabled);
   const wheelSnapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapRef = useRef<View>(null);
+
+  // PanResponder는 최초 1회만 생성되므로, 최신 onActiveChange를 ref로 참조한다.
+  const onActiveChangeRef = useRef(onActiveChange);
+  useEffect(() => {
+    onActiveChangeRef.current = onActiveChange;
+  }, [onActiveChange]);
+
+  const setActive = (active: boolean) => onActiveChangeRef.current?.(active);
 
   useEffect(() => {
     disabledRef.current = disabled;
   }, [disabled]);
+
+  // 언마운트(또는 비활성 전환) 시 부모 스크롤 잠금이 영구히 남지 않도록 반드시 해제.
+  useEffect(() => {
+    return () => onActiveChangeRef.current?.(false);
+  }, []);
 
   useEffect(() => {
     const id = offsetY.addListener(({ value: v }) => {
@@ -97,6 +116,22 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
     wheelSnapTimeout.current = setTimeout(() => snapTo(currentOffsetRef.current), 120);
   };
 
+  // 최신 handleWheel을 ref로 참조(리스너는 1회만 등록).
+  const handleWheelRef = useRef(handleWheel);
+  handleWheelRef.current = handleWheel;
+
+  // Web: React의 onWheel은 passive로 등록돼 preventDefault가 무시되어 페이지가 같이
+  // 스크롤된다. 휠 영역 DOM에 passive:false 네이티브 리스너를 직접 붙여야 막힌다.
+  // 리스너는 휠 영역에만 있으므로 마우스가 밖에 있을 땐 페이지 스크롤이 정상 동작한다.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = wrapRef.current as unknown as HTMLElement | null;
+    if (!node) return;
+    const listener = (e: WheelEvent) => handleWheelRef.current(e);
+    node.addEventListener('wheel', listener, { passive: false });
+    return () => node.removeEventListener('wheel', listener);
+  }, []);
+
   const panResponder = useRef(
     PanResponder.create({
       // Claim the gesture in the capture phase so the wrapping ScrollView
@@ -108,6 +143,7 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
       onPanResponderGrant: () => {
         offsetY.stopAnimation();
         dragStartOffset.current = currentOffsetRef.current;
+        setActive(true); // 부모 ScrollView 잠금
       },
       onPanResponderMove: (_, gesture) => {
         const next = dragStartOffset.current - gesture.dy;
@@ -117,18 +153,20 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
       onPanResponderRelease: (_, gesture) => {
         const projected = currentOffsetRef.current - gesture.vy * 60;
         snapTo(projected);
+        setActive(false); // 손을 떼면(휠 밖에서 떼도) 부모 스크롤 복구
       },
       onPanResponderTerminate: () => {
         snapTo(currentOffsetRef.current);
+        setActive(false); // 제스처가 중단돼도 반드시 복구
       },
     })
   ).current;
 
   return (
     <View
+      ref={wrapRef}
       style={[styles.wrap, disabled && styles.wrapDisabled]}
       {...panResponder.panHandlers}
-      {...(Platform.OS === 'web' ? { onWheel: handleWheel } : null)}
     >
       <View pointerEvents="none" style={styles.highlight} />
       <Animated.View style={[styles.track, { transform: [{ translateY: Animated.multiply(offsetY, -1) }] }]}>

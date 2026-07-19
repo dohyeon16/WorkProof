@@ -51,7 +51,13 @@ PROVIDERS = {
         "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
         "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
         "scope": "openid profile email",
-        "extra_authorize_params": {},
+        # 브라우저에 이미 구글 세션이 있으면 계정 선택 없이 곧바로 콜백으로
+        # 넘어가 로그인 화면이 "아무것도 안 뜨고" 완료된 것처럼 보인다.
+        # select_account를 강제해 회원가입/로그인 모두 항상 계정 선택 화면을
+        # 거치게 한다 (다른 구글 계정으로 바꿀 수도 있게 됨). 매번 동의 화면까지
+        # 다시 띄우려면 "consent select_account"로 바꾸면 되지만, 재로그인마다
+        # 동의를 다시 받는 건 과해서 계정 선택만 강제한다.
+        "extra_authorize_params": {"prompt": "select_account"},
     },
     "kakao": {
         "authorize_url": "https://kauth.kakao.com/oauth/authorize",

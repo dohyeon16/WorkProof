@@ -24,6 +24,8 @@ import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../utils/webOpen';
 import { analyzeContract, mimeTypeForKind } from '../ai/analyzeContract';
+import { FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
+import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
 
 type Props = MainTabScreenProps<'Vault'>;
 
@@ -40,10 +42,81 @@ function iconFor(kind: EvidenceKind): keyof typeof Ionicons.glyphMap {
   return 'document-outline';
 }
 
+/** OCR에 넘길 MIME 타입을 정한다 — 저장된 mimeType 우선, 없으면 kind/파일명으로 추정. */
+function resolveMimeType(item: EvidenceFile): string {
+  return item.mimeType ?? mimeTypeForKind(item.kind, item.name);
+}
+
+/**
+ * AI 분석(OCR)이 가능한 파일인지 판단한다. 이미지/PDF만 가능하며, 리포트 HTML처럼
+ * OCR이 불가능한 형식은 제외한다. 구버전 데이터(mimeType 없음)는 kind로 판단한다.
+ */
+function isAnalyzable(item: EvidenceFile): boolean {
+  const mime = item.mimeType ?? '';
+  const isHtml =
+    mime === 'text/html' ||
+    item.uri.startsWith('data:text/html') ||
+    item.name.toLowerCase().endsWith('.html');
+  if (isHtml) return false;
+  if (mime) return mime.startsWith('image/') || mime === 'application/pdf';
+  return item.kind === 'image' || item.kind === 'pdf';
+}
+
+/** URI에서 스킴만 뽑는다(로그용). */
+function schemeOf(uri?: string): string {
+  if (!uri) return '(none)';
+  const i = uri.indexOf(':');
+  return i > 0 ? uri.slice(0, i) : '(none)';
+}
+
+/** 파일 추가 실패 진단 로그. 파일 내용(base64)·키는 절대 남기지 않는다. */
+function logPickFailure(
+  context: string,
+  info: {
+    canceled: boolean;
+    assetCount: number;
+    name?: string;
+    mimeType?: string;
+    originalUri?: string;
+    persistedUri?: string;
+    size?: number | null;
+    error: unknown;
+  }
+) {
+  const err = info.error;
+  console.warn(`[Vault] ${context} 실패`, {
+    platform: Platform.OS,
+    canceled: info.canceled,
+    assetCount: info.assetCount,
+    name: info.name,
+    mimeType: info.mimeType,
+    // 원본이 data: URI일 수도 있으므로 스킴 + 앞부분만(파일 내용 방지).
+    originalScheme: schemeOf(info.originalUri),
+    originalUriHead: info.originalUri?.slice(0, 48),
+    persistedUri: info.persistedUri, // idb://<key> 또는 file:// (내용 없음)
+    size: info.size ?? null,
+    error: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
+  });
+}
+
+function formatAnalyzedAt(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.toLocaleDateString('ko-KR')} ${d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 /** "열기" — 미리보기 목적. 웹에서는 새 탭으로 연다. */
 async function openFile(item: EvidenceFile) {
   if (Platform.OS === 'web') {
-    const opened = openStoredUriInNewTab(item.uri);
+    // 저장된 URI(idb:// 참조 등)를 실제로 열 수 있는 data: URI로 되돌린다.
+    const uri = await resolveReadableUri(item.uri);
+    if (!uri) {
+      Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
+      return;
+    }
+    const opened = openStoredUriInNewTab(uri);
     if (!opened) {
       Alert.alert('파일을 열 수 없어요', '팝업 차단을 해제한 뒤 다시 시도해주세요.');
     }
@@ -65,7 +138,12 @@ async function openFile(item: EvidenceFile) {
  *  지원하지 않으면 실제 파일 다운로드로 대체한다(새 탭 미리보기만 뜨는 건 "열기"와 다를 게 없어서 안 됨). */
 async function shareFile(item: EvidenceFile) {
   if (Platform.OS === 'web') {
-    const result = await shareStoredUri(item.uri, item.name);
+    const uri = await resolveReadableUri(item.uri);
+    if (!uri) {
+      Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
+      return;
+    }
+    const result = await shareStoredUri(uri, item.name);
     if (result === 'downloaded') {
       Alert.alert('파일을 다운로드했어요', '다운로드된 파일로 원하는 곳에 공유할 수 있어요.');
     } else if (result === 'failed') {
@@ -109,58 +187,94 @@ export default function VaultScreen(_props: Props) {
   );
 
   const pickImage = async (workplaceId: string) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한이 필요해요');
-      return;
+    // 웹에서는 권한 요청을 await하면 파일 다이얼로그가 user-gesture를 잃어 안 열릴 수
+    // 있으므로(웹은 권한 개념이 없어 항상 granted) 곧바로 선택기를 연다.
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('사진 접근 권한이 필요해요');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
       base64: Platform.OS === 'web',
     });
-    if (result.canceled || !result.assets[0]) return;
+    if (result.canceled || !result.assets?.[0]) return; // 취소 시 조용히 반환(오류 팝업 없음)
     const asset = result.assets[0];
-    // On web, asset.uri is a blob: URL that dies once the tab/session ends — a data: URI
-    // (built from the raw base64 payload) is what actually survives a reload.
-    const uri =
-      Platform.OS === 'web' && asset.base64
-        ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
-        : asset.uri;
-    await addEvidenceFile({
-      id: makeId(),
-      workplaceId,
-      name: asset.fileName ?? `사진_${Date.now()}.jpg`,
-      uri,
-      kind: 'image',
-      size: asset.fileSize ?? null,
-      addedAt: new Date().toISOString(),
-    });
-    load();
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const name = asset.fileName ?? `사진_${Date.now()}.jpg`;
+    let persistedUri: string | undefined;
+    try {
+      // 선택기의 임시 URI(웹 blob / 네이티브 cache)를 영구 저장소로 옮긴 URI를 저장한다.
+      persistedUri = await persistPickedFile({ uri: asset.uri, name, mimeType, base64: asset.base64 });
+      await addEvidenceFile({
+        id: makeId(),
+        workplaceId,
+        name,
+        uri: persistedUri,
+        kind: 'image',
+        mimeType,
+        size: asset.fileSize ?? null,
+        addedAt: new Date().toISOString(),
+      });
+      await load(); // 목록 즉시 갱신
+    } catch (e) {
+      logPickFailure('사진 추가', {
+        canceled: result.canceled,
+        assetCount: result.assets?.length ?? 0,
+        name,
+        mimeType,
+        originalUri: asset.uri,
+        persistedUri,
+        size: asset.fileSize ?? null,
+        error: e,
+      });
+      Alert.alert('사진을 추가하지 못했어요', '다시 시도해주세요.');
+    }
   };
 
   const pickDocument = async (workplaceId: string) => {
+    // 이미지(jpg/jpeg/png/heic)와 PDF만 받는다. (그 외 형식은 OCR 대상이 아님)
     const result = await DocumentPicker.getDocumentAsync({
-      type: '*/*',
+      type: ['application/pdf', 'image/*'],
       copyToCacheDirectory: true,
       base64: Platform.OS === 'web',
     });
-    if (result.canceled || !result.assets[0]) return;
+    if (result.canceled || !result.assets?.[0]) return; // 취소 시 조용히 반환(오류 팝업 없음)
     const asset = result.assets[0];
-    const kind: EvidenceKind = asset.mimeType?.includes('pdf') ? 'pdf' : 'file';
-    // DocumentPicker's web asset.uri is always a blob: URL, even with base64 requested —
-    // asset.base64 is the one that's a real (persistable) data: URI there.
-    const uri = Platform.OS === 'web' && asset.base64 ? asset.base64 : asset.uri;
-    await addEvidenceFile({
-      id: makeId(),
-      workplaceId,
-      name: asset.name,
-      uri,
-      kind,
-      size: asset.size ?? null,
-      addedAt: new Date().toISOString(),
-    });
-    load();
+    // MIME이 없으면 확장자로 보완한다.
+    const isPdf = !!asset.mimeType?.includes('pdf') || asset.name.toLowerCase().endsWith('.pdf');
+    const kind: EvidenceKind = isPdf ? 'pdf' : 'image';
+    const mimeType = asset.mimeType ?? (isPdf ? 'application/pdf' : 'image/jpeg');
+    let persistedUri: string | undefined;
+    try {
+      persistedUri = await persistPickedFile({ uri: asset.uri, name: asset.name, mimeType, base64: asset.base64 });
+      await addEvidenceFile({
+        id: makeId(),
+        workplaceId,
+        name: asset.name,
+        uri: persistedUri,
+        kind,
+        mimeType,
+        size: asset.size ?? null,
+        addedAt: new Date().toISOString(),
+      });
+      await load(); // 목록 즉시 갱신
+    } catch (e) {
+      logPickFailure('파일 추가', {
+        canceled: result.canceled,
+        assetCount: result.assets?.length ?? 0,
+        name: asset.name,
+        mimeType,
+        originalUri: asset.uri,
+        persistedUri,
+        size: asset.size ?? null,
+        error: e,
+      });
+      Alert.alert('파일을 추가하지 못했어요', '다시 시도해주세요.');
+    }
   };
 
   const handleAdd = () => {
@@ -172,9 +286,15 @@ export default function VaultScreen(_props: Props) {
     ]);
   };
 
-  const handleOpen = (item: EvidenceFile) => {
+  const handleOpen = async (item: EvidenceFile) => {
     if (item.kind === 'image') {
-      setPreviewImage(item.uri);
+      // 저장된 URI(idb:// 참조 등)를 <Image>가 렌더할 수 있는 형태로 되돌린다.
+      const uri = await resolveReadableUri(item.uri);
+      if (!uri) {
+        Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
+        return;
+      }
+      setPreviewImage(uri);
       return;
     }
     openFile(item);
@@ -182,31 +302,43 @@ export default function VaultScreen(_props: Props) {
 
   // 이미지/PDF 증빙을 OCR로 읽어 AI 요약까지 만들어 저장한다.
   const runAnalysis = async (item: EvidenceFile) => {
-    if (item.kind === 'file') {
+    if (!isAnalyzable(item)) {
       Alert.alert('분석할 수 없는 형식', '이미지 또는 PDF 파일만 텍스트를 인식할 수 있어요.');
       return;
     }
     setAnalyzingName(item.name);
     try {
-      const result = await analyzeContract(item.uri, mimeTypeForKind(item.kind, item.name));
+      const result = await analyzeContract(item.uri, resolveMimeType(item), {
+        name: item.name,
+        size: item.size,
+      });
       if (result.status === 'ocr_not_configured') {
         Alert.alert('OCR 준비 중', 'Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md를 참고해주세요.');
         return;
       }
       if (result.status === 'ocr_error') {
-        Alert.alert('텍스트 추출 실패', result.message);
+        // 만료된 URI 등 파일을 못 읽는 경우는 별도 안내(다시 추가 유도).
+        const isMissing = result.message === FILE_UNREADABLE_MESSAGE;
+        Alert.alert(isMissing ? '원본 파일 없음' : '텍스트 추출 실패', result.message);
         return;
       }
       // 요약이 실패해도 추출된 텍스트는 저장해 다시 시도할 수 있게 한다.
-      const summary = result.status === 'success' ? result.summary : undefined;
-      await updateEvidenceAnalysis(item.id, { ocrText: result.ocrText, summary });
+      // 보관함에서 직접 분석한 파일은 계약서로 단정하지 않는다 — documentType은
+      // 근무지 등록에서 첨부한 실제 근로계약서에만 붙인다(WorkplaceFormScreen).
+      const aiSummary = result.status === 'success' ? result.summary : undefined;
+      const analysis = {
+        ocrText: result.ocrText,
+        aiSummary,
+        analyzedAt: new Date().toISOString(),
+      };
+      await updateEvidenceAnalysis(item.id, analysis);
       await load();
-      const updated: EvidenceFile = { ...item, ocrText: result.ocrText, summary };
+      const updated: EvidenceFile = { ...item, ...analysis };
       setSummaryTarget(updated);
       if (result.status === 'summary_not_configured') {
         Alert.alert('AI 요약 준비 중', 'Gemini API 키가 설정되지 않아 텍스트만 추출했어요.');
       } else if (result.status === 'summary_error') {
-        Alert.alert('AI 요약 실패', result.message);
+        Alert.alert('AI 요약', result.message);
       }
     } finally {
       setAnalyzingName(null);
@@ -238,13 +370,26 @@ export default function VaultScreen(_props: Props) {
   };
 
   const handleMenu = (item: EvidenceFile) => {
-    const canAnalyze = item.kind === 'image' || item.kind === 'pdf';
-    const analyzeAction = item.summary
-      ? { text: 'AI 요약 보기', onPress: () => setSummaryTarget(item) }
-      : { text: 'AI로 분석·요약', onPress: () => runAnalysis(item) };
+    // 파일명이 아니라 저장된 형식/분석 결과로 판단한다. OCR이 불가능한 형식
+    // (리포트 HTML 등)에는 AI 메뉴를 아예 넣지 않는다.
+    const aiActions: { text: string; onPress: () => void }[] = [];
+    if (isAnalyzable(item)) {
+      if (item.aiSummary) {
+        // 분석 성공: 요약 보기 + 다시 분석하기
+        aiActions.push({ text: 'AI 요약 보기', onPress: () => setSummaryTarget(item) });
+        aiActions.push({ text: '다시 분석하기', onPress: () => runAnalysis(item) });
+      } else if (item.ocrText) {
+        // OCR은 됐지만 요약 실패: 인식된 텍스트 보기 + 다시 분석하기
+        aiActions.push({ text: '인식된 텍스트 보기', onPress: () => setSummaryTarget(item) });
+        aiActions.push({ text: '다시 분석하기', onPress: () => runAnalysis(item) });
+      } else {
+        // 분석 전
+        aiActions.push({ text: 'AI로 분석하기', onPress: () => runAnalysis(item) });
+      }
+    }
     Alert.alert(item.name, undefined, [
       { text: '열기', onPress: () => handleOpen(item) },
-      ...(canAnalyze ? [analyzeAction] : []),
+      ...aiActions,
       { text: '이름 변경', onPress: () => startRename(item) },
       { text: '공유하기', onPress: () => shareFile(item) },
       { text: '삭제', style: 'destructive', onPress: () => handleDelete(item.id) },
@@ -295,7 +440,7 @@ export default function VaultScreen(_props: Props) {
               </Text>
               <Text style={styles.fileMeta}>{formatBytes(item.size)}</Text>
             </Pressable>
-            {item.summary ? (
+            {item.aiSummary ? (
               <Pressable
                 style={styles.summaryBadge}
                 onPress={() => setSummaryTarget(item)}
@@ -398,21 +543,27 @@ export default function VaultScreen(_props: Props) {
               <View style={styles.summaryModalTitleWrap}>
                 <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
                 <Text style={styles.summaryModalTitle} numberOfLines={1}>
-                  AI 요약
+                  AI 분석 결과
                 </Text>
               </View>
               <Pressable
                 onPress={() => setSummaryTarget(null)}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel="요약 닫기"
+                accessibilityLabel="닫기"
               >
                 <Ionicons name="close" size={22} color={colors.subtext} />
               </Pressable>
             </View>
+            {formatAnalyzedAt(summaryTarget?.analyzedAt) ? (
+              <Text style={styles.summaryModalAnalyzedAt}>
+                분석 일시: {formatAnalyzedAt(summaryTarget?.analyzedAt)}
+              </Text>
+            ) : null}
             <ScrollView style={styles.summaryModalScroll}>
-              {summaryTarget?.summary ? (
-                <Text style={styles.summaryModalText}>{summaryTarget.summary}</Text>
+              <Text style={styles.summaryModalSectionLabel}>AI 요약</Text>
+              {summaryTarget?.aiSummary ? (
+                <Text style={styles.summaryModalText}>{summaryTarget.aiSummary}</Text>
               ) : (
                 <Text style={styles.summaryModalEmpty}>
                   아직 요약이 없어요. 아래에서 다시 시도해주세요.
@@ -420,7 +571,7 @@ export default function VaultScreen(_props: Props) {
               )}
               {summaryTarget?.ocrText ? (
                 <>
-                  <Text style={styles.summaryModalSectionLabel}>인식된 원문</Text>
+                  <Text style={styles.summaryModalSectionLabel}>인식된 계약서 텍스트</Text>
                   <Text style={styles.summaryModalOcr}>{summaryTarget.ocrText}</Text>
                 </>
               ) : null}
@@ -608,6 +759,7 @@ const styles = StyleSheet.create({
   summaryModalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   summaryModalTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   summaryModalScroll: { flexGrow: 0 },
+  summaryModalAnalyzedAt: { fontSize: 11, color: colors.subtext, marginBottom: spacing.xs },
   summaryModalText: { fontSize: 13, color: colors.text, lineHeight: 20 },
   summaryModalEmpty: { fontSize: 13, color: colors.subtext, lineHeight: 20 },
   summaryModalSectionLabel: {

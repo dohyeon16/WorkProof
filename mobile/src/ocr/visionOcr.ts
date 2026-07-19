@@ -1,7 +1,17 @@
-import { readAsBase64 } from './readAsBase64';
+import { readFileBase64 } from '../utils/fileStore';
 import type { OcrResult } from './types';
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_VISION_API_KEY;
+
+// 저장된 URI가 만료됐거나 파일이 사라져 읽을 수 없을 때 쓰는 사용자 안내 문구.
+// 호출부에서 이 문구인지 비교해 별도 처리할 수 있도록 상수로 노출한다.
+export const FILE_UNREADABLE_MESSAGE = '원본 파일을 찾을 수 없어요. 파일을 다시 추가해주세요.';
+
+/** uri에서 스킴만 뽑는다(로그용). 예: "file:///a" → "file". */
+function uriScheme(uri: string): string {
+  const i = uri.indexOf(':');
+  return i > 0 ? uri.slice(0, i) : '(none)';
+}
 
 // Cloud Vision 동기 요청은 PDF 최대 5페이지까지만 처리한다(그 이상은 GCS 기반
 // 비동기 batch API가 필요). 근로계약서는 대부분 이 범위 안에 들어온다.
@@ -48,16 +58,51 @@ function describeVisionError(status: number, apiMessage?: string): string {
   return '텍스트 추출에 실패했어요. 잠시 후 다시 시도해주세요.';
 }
 
-export async function extractTextFromDocument(uri: string, mimeType: string): Promise<OcrResult> {
+export async function extractTextFromDocument(
+  uri: string,
+  mimeType: string,
+  debug?: { name?: string; size?: number | null }
+): Promise<OcrResult> {
   if (!API_KEY) return { status: 'not_configured' };
 
   const isPdf = mimeType === 'application/pdf';
-  let base64: string;
+  const scheme = uriScheme(uri);
+
+  // 파일 읽기(→base64). 실패/빈 값이면 만료된 임시 URI일 가능성이 크다.
+  let base64: string | null;
   try {
-    base64 = await readAsBase64(uri);
-  } catch {
-    return { status: 'error', message: '파일을 읽지 못했어요.' };
+    base64 = await readFileBase64(uri);
+  } catch (e) {
+    console.warn('[visionOcr] 파일 읽기 예외', {
+      name: debug?.name,
+      mimeType,
+      scheme,
+      size: debug?.size ?? null,
+      branch: isPdf ? 'pdf' : 'image',
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { status: 'error', message: FILE_UNREADABLE_MESSAGE };
   }
+  if (!base64) {
+    console.warn('[visionOcr] base64 없음(만료/삭제 추정)', {
+      name: debug?.name,
+      mimeType,
+      scheme,
+      size: debug?.size ?? null,
+      branch: isPdf ? 'pdf' : 'image',
+    });
+    return { status: 'error', message: FILE_UNREADABLE_MESSAGE };
+  }
+
+  // 진단용(키는 절대 로그하지 않는다): 어떤 파일을 어떻게 보냈는지.
+  console.warn('[visionOcr] OCR 요청', {
+    name: debug?.name,
+    mimeType,
+    scheme,
+    size: debug?.size ?? null,
+    branch: isPdf ? 'pdf' : 'image',
+    base64Length: base64.length,
+  });
 
   try {
     if (isPdf) {

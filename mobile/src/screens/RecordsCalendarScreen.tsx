@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
 import { getAttendanceByMonth, getActiveOrFirstWorkplace } from '../storage';
 import { AttendanceRecord, Workplace } from '../types';
-import { calcMonthlySummary, formatMinutesAsHours, shiftWorkedMinutes } from '../payCalc';
+import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, shiftWorkedMinutes } from '../payCalc';
 import { currentYearMonth, formatYearMonth, shiftYearMonth, todayDateString } from '../utils/date';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -156,7 +156,9 @@ export default function RecordsCalendarScreen({ navigation }: Props) {
                 {selectedRecord.clockIn} ~ {selectedRecord.clockOut || '진행중'}
               </Text>
               <Text style={styles.detailHours}>
-                {formatMinutesAsHours(shiftWorkedMinutes(selectedRecord))}
+                {selectedRecord.clockOut
+                  ? formatWorkDuration(shiftWorkedMinutes(selectedRecord))
+                  : '근무 중'}
               </Text>
             </>
           ) : (

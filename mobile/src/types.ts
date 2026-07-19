@@ -48,6 +48,10 @@ export interface PayRecord {
 
 export type EvidenceKind = 'image' | 'pdf' | 'file';
 
+// 분석으로 종류가 확인된 증빙 문서. 지금은 근로계약서만 다루지만, 급여명세서 등으로
+// 넓힐 수 있도록 유니온으로 열어둔다. 파일명이 아니라 이 값으로 계약서 여부를 판단한다.
+export type EvidenceDocumentType = 'employment_contract';
+
 export interface EvidenceFile {
   id: string;
   workplaceId: string;
@@ -55,9 +59,12 @@ export interface EvidenceFile {
   uri: string;
   kind: EvidenceKind;
   size: number | null; // bytes
-  addedAt: string;
+  addedAt: string; // 생성(추가) 시각 = createdAt 역할
+  mimeType?: string; // 원본 MIME 타입(OCR 분기·리포트 판별에 사용, 구버전 데이터엔 없음)
   ocrText?: string; // OCR로 추출한 텍스트(이미지/PDF 분석 시, 선택)
-  summary?: string; // 위 텍스트를 AI로 요약·정리한 내용(선택)
+  aiSummary?: string; // 위 텍스트를 AI로 요약·정리한 내용(선택)
+  documentType?: EvidenceDocumentType; // 분석으로 확인된 문서 종류(일반 증빙은 비어 있음)
+  analyzedAt?: string; // 마지막으로 OCR·요약 분석을 실행한 시각(ISO, 선택)
 }
 
 export type AuthProvider = 'local' | 'google' | 'kakao' | 'naver';

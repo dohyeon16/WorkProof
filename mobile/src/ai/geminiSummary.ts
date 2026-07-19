@@ -1,5 +1,9 @@
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.5-flash';
+
+// 모델 사용 불가/429/quota/billing 등 API 오류의 영어 원문은 사용자에게 노출하지
+// 않고 console.warn으로만 남긴다. 팝업에는 이 안내 문구만 보여준다.
+const USER_FACING_ERROR = 'AI 요약을 완료하지 못했어요. 잠시 후 다시 시도해주세요.';
 
 // 무료 티어 일일/분당 요청 한도를 감안해 계약서 원문이 지나치게 길면 앞부분만
 // 보낸다 — 근로계약서는 보통 이 범위 안에서 핵심 조항이 다 나온다.
@@ -49,7 +53,9 @@ export async function summarizeContractText(text: string): Promise<SummaryResult
     );
     const json = (await res.json()) as GenerateContentResponse;
     if (!res.ok || json.error) {
-      return { status: 'error', message: json.error?.message ?? `요청 실패 (${res.status})` };
+      // 원문(모델 사용 불가/quota/billing 등)은 로그로만 남기고 사용자에겐 일반 문구.
+      console.warn(`Gemini 요약 실패 (${res.status}):`, json.error?.message ?? '(no message)');
+      return { status: 'error', message: USER_FACING_ERROR };
     }
     if (json.promptFeedback?.blockReason) {
       return { status: 'error', message: '안전 정책으로 요약이 차단됐어요.' };
