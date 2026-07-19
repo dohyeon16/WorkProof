@@ -143,7 +143,13 @@ PROVIDERS = {
         "client_id": os.environ.get("NAVER_CLIENT_ID", ""),
         "client_secret": os.environ.get("NAVER_CLIENT_SECRET", ""),
         "scope": "",
-        "extra_authorize_params": {},
+        # 브라우저에 네이버 로그인 세션이 남아있으면 인증 화면 없이 곧바로
+        # 콜백으로 넘어가 버린다 (구글/카카오와 달리 계정 확인 단계가 생략됨).
+        # auth_type=reauthenticate는 현재 로그인 상태와 관계없이 항상 ID/PW
+        # 로그인을 다시 요구해, 사용자가 로그인할 계정을 직접 확인하고 다른
+        # 네이버 계정으로도 바꿀 수 있게 한다. (reprompt는 권한 재동의용이라
+        # 여기 목적에는 맞지 않는다.)
+        "extra_authorize_params": {"auth_type": "reauthenticate"},
     },
 }
 
