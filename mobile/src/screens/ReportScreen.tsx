@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -50,6 +51,8 @@ export default function ReportScreen({ navigation, route }: Props) {
       })();
     }, [workplaceId, yearMonth])
   );
+
+  const insets = useSafeAreaInsets();
 
   if (!workplace) return <LoadingScreen />;
 
@@ -159,7 +162,10 @@ export default function ReportScreen({ navigation, route }: Props) {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+    >
       <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여 리포트</Text>
 
       <View style={styles.card}>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -73,9 +74,10 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
 
   const recent = records.filter((r) => r.date !== today).slice(-3).reverse();
   const statusLabel = completed ? '오늘 근무 완료' : inProgress ? '근무 중' : '출근 전';
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: spacing.md + insets.bottom }]}>
       <View style={styles.headerCard}>
         <View style={styles.headerIconWrap}>
           <Ionicons name="business" size={20} color={colors.primaryDark} />

@@ -25,6 +25,7 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+google-session-result.json
 
 # macOS
 .DS_Store

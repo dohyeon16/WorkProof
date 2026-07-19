@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { WheelPicker } from '../components/WheelPicker';
@@ -31,6 +32,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [clockIn, setClockIn] = useState('');
   const [clockOut, setClockOut] = useState('');
   const [breakMinutes, setBreakMinutes] = useState(0);
+  const clockOutRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
     (async () => {
@@ -55,6 +57,8 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (isShortShift && breakMinutes !== 0) setBreakMinutes(0);
   }, [isShortShift]);
+
+  const insets = useSafeAreaInsets();
 
   if (!loaded) return <LoadingScreen />;
 
@@ -100,7 +104,11 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.label}>날짜</Text>
         <Pressable
           onPress={() => setCalendarVisible(true)}
@@ -125,15 +133,20 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
           onChangeText={(text) => setClockIn(formatTimeInput(text))}
           keyboardType="number-pad"
           placeholder="09:00"
+          returnKeyType="next"
+          onSubmitEditing={() => clockOutRef.current?.focus()}
         />
 
         <Text style={styles.label}>퇴근 시간</Text>
         <FieldInput
+          ref={clockOutRef}
           icon="log-out-outline"
           value={clockOut}
           onChangeText={(text) => setClockOut(formatTimeInput(text))}
           keyboardType="number-pad"
           placeholder="18:00 (미입력 시 근무 중으로 기록)"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <Text style={styles.label}>휴게시간</Text>

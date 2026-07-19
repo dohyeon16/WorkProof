@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../navigation/types';
@@ -25,8 +26,9 @@ export default function SplashScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [navigation]);
 
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.blob} />
       <View style={styles.logoCircle}>
         <Ionicons name="checkmark-done" size={40} color="#fff" />

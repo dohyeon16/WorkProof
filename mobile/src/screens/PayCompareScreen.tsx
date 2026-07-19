@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,11 +24,13 @@ export default function PayCompareScreen({ navigation, route }: Props) {
     }, [workplaceId, yearMonth])
   );
 
+  const insets = useSafeAreaInsets();
+
   if (payRecord === undefined) return <LoadingScreen />;
 
   if (payRecord === null) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { paddingBottom: insets.bottom }]}>
         <View style={styles.emptyIconCircle}>
           <Ionicons name="cash-outline" size={32} color={colors.primary} />
         </View>
@@ -50,7 +53,10 @@ export default function PayCompareScreen({ navigation, route }: Props) {
   const isOver = diff > 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+    >
       <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여</Text>
 
       <View style={styles.boxRow}>

@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
 import { CalendarPickerModal } from '../components/CalendarPickerModal';
@@ -25,6 +26,7 @@ export default function PayInputScreen({ navigation, route }: Props) {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [memo, setMemo] = useState('');
   const [existingId, setExistingId] = useState<string | undefined>(undefined);
+  const memoRef = useRef<RNTextInput>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,6 +47,8 @@ export default function PayInputScreen({ navigation, route }: Props) {
       })();
     }, [workplaceId, yearMonth])
   );
+
+  const insets = useSafeAreaInsets();
 
   if (!workplace) return <LoadingScreen />;
 
@@ -74,7 +78,11 @@ export default function PayInputScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여</Text>
 
         <View style={styles.card}>
@@ -95,6 +103,8 @@ export default function PayInputScreen({ navigation, route }: Props) {
           keyboardType="number-pad"
           placeholder="예: 410000"
           suffix="원"
+          returnKeyType="next"
+          onSubmitEditing={() => memoRef.current?.focus()}
         />
 
         <Text style={styles.fieldLabel}>입금일</Text>
@@ -116,10 +126,13 @@ export default function PayInputScreen({ navigation, route }: Props) {
 
         <Text style={styles.fieldLabel}>메모 (선택)</Text>
         <FieldInput
+          ref={memoRef}
           icon="create-outline"
           value={memo}
           onChangeText={setMemo}
           placeholder="메모를 입력하세요"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <Pressable

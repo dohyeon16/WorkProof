@@ -1,5 +1,13 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, View, type KeyboardTypeOptions } from 'react-native';
+import { forwardRef, useState } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type KeyboardTypeOptions,
+  type ReturnKeyTypeOptions,
+  type TextInputSubmitEditingEvent,
+  type TextInput as RNTextInput,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
 import { TextInput } from './TextInput';
@@ -17,27 +25,35 @@ interface FieldInputProps {
   suffix?: string;
   trailingIcon?: keyof typeof Ionicons.glyphMap;
   error?: boolean;
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: (e: TextInputSubmitEditingEvent) => void;
 }
 
 /** 아이콘/비밀번호 토글/단위 접미사를 포함한 공용 입력 필드. 로그인·회원가입·근무지 등록 화면에서 재사용. */
-export function FieldInput({
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  toggleSecure,
-  keyboardType,
-  autoCapitalize,
-  suffix,
-  trailingIcon,
-  error,
-}: FieldInputProps) {
+export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function FieldInput(
+  {
+    icon,
+    placeholder,
+    value,
+    onChangeText,
+    secureTextEntry,
+    toggleSecure,
+    keyboardType,
+    autoCapitalize,
+    suffix,
+    trailingIcon,
+    error,
+    returnKeyType,
+    onSubmitEditing,
+  },
+  ref
+) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
   return (
     <View style={[styles.wrap, error && styles.wrapError]}>
       {icon && <Ionicons name={icon} size={18} color={colors.subtext} style={styles.icon} />}
       <TextInput
+        ref={ref}
         style={styles.input}
         placeholder={placeholder}
         placeholderTextColor={colors.subtext}
@@ -47,6 +63,8 @@ export function FieldInput({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         accessibilityLabel={placeholder}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
       />
       {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
       {trailingIcon && <Ionicons name={trailingIcon} size={16} color={colors.subtext} />}
@@ -63,7 +81,7 @@ export function FieldInput({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {

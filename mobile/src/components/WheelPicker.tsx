@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { Animated, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { colors, radius } from '../theme';
 
@@ -41,6 +41,7 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
   const dragStartOffset = useRef(initialIndex * ITEM_HEIGHT);
   const lastEmittedValue = useRef(value);
   const disabledRef = useRef(disabled);
+  const wheelSnapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     disabledRef.current = disabled;
@@ -75,6 +76,27 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
     onChange(data[index]);
   };
 
+  useEffect(() => {
+    return () => {
+      if (wheelSnapTimeout.current) clearTimeout(wheelSnapTimeout.current);
+    };
+  }, []);
+
+  // Web-only: trackpad/mouse-wheel scrolling over the picker was bubbling up
+  // to the parent ScrollView (scrolling the whole screen) instead of turning
+  // the wheel, since PanResponder only ever sees touch/mouse-drag gestures.
+  const handleWheel = (e: { deltaY: number; preventDefault?: () => void; stopPropagation?: () => void }) => {
+    if (disabledRef.current) return;
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    offsetY.stopAnimation();
+    const next = currentOffsetRef.current + e.deltaY;
+    const clamped = Math.max(-ITEM_HEIGHT / 2, Math.min(maxOffset + ITEM_HEIGHT / 2, next));
+    offsetY.setValue(clamped);
+    if (wheelSnapTimeout.current) clearTimeout(wheelSnapTimeout.current);
+    wheelSnapTimeout.current = setTimeout(() => snapTo(currentOffsetRef.current), 120);
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       // Claim the gesture in the capture phase so the wrapping ScrollView
@@ -103,7 +125,11 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
   ).current;
 
   return (
-    <View style={[styles.wrap, disabled && styles.wrapDisabled]} {...panResponder.panHandlers}>
+    <View
+      style={[styles.wrap, disabled && styles.wrapDisabled]}
+      {...panResponder.panHandlers}
+      {...(Platform.OS === 'web' ? { onWheel: handleWheel } : null)}
+    >
       <View pointerEvents="none" style={styles.highlight} />
       <Animated.View style={[styles.track, { transform: [{ translateY: Animated.multiply(offsetY, -1) }] }]}>
         {data.map((item, index) => {

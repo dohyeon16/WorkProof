@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,13 +23,18 @@ export default function ChecklistDetailScreen({ navigation, route }: Props) {
     }, [workplaceId, yearMonth])
   );
 
+  const insets = useSafeAreaInsets();
+
   if (!payRecord) return <LoadingScreen />;
 
   const diff = payRecord.diff ?? 0;
   const riskCount = payRecord.checklist.filter((c) => c.status === 'risk').length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
+    >
       <View style={styles.headerCard}>
         <Ionicons name="alert-circle" size={22} color={colors.danger} />
         <Text style={styles.headerText}>
