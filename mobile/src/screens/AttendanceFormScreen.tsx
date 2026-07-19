@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
+import { InputAccessoryToolbar } from '../components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../hooks/useNumericInputNavigation';
 import { WheelPicker } from '../components/WheelPicker';
 import { CalendarPickerModal } from '../components/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +17,10 @@ import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
 type Props = RootScreenProps<'AttendanceForm'>;
+
+// 직접 입력하는 숫자 필드 순서: 출근 시간 → 퇴근 시간(마지막 → '완료').
+// 날짜는 달력 모달, 휴게시간은 휠 픽커라 키보드 이동 대상에서 제외한다.
+const NUMERIC_FIELDS = ['clockIn', 'clockOut'] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -34,7 +40,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [breakMinutes, setBreakMinutes] = useState(0);
   // 휴게시간 휠을 조작하는 동안 화면 스크롤을 잠근다(네이티브).
   const [scrollEnabled, setScrollEnabled] = useState(true);
-  const clockOutRef = useRef<RNTextInput>(null);
+  const numericNav = useNumericInputNavigation(NUMERIC_FIELDS);
 
   useEffect(() => {
     (async () => {
@@ -131,25 +137,22 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
 
         <Text style={styles.label}>출근 시간</Text>
         <FieldInput
+          {...numericNav.getFieldProps('clockIn')}
           icon="log-in-outline"
           value={clockIn}
           onChangeText={(text) => setClockIn(formatTimeInput(text))}
           keyboardType="number-pad"
           placeholder="09:00"
-          returnKeyType="next"
-          onSubmitEditing={() => clockOutRef.current?.focus()}
         />
 
         <Text style={styles.label}>퇴근 시간</Text>
         <FieldInput
-          ref={clockOutRef}
+          {...numericNav.getFieldProps('clockOut')}
           icon="log-out-outline"
           value={clockOut}
           onChangeText={(text) => setClockOut(formatTimeInput(text))}
           keyboardType="number-pad"
           placeholder="18:00 (미입력 시 근무 중으로 기록)"
-          returnKeyType="done"
-          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <Text style={styles.label}>휴게시간</Text>
@@ -190,6 +193,12 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
           </Pressable>
         )}
       </ScrollView>
+
+      <InputAccessoryToolbar
+        nativeID={numericNav.accessoryViewID}
+        label={numericNav.accessoryLabel}
+        onPress={numericNav.onAccessoryPress}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -13,6 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
+import { InputAccessoryToolbar } from '../components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../hooks/useNumericInputNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -36,6 +38,9 @@ import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
 type Props = RootScreenProps<'WorkplaceForm'>;
+
+// 숫자 입력 순서: 시급 → 급여일 → 기본 휴게시간(마지막 → '완료').
+const NUMERIC_FIELDS = ['wage', 'payDay', 'break'] as const;
 
 export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const editingId = route.params?.id;
@@ -61,6 +66,21 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [address, setAddress] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(!editingId);
+
+  // 숫자 입력 필드 간 포커스 이동 + iOS 툴바('다음'/'완료')를 공용 훅으로 처리.
+  const numericNav = useNumericInputNavigation(NUMERIC_FIELDS);
+
+  // 숫자 입력 정제: 시급은 숫자만, 급여일은 숫자만 + 1~31 상한, 휴게시간은 숫자만(음수 방지).
+  const handleWageChange = (t: string) => setHourlyWage(t.replace(/[^0-9]/g, ''));
+  const handlePayDayChange = (t: string) => {
+    const digits = t.replace(/[^0-9]/g, '');
+    if (digits === '') {
+      setPayDay('');
+      return;
+    }
+    setPayDay(String(Math.min(31, parseInt(digits, 10))));
+  };
+  const handleBreakChange = (t: string) => setBreakMinutesPerShift(t.replace(/[^0-9]/g, ''));
 
   useEffect(() => {
     if (!editingId) return;
@@ -359,9 +379,10 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
         <Text style={styles.label}>시급</Text>
         <FieldInput
+          {...numericNav.getFieldProps('wage')}
           icon="cash-outline"
           value={hourlyWage}
-          onChangeText={setHourlyWage}
+          onChangeText={handleWageChange}
           keyboardType="number-pad"
           placeholder="예: 10320"
           suffix="원"
@@ -370,9 +391,10 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
         <Text style={styles.label}>급여일 (매월)</Text>
         <FieldInput
+          {...numericNav.getFieldProps('payDay')}
           icon="calendar-outline"
           value={payDay}
-          onChangeText={setPayDay}
+          onChangeText={handlePayDayChange}
           keyboardType="number-pad"
           placeholder="예: 10"
           suffix="일"
@@ -394,9 +416,10 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
         <Text style={styles.label}>근무 1건당 기본 휴게시간</Text>
         <FieldInput
+          {...numericNav.getFieldProps('break')}
           icon="cafe-outline"
           value={breakMinutesPerShift}
-          onChangeText={setBreakMinutesPerShift}
+          onChangeText={handleBreakChange}
           keyboardType="number-pad"
           placeholder="예: 30"
           suffix="분"
@@ -515,6 +538,12 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           </Pressable>
         )}
       </ScrollView>
+
+      <InputAccessoryToolbar
+        nativeID={numericNav.accessoryViewID}
+        label={numericNav.accessoryLabel}
+        onPress={numericNav.onAccessoryPress}
+      />
     </KeyboardAvoidingView>
   );
 }

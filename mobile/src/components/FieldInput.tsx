@@ -27,6 +27,9 @@ interface FieldInputProps {
   error?: boolean;
   returnKeyType?: ReturnKeyTypeOptions;
   onSubmitEditing?: (e: TextInputSubmitEditingEvent) => void;
+  onFocus?: () => void;
+  blurOnSubmit?: boolean;
+  inputAccessoryViewID?: string;
 }
 
 /** 아이콘/비밀번호 토글/단위 접미사를 포함한 공용 입력 필드. 로그인·회원가입·근무지 등록 화면에서 재사용. */
@@ -45,6 +48,9 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
     error,
     returnKeyType,
     onSubmitEditing,
+    onFocus,
+    blurOnSubmit,
+    inputAccessoryViewID,
   },
   ref
 ) {
@@ -65,6 +71,9 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
         accessibilityLabel={placeholder}
         returnKeyType={returnKeyType}
         onSubmitEditing={onSubmitEditing}
+        onFocus={onFocus}
+        blurOnSubmit={blurOnSubmit}
+        inputAccessoryViewID={inputAccessoryViewID}
       />
       {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
       {trailingIcon && <Ionicons name={trailingIcon} size={16} color={colors.subtext} />}

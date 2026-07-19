@@ -1,8 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
+import { InputAccessoryToolbar } from '../components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../hooks/useNumericInputNavigation';
 import { CalendarPickerModal } from '../components/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from '../alert';
@@ -26,7 +28,9 @@ export default function PayInputScreen({ navigation, route }: Props) {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [memo, setMemo] = useState('');
   const [existingId, setExistingId] = useState<string | undefined>(undefined);
-  const memoRef = useRef<RNTextInput>(null);
+  // 실제 입금액만 숫자 키보드 이동 대상(마지막 필드 → '완료'). 메모는 일반
+  // 텍스트 키보드라 자체 return 키가 있어 별도 처리한다.
+  const numericNav = useNumericInputNavigation(['actualPay'] as const);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,14 +101,13 @@ export default function PayInputScreen({ navigation, route }: Props) {
 
         <Text style={styles.fieldLabel}>실제 입금액</Text>
         <FieldInput
+          {...numericNav.getFieldProps('actualPay')}
           icon="cash-outline"
           value={actualPay}
           onChangeText={setActualPay}
           keyboardType="number-pad"
           placeholder="예: 410000"
           suffix="원"
-          returnKeyType="next"
-          onSubmitEditing={() => memoRef.current?.focus()}
         />
 
         <Text style={styles.fieldLabel}>입금일</Text>
@@ -126,7 +129,6 @@ export default function PayInputScreen({ navigation, route }: Props) {
 
         <Text style={styles.fieldLabel}>메모 (선택)</Text>
         <FieldInput
-          ref={memoRef}
           icon="create-outline"
           value={memo}
           onChangeText={setMemo}
@@ -144,6 +146,12 @@ export default function PayInputScreen({ navigation, route }: Props) {
           <Text style={styles.saveButtonText}>저장하기</Text>
         </Pressable>
       </ScrollView>
+
+      <InputAccessoryToolbar
+        nativeID={numericNav.accessoryViewID}
+        label={numericNav.accessoryLabel}
+        onPress={numericNav.onAccessoryPress}
+      />
     </KeyboardAvoidingView>
   );
 }
