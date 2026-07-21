@@ -261,6 +261,31 @@ export async function clearAllData(): Promise<void> {
   await AsyncStorage.multiRemove(Object.values(KEYS));
 }
 
+// ---------- 백업 / 복원 ----------
+
+// 앱이 관리하는 모든 저장 키의 원본 값(JSON 문자열)을 그대로 담아 돌려준다.
+// 값은 이미 직렬화돼 있으므로 그대로 백업 파일에 실으면 복원 시 완전히 복구된다.
+export async function exportAllData(): Promise<Record<string, string>> {
+  const entries = await AsyncStorage.multiGet(Object.values(KEYS));
+  const data: Record<string, string> = {};
+  for (const [key, value] of entries) {
+    if (value != null) data[key] = value;
+  }
+  return data;
+}
+
+// 백업 파일의 데이터로 기존 데이터를 통째로 교체한다. 앱이 아는 키만 복원하며,
+// 백업에 없던 키는 비운다(부분 복원으로 인한 데이터 불일치를 막기 위함).
+export async function importAllData(data: Record<string, unknown>): Promise<void> {
+  const pairs: [string, string][] = [];
+  for (const key of Object.values(KEYS)) {
+    const value = data[key];
+    if (typeof value === 'string') pairs.push([key, value]);
+  }
+  await AsyncStorage.multiRemove(Object.values(KEYS));
+  if (pairs.length > 0) await AsyncStorage.multiSet(pairs);
+}
+
 // ---------- Onboarding ----------
 
 export async function isOnboardingDone(): Promise<boolean> {

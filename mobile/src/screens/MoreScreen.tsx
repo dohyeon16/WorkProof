@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
 import { clearAllData, getAccount, setLoggedIn } from '../storage';
+import { createBackup, restoreBackup } from '../backup';
 import { Account } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 
@@ -34,12 +35,66 @@ const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; action: (nav:
 export default function MoreScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [account, setAccount] = useState<Account | null>(null);
+  const [busy, setBusy] = useState<null | 'backup' | 'restore'>(null);
 
   useFocusEffect(
     useCallback(() => {
       getAccount().then(setAccount);
     }, [])
   );
+
+  const handleBackup = async () => {
+    if (busy) return;
+    setBusy('backup');
+    try {
+      const result = await createBackup();
+      if (result.status === 'unavailable') {
+        Alert.alert('내보내기를 사용할 수 없어요', '이 기기에서 파일 공유가 지원되지 않아요.');
+      }
+    } catch (e) {
+      console.warn('[More] 백업 실패:', e);
+      Alert.alert('백업 실패', '데이터를 내보내지 못했어요. 다시 시도해주세요.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRestore = () => {
+    if (busy) return;
+    Alert.alert(
+      '백업에서 복원',
+      '백업 파일의 데이터로 지금 기기의 근무지·근태·급여 기록이 모두 교체됩니다. 계속할까요?\n\n(계약서 사진 등 첨부 파일 원본은 백업에 포함되지 않아요.)',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '복원',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy('restore');
+            try {
+              const result = await restoreBackup();
+              if (result.status === 'done') {
+                Alert.alert('복원 완료', '백업 데이터를 불러왔어요.', [
+                  {
+                    text: '확인',
+                    onPress: () =>
+                      navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Splash' }] }),
+                  },
+                ]);
+              } else if (result.status === 'error') {
+                Alert.alert('복원 실패', result.message);
+              }
+            } catch (e) {
+              console.warn('[More] 복원 실패:', e);
+              Alert.alert('복원 실패', '백업 파일을 불러오지 못했어요.');
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
@@ -101,6 +156,42 @@ export default function MoreScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
         </Pressable>
       ))}
+
+      <Pressable
+        style={styles.row}
+        onPress={handleBackup}
+        disabled={!!busy}
+        accessibilityRole="button"
+        accessibilityLabel="데이터 백업 내보내기"
+      >
+        <View style={styles.rowIconWrap}>
+          <Ionicons name="cloud-upload-outline" size={18} color={colors.primaryDark} />
+        </View>
+        <Text style={styles.rowText}>데이터 백업 (내보내기)</Text>
+        {busy === 'backup' ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+        )}
+      </Pressable>
+
+      <Pressable
+        style={styles.row}
+        onPress={handleRestore}
+        disabled={!!busy}
+        accessibilityRole="button"
+        accessibilityLabel="백업에서 복원"
+      >
+        <View style={styles.rowIconWrap}>
+          <Ionicons name="cloud-download-outline" size={18} color={colors.primaryDark} />
+        </View>
+        <Text style={styles.rowText}>백업에서 복원</Text>
+        {busy === 'restore' ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+        )}
+      </Pressable>
 
       <Pressable
         style={styles.logoutButton}
