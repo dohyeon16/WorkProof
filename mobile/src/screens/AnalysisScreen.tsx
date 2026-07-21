@@ -5,19 +5,40 @@ import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
-import { getActiveOrFirstWorkplace, getAllPayRecords } from '../storage';
-import { PayRecord, Workplace } from '../types';
-import { formatWon } from '../payCalc';
-import { currentYearMonth, formatYearMonth } from '../utils/date';
+import { getActiveOrFirstWorkplace, getAllPayRecords, getAttendanceByWorkplace } from '../storage';
+import { AttendanceRecord, PayRecord, Workplace } from '../types';
+import { formatMinutesAsHours, formatWon, shiftWorkedMinutes } from '../payCalc';
+import { currentYearMonth, formatYearMonth, shiftYearMonth } from '../utils/date';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
 type Props = MainTabScreenProps<'Analysis'>;
 
+const CHART_MONTHS = 6;
+const CHART_HEIGHT = 120;
+
+interface MonthlyHours {
+  yearMonth: string;
+  monthLabel: string; // "7월"
+  minutes: number;
+}
+
+function buildMonthlySeries(attendance: AttendanceRecord[]): MonthlyHours[] {
+  const thisMonth = currentYearMonth();
+  return Array.from({ length: CHART_MONTHS }, (_, i) => {
+    const yearMonth = shiftYearMonth(thisMonth, -(CHART_MONTHS - 1 - i));
+    const minutes = attendance
+      .filter((a) => a.date.startsWith(yearMonth))
+      .reduce((sum, a) => sum + shiftWorkedMinutes(a), 0);
+    return { yearMonth, monthLabel: `${Number(yearMonth.split('-')[1])}월`, minutes };
+  });
+}
+
 export default function AnalysisScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [payRecords, setPayRecords] = useState<PayRecord[]>([]);
+  const [series, setSeries] = useState<MonthlyHours[]>([]);
   const yearMonth = currentYearMonth();
 
   useFocusEffect(
@@ -26,12 +47,16 @@ export default function AnalysisScreen({ navigation }: Props) {
         const w = await getActiveOrFirstWorkplace();
         setWorkplace(w ?? null);
         if (!w) return;
-        const list = await getAllPayRecords();
+        const [payList, attendance] = await Promise.all([
+          getAllPayRecords(),
+          getAttendanceByWorkplace(w.id),
+        ]);
         setPayRecords(
-          list
+          payList
             .filter((p) => p.workplaceId === w.id)
             .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth))
         );
+        setSeries(buildMonthlySeries(attendance));
       })();
     }, [])
   );
@@ -50,9 +75,13 @@ export default function AnalysisScreen({ navigation }: Props) {
   }
 
   const thisMonth = payRecords.find((p) => p.yearMonth === yearMonth);
+  const maxMinutes = Math.max(...series.map((s) => s.minutes), 1);
+  const totalMinutes = series.reduce((sum, s) => sum + s.minutes, 0);
+  const workedMonths = series.filter((s) => s.minutes > 0).length;
+  const avgMinutes = workedMonths > 0 ? Math.round(totalMinutes / workedMonths) : 0;
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
+  const header = (
+    <>
       <Text style={styles.title}>급여 분석</Text>
 
       <Pressable
@@ -87,40 +116,80 @@ export default function AnalysisScreen({ navigation }: Props) {
         <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
       </Pressable>
 
+      <View style={styles.chartCard}>
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>월별 근무시간</Text>
+          <Text style={styles.chartAvg}>
+            {workedMonths > 0 ? `평균 ${formatMinutesAsHours(avgMinutes)}` : '기록 없음'}
+          </Text>
+        </View>
+        <View style={styles.chart}>
+          {series.map((s) => {
+            const isCurrent = s.yearMonth === yearMonth;
+            const barHeight = s.minutes > 0 ? Math.max(4, (s.minutes / maxMinutes) * CHART_HEIGHT) : 0;
+            const hours = s.minutes / 60;
+            return (
+              <View key={s.yearMonth} style={styles.barColumn}>
+                <Text style={styles.barValue}>
+                  {s.minutes > 0 ? (hours >= 10 ? Math.round(hours) : hours.toFixed(1)) : ''}
+                </Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.bar,
+                      { height: barHeight },
+                      isCurrent ? styles.barCurrent : styles.barPast,
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barLabel, isCurrent && styles.barLabelCurrent]}>{s.monthLabel}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.chartUnit}>단위: 시간</Text>
+      </View>
+
       <Text style={styles.sectionTitle}>지난 급여 기록</Text>
-      <FlatList
-        data={payRecords.filter((p) => p.yearMonth !== yearMonth)}
-        keyExtractor={(p) => p.id}
-        ListEmptyComponent={<Text style={styles.empty}>지난 기록이 없어요.</Text>}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.historyRow}
-            onPress={() =>
-              navigation.navigate('PayCompare', { workplaceId: workplace.id, yearMonth: item.yearMonth })
-            }
-            accessibilityRole="button"
-            accessibilityLabel={`${formatYearMonth(item.yearMonth)} 급여 비교`}
+    </>
+  );
+
+  return (
+    <FlatList
+      style={[styles.container, { paddingTop: insets.top + spacing.md }]}
+      contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl + insets.bottom }}
+      ListHeaderComponent={header}
+      data={payRecords.filter((p) => p.yearMonth !== yearMonth)}
+      keyExtractor={(p) => p.id}
+      ListEmptyComponent={<Text style={styles.empty}>지난 기록이 없어요.</Text>}
+      renderItem={({ item }) => (
+        <Pressable
+          style={styles.historyRow}
+          onPress={() =>
+            navigation.navigate('PayCompare', { workplaceId: workplace.id, yearMonth: item.yearMonth })
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`${formatYearMonth(item.yearMonth)} 급여 비교`}
+        >
+          <Text style={styles.historyMonth}>{formatYearMonth(item.yearMonth)}</Text>
+          <Text
+            style={[
+              styles.historyDiff,
+              (item.diff ?? 0) < 0 && styles.historyDiffShort,
+              (item.diff ?? 0) > 0 && styles.historyDiffOver,
+            ]}
           >
-            <Text style={styles.historyMonth}>{formatYearMonth(item.yearMonth)}</Text>
-            <Text
-              style={[
-                styles.historyDiff,
-                (item.diff ?? 0) < 0 && styles.historyDiffShort,
-                (item.diff ?? 0) > 0 && styles.historyDiffOver,
-              ]}
-            >
-              {item.diff === 0 ? '차액 없음' : formatWon(Math.abs(item.diff ?? 0))}
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.subtext} />
-          </Pressable>
-        )}
-      />
-    </View>
+            {item.diff === 0 ? '차액 없음' : formatWon(Math.abs(item.diff ?? 0))}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.subtext} />
+        </Pressable>
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
+  container: { flex: 1, backgroundColor: colors.background },
   title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
   currentCard: {
     flexDirection: 'row',
@@ -129,7 +198,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderRadius: radius.lg,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     ...shadow.card,
   },
   currentIconWrap: {
@@ -143,6 +212,38 @@ const styles = StyleSheet.create({
   currentLabel: { fontSize: 13, color: colors.primaryDark, fontWeight: '700' },
   currentDiff: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
   currentSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  chartCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadow.card,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  chartTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  chartAvg: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  chart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: CHART_HEIGHT + 24,
+  },
+  barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  barValue: { fontSize: 10, color: colors.subtext, marginBottom: 2, fontWeight: '600', height: 14 },
+  barTrack: { height: CHART_HEIGHT, justifyContent: 'flex-end' },
+  bar: { width: 22, borderTopLeftRadius: 5, borderTopRightRadius: 5 },
+  barPast: { backgroundColor: colors.primaryLight },
+  barCurrent: { backgroundColor: colors.primary },
+  barLabel: { fontSize: 11, color: colors.subtext, marginTop: 6 },
+  barLabelCurrent: { color: colors.primaryDark, fontWeight: '800' },
+  chartUnit: { fontSize: 10, color: colors.subtext, textAlign: 'right', marginTop: spacing.xs },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
   empty: { fontSize: 13, color: colors.subtext },
   historyRow: {
@@ -161,7 +262,7 @@ const styles = StyleSheet.create({
   historyDiff: { fontSize: 13, color: colors.subtext, flex: 1, textAlign: 'right' },
   historyDiffShort: { color: colors.danger, fontWeight: '700' },
   historyDiffOver: { color: colors.primaryDark, fontWeight: '700' },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.background },
   emptyIconCircle: {
     width: 64,
     height: 64,
