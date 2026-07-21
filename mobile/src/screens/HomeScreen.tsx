@@ -2,11 +2,11 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
-import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
 import { getAttendanceByMonth, getPayRecord, getActiveOrFirstWorkplace } from '../storage';
+import { getUnreadCount } from '../notificationsFeed';
 import { AttendanceRecord, PayRecord, Workplace } from '../types';
 import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../payCalc';
 import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../utils/date';
@@ -20,11 +20,13 @@ export default function HomeScreen({ navigation }: Props) {
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [payRecord, setPayRecord] = useState<PayRecord | undefined>(undefined);
+  const [unreadCount, setUnreadCount] = useState(0);
   const yearMonth = currentYearMonth();
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
+        getUnreadCount().then(setUnreadCount);
         const w = await getActiveOrFirstWorkplace();
         setWorkplace(w ?? null);
         if (!w) return;
@@ -78,12 +80,17 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.logo}>WorkProof</Text>
         </View>
         <Pressable
-          onPress={() => Alert.alert('알림', '새 알림이 없어요.')}
+          onPress={() => navigation.navigate('Notifications')}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="알림"
+          accessibilityLabel={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
         >
           <Ionicons name="notifications-outline" size={22} color={colors.text} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -208,6 +215,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: { fontSize: 17, fontWeight: '800', color: colors.primaryDark },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   listContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
   sectionRow: {
     flexDirection: 'row',

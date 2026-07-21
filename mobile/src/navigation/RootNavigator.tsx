@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 import MainTabs from './MainTabs';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
@@ -100,6 +101,11 @@ export default function RootNavigator() {
           const tab = getFocusedRouteNameFromRoute(route) ?? 'Home';
           return { headerShown: false, title: TAB_BACK_TITLES[tab] ?? '홈' };
         }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: '알림' }}
       />
       <Stack.Screen
         name="WorkplaceSwitch"

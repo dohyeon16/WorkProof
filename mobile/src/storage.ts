@@ -10,6 +10,7 @@ const KEYS = {
   session: '@workproof/session',
   onboardingDone: '@workproof/onboardingDone',
   activeWorkplaceId: '@workproof/activeWorkplaceId',
+  readNotifications: '@workproof/readNotifications',
 };
 
 export function makeId(): string {
@@ -304,6 +305,22 @@ export async function getActiveWorkplaceId(): Promise<string | null> {
 
 export async function setActiveWorkplaceId(id: string): Promise<void> {
   await AsyncStorage.setItem(KEYS.activeWorkplaceId, id);
+}
+
+// ---------- 인앱 알림 읽음 상태 ----------
+
+// 사용자가 이미 확인한 알림 id 목록. 저장 데이터에서 파생되는 알림이라 별도 본문은
+// 저장하지 않고, 읽음 처리된 id만 남겨 안 읽은 개수(배지)를 계산한다.
+export async function getReadNotificationIds(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(KEYS.readNotifications);
+  return raw ? (JSON.parse(raw) as string[]) : [];
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const existing = new Set(await getReadNotificationIds());
+  for (const id of ids) existing.add(id);
+  await AsyncStorage.setItem(KEYS.readNotifications, JSON.stringify([...existing]));
 }
 
 export async function getActiveOrFirstWorkplace(): Promise<Workplace | undefined> {
