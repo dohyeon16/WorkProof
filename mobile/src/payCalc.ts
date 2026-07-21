@@ -8,6 +8,13 @@ function toMinutes(hhmm: string): number {
 /** 근로기준법 54조: 4시간 이상 근무해야 휴게시간 부여 의무가 발생. 그 미만은 휴게시간 차감 없음. */
 export const BREAK_REQUIRED_MINUTES = 4 * 60;
 
+/** 법정 근로시간: 1일 8시간을 넘는 근무는 연장근로. */
+export const DAILY_REGULAR_MINUTES = 8 * 60;
+/** 법정 근로시간: 1주 40시간을 넘는 근무는 연장근로. */
+export const WEEKLY_REGULAR_MINUTES = 40 * 60;
+/** 연장근로 가산율(근로기준법 56조: 통상임금의 50% 가산). 기본 시급은 이미 기본급에 포함되므로 가산분만 별도 계산한다. */
+export const OVERTIME_PREMIUM_RATE = 0.5;
+
 /** 출퇴근 시각(HH:mm) 사이의 근무 분. 퇴근시간이 출근시간보다 이르면 익일 퇴근으로 간주. */
 export function shiftDurationMinutes(clockIn: string, clockOut: string): number {
   const inM = toMinutes(clockIn);
@@ -54,9 +61,46 @@ export interface MonthlySummary {
   totalWorkedMinutes: number;
   totalBreakMinutes: number;
   weeklyAllowanceMinutes: number; // 주휴수당에 해당하는 '유급 처리 분'
+  overtimeMinutes: number; // 연장근로에 해당하는 분(일 8시간·주 40시간 초과분)
   basePay: number;
   weeklyAllowancePay: number;
+  overtimePay: number; // 연장근로 가산수당(가산분 50%만, 기본급은 basePay에 포함)
   expectedPay: number;
+}
+
+/**
+ * 연장근로 분 계산(5인 이상 사업장 가산 대상). 일 8시간 초과분과, 8시간 이내 근무 중
+ * 주 40시간을 넘는 분을 합산한다(일·주 초과분 중복 계산 방지).
+ * 주휴수당과 동일하게, 이번 달 근무일이 포함된 주 전체를 기준으로 판정한다.
+ */
+function calcOvertimeMinutes(records: AttendanceRecord[], monthWeekKeys: Set<string>): number {
+  // 날짜별 실근무분(하루 여러 건이면 합산). 주 경계가 월을 넘길 수 있어 전체 기록을 대상으로 한다.
+  const dayTotals = new Map<string, number>();
+  for (const r of records) {
+    dayTotals.set(r.date, (dayTotals.get(r.date) ?? 0) + shiftWorkedMinutes(r));
+  }
+  const weekDates = new Map<string, string[]>();
+  for (const date of dayTotals.keys()) {
+    const wk = weekKeyOf(date);
+    const list = weekDates.get(wk);
+    if (list) list.push(date);
+    else weekDates.set(wk, [date]);
+  }
+
+  let overtimeMinutes = 0;
+  for (const wk of monthWeekKeys) {
+    let weekDailyOvertime = 0;
+    let weekRegular = 0; // 일 8시간 이내로 잡힌 분의 합
+    for (const date of weekDates.get(wk) ?? []) {
+      const worked = dayTotals.get(date) ?? 0;
+      const dailyOvertime = Math.max(0, worked - DAILY_REGULAR_MINUTES);
+      weekDailyOvertime += dailyOvertime;
+      weekRegular += worked - dailyOvertime;
+    }
+    const weekOvertime = Math.max(0, weekRegular - WEEKLY_REGULAR_MINUTES);
+    overtimeMinutes += weekDailyOvertime + weekOvertime;
+  }
+  return overtimeMinutes;
 }
 
 /**
@@ -103,9 +147,16 @@ export function calcMonthlySummary(
     }
   }
 
+  // 연장근로 가산은 상시근로자 5인 이상 사업장에만 적용된다(근로기준법 11조·56조).
+  const monthWeekKeys = new Set(dailyBreakdown.map((d) => weekKeyOf(d.date)));
+  const overtimeMinutes = workplace.fiveOrMoreEmployees
+    ? calcOvertimeMinutes(records, monthWeekKeys)
+    : 0;
+
   const basePay = Math.round((totalWorkedMinutes / 60) * workplace.hourlyWage);
   const weeklyAllowancePay = Math.round((weeklyAllowanceMinutes / 60) * workplace.hourlyWage);
-  const expectedPay = basePay + weeklyAllowancePay;
+  const overtimePay = Math.round((overtimeMinutes / 60) * workplace.hourlyWage * OVERTIME_PREMIUM_RATE);
+  const expectedPay = basePay + weeklyAllowancePay + overtimePay;
 
   return {
     yearMonth,
@@ -113,8 +164,10 @@ export function calcMonthlySummary(
     totalWorkedMinutes,
     totalBreakMinutes,
     weeklyAllowanceMinutes,
+    overtimeMinutes,
     basePay,
     weeklyAllowancePay,
+    overtimePay,
     expectedPay,
   };
 }

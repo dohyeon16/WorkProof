@@ -4,6 +4,7 @@ export interface Workplace {
   hourlyWage: number;
   payDay: number; // 1-31
   weeklyAllowance: boolean; // 주휴수당 적용 여부
+  fiveOrMoreEmployees?: boolean; // 상시근로자 5인 이상 사업장 여부(연장근로 가산수당 적용 조건, 구버전 데이터엔 없음 → 미적용)
   breakMinutesPerShift: number; // 근무 1건당 기본 차감 휴게시간(분)
   contractPhotoUri?: string; // 근로계약서 사본(사진 또는 PDF, 선택)
   contractFileKind?: EvidenceKind; // 첨부된 사본의 형식

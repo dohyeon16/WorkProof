@@ -93,9 +93,29 @@ export default function PayInputScreen({ navigation, route }: Props) {
           <View style={styles.cardIconWrap}>
             <Ionicons name="calculator-outline" size={18} color={colors.primaryDark} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.label}>예상 급여</Text>
             <Text style={styles.expectedValue}>{formatWon(summary.expectedPay)}</Text>
+            {(summary.weeklyAllowancePay > 0 || summary.overtimePay > 0) && (
+              <View style={styles.breakdown}>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>기본급</Text>
+                  <Text style={styles.breakdownValue}>{formatWon(summary.basePay)}</Text>
+                </View>
+                {summary.weeklyAllowancePay > 0 && (
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>주휴수당</Text>
+                    <Text style={styles.breakdownValue}>+{formatWon(summary.weeklyAllowancePay)}</Text>
+                  </View>
+                )}
+                {summary.overtimePay > 0 && (
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>연장근로 가산</Text>
+                    <Text style={styles.breakdownValue}>+{formatWon(summary.overtimePay)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -183,6 +203,16 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', color: colors.subtext },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   expectedValue: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
+  breakdown: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 3,
+  },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownLabel: { fontSize: 12, color: colors.subtext },
+  breakdownValue: { fontSize: 12, color: colors.text, fontWeight: '600' },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

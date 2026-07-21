@@ -49,6 +49,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [hourlyWage, setHourlyWage] = useState('');
   const [payDay, setPayDay] = useState('10');
   const [weeklyAllowance, setWeeklyAllowance] = useState(true);
+  const [fiveOrMoreEmployees, setFiveOrMoreEmployees] = useState(false);
   const [breakMinutesPerShift, setBreakMinutesPerShift] = useState('30');
   const [contractPhotoUri, setContractPhotoUri] = useState<string | undefined>(undefined);
   // 저장용 URI(웹은 idb:// 참조)는 <Image>가 못 그리므로, 미리보기용 URI를 따로 둔다.
@@ -90,6 +91,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setHourlyWage(String(w.hourlyWage));
         setPayDay(String(w.payDay));
         setWeeklyAllowance(w.weeklyAllowance);
+        setFiveOrMoreEmployees(w.fiveOrMoreEmployees ?? false);
         setBreakMinutesPerShift(String(w.breakMinutesPerShift));
         setContractPhotoUri(w.contractPhotoUri);
         setContractFileKind(w.contractFileKind);
@@ -274,6 +276,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       hourlyWage: wage,
       payDay: day,
       weeklyAllowance,
+      fiveOrMoreEmployees,
       breakMinutesPerShift: breakMin,
       contractPhotoUri,
       contractFileKind,
@@ -409,6 +412,19 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           <Switch
             value={weeklyAllowance}
             onValueChange={setWeeklyAllowance}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        <View style={styles.switchCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>5인 이상 사업장</Text>
+            <Text style={styles.help}>연장근로(일 8시간·주 40시간 초과) 가산수당 자동 반영</Text>
+          </View>
+          <Switch
+            value={fiveOrMoreEmployees}
+            onValueChange={setFiveOrMoreEmployees}
             trackColor={{ true: colors.primary, false: colors.border }}
             thumbColor="#fff"
           />

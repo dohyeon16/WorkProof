@@ -74,6 +74,9 @@ export function buildReportHtml(
         <div class="pay-row"><span>주휴수당 적용</span><span>${
           workplace.weeklyAllowance ? '적용' : '미적용'
         }</span></div>
+        <div class="pay-row"><span>연장근로 가산(5인 이상)</span><span>${
+          workplace.fiveOrMoreEmployees ? '적용' : '미적용'
+        }</span></div>
 
         <h2>근무 기록</h2>
         <table>
@@ -84,9 +87,16 @@ export function buildReportHtml(
         <h2>급여 비교</h2>
         <div class="pay-row"><span>기본급</span><span>${formatWon(summary.basePay)}</span></div>
         ${
-          workplace.weeklyAllowance
+          summary.weeklyAllowancePay > 0
             ? `<div class="pay-row"><span>주휴수당(간이 계산)</span><span>${formatWon(
                 summary.weeklyAllowancePay
+              )}</span></div>`
+            : ''
+        }
+        ${
+          summary.overtimePay > 0
+            ? `<div class="pay-row"><span>연장근로 가산수당(간이 계산)</span><span>${formatWon(
+                summary.overtimePay
               )}</span></div>`
             : ''
         }
