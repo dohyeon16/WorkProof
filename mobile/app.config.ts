@@ -12,7 +12,8 @@ const config: ExpoConfig = {
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'light',
+  // 시스템 라이트/다크 설정을 따르도록 automatic. theme/semantic.ts가 시작 시 팔레트를 고른다.
+  userInterfaceStyle: 'automatic',
   ios: {
     supportsTablet: true,
     // Required for the "iOS" (bundle-id-scoped) OAuth client types that

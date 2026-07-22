@@ -96,7 +96,7 @@ export default function PayCompareScreen({ navigation, route }: Props) {
         accessibilityRole="button"
         accessibilityLabel="상세 항목 확인하기"
       >
-        <Ionicons name="list-outline" size={16} color="#fff" />
+        <Ionicons name="list-outline" size={16} color={colors.onPrimary} />
         <Text style={styles.detailButtonText}>상세 항목 확인하기</Text>
       </Pressable>
 
@@ -150,12 +150,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.text,
+    // 라이트/다크 모두 대비가 보장되는 브랜드 primary + onPrimary 조합.
+    // (이전엔 backgroundColor: colors.text + 흰 글자라 다크에서 밝은 배경+흰 글자로 안 보였음)
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm + 6,
     marginTop: spacing.lg,
   },
-  detailButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  detailButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 15 },
   editButton: { marginTop: spacing.md, alignItems: 'center' },
   editButtonText: { color: colors.subtext, fontSize: 13 },
   emptyContainer: {
