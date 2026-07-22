@@ -81,7 +81,7 @@ export async function extractTextFromDocument(
       branch: isPdf ? 'pdf' : 'image',
       error: e instanceof Error ? e.message : String(e),
     });
-    return { status: 'error', message: FILE_UNREADABLE_MESSAGE };
+    return { status: 'error', message: FILE_UNREADABLE_MESSAGE, code: 'file_unreadable' };
   }
   if (!base64) {
     console.warn('[visionOcr] base64 없음(만료/삭제 추정)', {
@@ -91,7 +91,7 @@ export async function extractTextFromDocument(
       size: debug?.size ?? null,
       branch: isPdf ? 'pdf' : 'image',
     });
-    return { status: 'error', message: FILE_UNREADABLE_MESSAGE };
+    return { status: 'error', message: FILE_UNREADABLE_MESSAGE, code: 'file_unreadable' };
   }
 
   // 진단용(키는 절대 로그하지 않는다): 어떤 파일을 어떻게 보냈는지.
@@ -123,13 +123,13 @@ export async function extractTextFromDocument(
       const first = json.responses?.[0];
       if (!res.ok || json.error || first?.error) {
         const apiMessage = json.error?.message ?? first?.error?.message;
-        return { status: 'error', message: describeVisionError(res.status, apiMessage) };
+        return { status: 'error', message: describeVisionError(res.status, apiMessage), code: 'request_failed' };
       }
       const text = (first?.responses ?? [])
         .map((p) => p.fullTextAnnotation?.text?.trim())
         .filter(Boolean)
         .join('\n\n');
-      if (!text) return { status: 'error', message: '텍스트를 인식하지 못했어요. 더 선명한 파일로 다시 시도해주세요.' };
+      if (!text) return { status: 'error', message: '텍스트를 인식하지 못했어요. 더 선명한 파일로 다시 시도해주세요.', code: 'empty' };
       return { status: 'success', text };
     }
 
@@ -149,12 +149,12 @@ export async function extractTextFromDocument(
     const first = json.responses?.[0];
     if (!res.ok || json.error || first?.error) {
       const apiMessage = json.error?.message ?? first?.error?.message;
-      return { status: 'error', message: describeVisionError(res.status, apiMessage) };
+      return { status: 'error', message: describeVisionError(res.status, apiMessage), code: 'request_failed' };
     }
     const text = first?.fullTextAnnotation?.text?.trim();
-    if (!text) return { status: 'error', message: '텍스트를 인식하지 못했어요. 더 선명한 사진으로 다시 시도해주세요.' };
+    if (!text) return { status: 'error', message: '텍스트를 인식하지 못했어요. 더 선명한 사진으로 다시 시도해주세요.', code: 'empty' };
     return { status: 'success', text };
   } catch {
-    return { status: 'error', message: '네트워크 오류로 텍스트 추출에 실패했어요.' };
+    return { status: 'error', message: '네트워크 오류로 텍스트 추출에 실패했어요.', code: 'network' };
   }
 }

@@ -1,20 +1,48 @@
-import { extractTextFromDocument } from '../ocr/visionOcr';
+import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { summarizeContractText } from './geminiSummary';
+import { resolveReadableUri } from '../utils/fileStore';
 import type { EvidenceKind } from '../types';
 
 /**
- * 첨부 파일(이미지/PDF)에서 OCR로 텍스트를 뽑고 이어서 AI로 요약한다.
- * 근무지 등록 화면과 증빙 보관함이 공통으로 쓰는 계약서 분석 파이프라인.
+ * 첨부 파일(이미지/PDF) 하나를 OCR → AI 요약까지 처리하는 공용 파이프라인.
+ * 근무지 등록 화면과 증빙 보관함이 모두 이 함수 하나만 사용한다.
  *
- * OCR 단계와 요약 단계를 각각 구분해 결과를 돌려주므로, 호출 측에서
- * "텍스트는 뽑혔지만 요약만 실패" 같은 부분 성공도 자연스럽게 다룰 수 있다.
+ * 설계 원칙:
+ * - OCR 결과를 React state가 아니라 **로컬 변수**에 담아 그대로 요약에 넘긴다
+ *   (state 갱신 타이밍에 의존하지 않음).
+ * - OCR은 성공했는데 요약만 실패한 경우 ocrText를 보존해 돌려준다(부분 성공).
+ * - 실패 원인을 errorCode로 구분해 호출부가 사용자 문구/후처리를 정할 수 있게 한다.
  */
-export type AnalyzeResult =
-  | { status: 'ocr_not_configured' }
-  | { status: 'ocr_error'; message: string }
-  | { status: 'summary_not_configured'; ocrText: string }
-  | { status: 'summary_error'; ocrText: string; message: string }
-  | { status: 'success'; ocrText: string; summary: string };
+
+// 진단용 오류 코드(사용자에겐 짧은 한국어만, 로그에는 이 코드로 구분).
+export type AnalyzeErrorCode =
+  | 'FILE_NOT_READY'
+  | 'OCR_NOT_CONFIGURED'
+  | 'OCR_FAILED'
+  | 'OCR_EMPTY'
+  | 'SUMMARY_NOT_CONFIGURED'
+  | 'GEMINI_NETWORK_ERROR'
+  | 'GEMINI_RATE_LIMIT'
+  | 'GEMINI_SERVER_ERROR'
+  | 'GEMINI_CONFIG_ERROR'
+  | 'GEMINI_EMPTY';
+
+export interface AnalyzeEvidenceResult {
+  // success=OCR+요약 모두 성공, ocr_only=텍스트는 있으나 요약 없음, error=텍스트도 못 얻음
+  status: 'success' | 'ocr_only' | 'error';
+  ocrText?: string;
+  aiSummary?: string;
+  analyzedAt?: string;
+  errorCode?: AnalyzeErrorCode;
+}
+
+export interface AnalyzeEvidenceInput {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number | null;
+  logContext?: { screen: 'WorkplaceForm' | 'Vault'; requestId?: number };
+}
 
 /** 저장된 증빙 파일 종류를 Vision이 기대하는 MIME 타입으로 변환한다. */
 export function mimeTypeForKind(kind: EvidenceKind, name?: string): string {
@@ -26,21 +54,81 @@ export function mimeTypeForKind(kind: EvidenceKind, name?: string): string {
   return 'image/jpeg';
 }
 
-export async function analyzeContract(
-  uri: string,
-  mimeType: string,
-  debug?: { name?: string; size?: number | null }
-): Promise<AnalyzeResult> {
-  const ocr = await extractTextFromDocument(uri, mimeType, debug);
-  if (ocr.status === 'not_configured') return { status: 'ocr_not_configured' };
-  if (ocr.status === 'error') return { status: 'ocr_error', message: ocr.message };
+/** URI에서 스킴만 뽑는다(로그용). 파일 내용/키는 절대 로그하지 않는다. */
+function schemeOf(uri: string): string {
+  const i = uri.indexOf(':');
+  return i > 0 ? uri.slice(0, i) : '(none)';
+}
 
-  const summary = await summarizeContractText(ocr.text);
+/**
+ * 파일명에는 성명 등 개인정보가 들어갈 수 있어, 로그에는 원본 대신 확장자와
+ * 글자 수만 남긴다(예: "홍길동_근로계약서.pdf" → "masked(len=13,ext=pdf)").
+ */
+export function maskFileName(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 && dot < name.length - 1 ? name.slice(dot + 1).toLowerCase().slice(0, 8) : 'none';
+  return `masked(len=${name.length},ext=${ext})`;
+}
+
+function log(event: string, input: AnalyzeEvidenceInput, extra?: Record<string, unknown>) {
+  console.log('[analyze]', event, {
+    screen: input.logContext?.screen,
+    requestId: input.logContext?.requestId,
+    file: maskFileName(input.name),
+    mimeType: input.mimeType,
+    uriScheme: schemeOf(input.uri),
+    size: input.size ?? null,
+    ...extra,
+  });
+}
+
+export async function analyzeEvidenceFile(input: AnalyzeEvidenceInput): Promise<AnalyzeEvidenceResult> {
+  const { name, mimeType, size } = input;
+  log('start', input);
+
+  // 1) 파일 준비 확인: 저장된 URI를 읽을 수 있는 형태로 정규화(웹 idb://→data:, 네이티브 file:// 존재 확인).
+  const readableUri = await resolveReadableUri(input.uri);
+  if (!readableUri) {
+    log('file_not_ready', input);
+    return { status: 'error', errorCode: 'FILE_NOT_READY' };
+  }
+
+  // 2) OCR 실행 (visionOcr 로그에도 마스킹된 파일명만 전달)
+  log('ocr_start', input);
+  const ocr = await extractTextFromDocument(readableUri, mimeType, { name: maskFileName(name), size });
+  if (ocr.status === 'not_configured') {
+    log('ocr_not_configured', input);
+    return { status: 'error', errorCode: 'OCR_NOT_CONFIGURED' };
+  }
+  if (ocr.status === 'error') {
+    const errorCode: AnalyzeErrorCode =
+      ocr.code === 'file_unreadable' || ocr.message === FILE_UNREADABLE_MESSAGE
+        ? 'FILE_NOT_READY'
+        : ocr.code === 'empty'
+        ? 'OCR_EMPTY'
+        : 'OCR_FAILED';
+    log('ocr_error', input, { errorCode, ocrCode: ocr.code });
+    return { status: 'error', errorCode };
+  }
+
+  // 3) OCR 결과를 로컬 변수에 보관 (state에 의존하지 않음)
+  const extractedText = ocr.text;
+  const analyzedAt = new Date().toISOString();
+  log('ocr_success', input, { textLength: extractedText.length });
+
+  // 4) 로컬 변수의 텍스트를 그대로 Gemini에 전달 (내부에서 재시도 포함)
+  log('gemini_start', input);
+  const summary = await summarizeContractText(extractedText);
   if (summary.status === 'not_configured') {
-    return { status: 'summary_not_configured', ocrText: ocr.text };
+    log('gemini_not_configured', input);
+    return { status: 'ocr_only', ocrText: extractedText, analyzedAt, errorCode: 'SUMMARY_NOT_CONFIGURED' };
   }
   if (summary.status === 'error') {
-    return { status: 'summary_error', ocrText: ocr.text, message: summary.message };
+    log('gemini_error', input, { errorCode: summary.code });
+    return { status: 'ocr_only', ocrText: extractedText, analyzedAt, errorCode: summary.code };
   }
-  return { status: 'success', ocrText: ocr.text, summary: summary.summary };
+
+  // 5) 완성된 결과를 한 번에 돌려준다
+  log('gemini_success', input);
+  return { status: 'success', ocrText: extractedText, aiSummary: summary.summary, analyzedAt };
 }
