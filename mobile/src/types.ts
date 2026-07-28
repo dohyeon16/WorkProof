@@ -24,6 +24,12 @@ export interface AttendanceRecord {
   clockOut: string; // HH:mm
   breakMinutes: number;
   note?: string;
+  // 출근/퇴근을 실시간 기록할 때 캡처한 실제 위치(선택). 근무지 좌표와 비교해 '근무지에서
+  // 기록됨'을 증빙하는 데 쓴다. 위치 권한이 없거나 수기 입력한 기록엔 비어 있다.
+  clockInLatitude?: number;
+  clockInLongitude?: number;
+  clockOutLatitude?: number;
+  clockOutLongitude?: number;
 }
 
 export type ChecklistStatus = 'risk' | 'ok';

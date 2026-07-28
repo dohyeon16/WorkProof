@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
 import { getAttendanceRecord, getWorkplace, deleteAttendance, makeId, saveAttendance } from '../storage';
+import type { AttendanceRecord } from '../types';
 import { formatTimeInput, todayDateString } from '../utils/date';
 import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../payCalc';
 import { colors, radius, shadow, spacing } from '../theme';
@@ -40,6 +41,8 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [breakMinutes, setBreakMinutes] = useState(0);
   // 휴게시간 휠을 조작하는 동안 화면 스크롤을 잠근다(네이티브).
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  // 수정 시 폼에 노출하지 않는 필드(출퇴근 GPS 위치 등)를 잃지 않도록 원본 기록을 보관한다.
+  const existingRef = useRef<AttendanceRecord | null>(null);
   const numericNav = useNumericInputNavigation(NUMERIC_FIELDS);
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
           setClockOut(record.clockOut);
           setBreakMinutes(clampBreakMinutes(record.breakMinutes));
         }
+        existingRef.current = record;
       } else {
         const workplace = await getWorkplace(workplaceId);
         if (workplace) setBreakMinutes(clampBreakMinutes(workplace.breakMinutesPerShift));
@@ -85,6 +89,8 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
     }
 
     await saveAttendance({
+      // 폼에 없는 필드(출퇴근 GPS 위치 등)는 원본에서 이어받아 수정 시 유실되지 않게 한다.
+      ...(existingRef.current ?? {}),
       id: editingId ?? makeId(),
       workplaceId,
       date,

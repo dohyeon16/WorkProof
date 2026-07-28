@@ -50,7 +50,7 @@ const config: ExpoConfig = {
     [
       'expo-location',
       {
-        locationWhenInUsePermission: '근무지 위치를 등록하기 위해 현재 위치를 사용합니다.',
+        locationWhenInUsePermission: '근무지 위치를 등록하고 출퇴근을 인증하기 위해 현재 위치를 사용합니다.',
       },
     ],
     [
