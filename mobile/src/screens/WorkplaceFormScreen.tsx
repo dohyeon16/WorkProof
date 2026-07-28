@@ -30,10 +30,11 @@ import {
   setActiveWorkplaceId,
 } from '../storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../notifications';
+import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../payCalc';
 import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../ai/analyzeContract';
 import { FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
-import type { EvidenceKind } from '../types';
+import type { EvidenceKind, IncomeDeductionType } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
@@ -41,6 +42,12 @@ type Props = RootScreenProps<'WorkplaceForm'>;
 
 // 숫자 입력 순서: 시급 → 급여일 → 기본 휴게시간(마지막 → '완료').
 const NUMERIC_FIELDS = ['wage', 'payDay', 'break'] as const;
+
+const DEDUCTION_OPTIONS: { value: IncomeDeductionType; label: string }[] = [
+  { value: 'none', label: '공제 없음' },
+  { value: 'withholding', label: '3.3% 원천징수' },
+  { value: 'insurance', label: '4대보험' },
+];
 
 export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const editingId = route.params?.id;
@@ -50,6 +57,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [payDay, setPayDay] = useState('10');
   const [weeklyAllowance, setWeeklyAllowance] = useState(true);
   const [fiveOrMoreEmployees, setFiveOrMoreEmployees] = useState(false);
+  const [incomeDeductionType, setIncomeDeductionType] = useState<IncomeDeductionType>('none');
   const [breakMinutesPerShift, setBreakMinutesPerShift] = useState('30');
   const [contractPhotoUri, setContractPhotoUri] = useState<string | undefined>(undefined);
   // 저장용 URI(웹은 idb:// 참조)는 <Image>가 못 그리므로, 미리보기용 URI를 따로 둔다.
@@ -97,6 +105,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setPayDay(String(w.payDay));
         setWeeklyAllowance(w.weeklyAllowance);
         setFiveOrMoreEmployees(w.fiveOrMoreEmployees ?? false);
+        setIncomeDeductionType(w.incomeDeductionType ?? 'none');
         setBreakMinutesPerShift(String(w.breakMinutesPerShift));
         setContractPhotoUri(w.contractPhotoUri);
         setContractFileKind(w.contractFileKind);
@@ -329,6 +338,24 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       return;
     }
 
+    // 최저임금 미달이면 경고하되, 사용자가 원하면 그대로 저장할 수 있게 한다(강제 차단 아님).
+    if (wage < MINIMUM_HOURLY_WAGE) {
+      Alert.alert(
+        '최저임금보다 낮아요',
+        `입력한 시급(${wage.toLocaleString('ko-KR')}원)이 ${MINIMUM_WAGE_YEAR}년 최저임금 ${MINIMUM_HOURLY_WAGE.toLocaleString(
+          'ko-KR'
+        )}원보다 낮아요. 그래도 저장할까요?`,
+        [
+          { text: '다시 입력', style: 'cancel' },
+          { text: '그대로 저장', onPress: () => void persistWorkplace(wage, day, breakMin) },
+        ]
+      );
+      return;
+    }
+    await persistWorkplace(wage, day, breakMin);
+  };
+
+  const persistWorkplace = async (wage: number, day: number, breakMin: number) => {
     const id = editingId ?? makeId();
     const existingWorkplaces = await getWorkplaces();
     const workplace = {
@@ -338,6 +365,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       payDay: day,
       weeklyAllowance,
       fiveOrMoreEmployees,
+      incomeDeductionType,
       breakMinutesPerShift: breakMin,
       contractPhotoUri,
       contractFileKind,
@@ -407,6 +435,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
   const wageNum = Number(hourlyWage);
   const wagePreview = hourlyWage && Number.isFinite(wageNum) && wageNum > 0 ? `${wageNum.toLocaleString('ko-KR')}원` : null;
+  const belowMinWage = !!hourlyWage && Number.isFinite(wageNum) && wageNum > 0 && wageNum < MINIMUM_HOURLY_WAGE;
 
   return (
     <KeyboardAvoidingView
@@ -452,6 +481,12 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           suffix="원"
         />
         {wagePreview && <Text style={styles.preview}>= {wagePreview}</Text>}
+        {belowMinWage && (
+          <Text style={styles.wageWarn}>
+            <Ionicons name="alert-circle" size={12} color={colors.danger} /> {MINIMUM_WAGE_YEAR}년 최저임금(
+            {MINIMUM_HOURLY_WAGE.toLocaleString('ko-KR')}원)보다 낮아요.
+          </Text>
+        )}
 
         <Text style={styles.label}>급여일 (매월)</Text>
         <FieldInput
@@ -490,6 +525,28 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
             thumbColor="#fff"
           />
         </View>
+
+        <Text style={styles.label}>세금·공제 유형</Text>
+        <View style={styles.segment}>
+          {DEDUCTION_OPTIONS.map((opt) => {
+            const active = incomeDeductionType === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                style={[styles.segmentItem, active && styles.segmentItemActive]}
+                onPress={() => setIncomeDeductionType(opt.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={opt.label}
+              >
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.help}>
+          세후 예상 실수령액을 어림하는 데 쓰여요. 정확한 공제액은 사업장·소득에 따라 달라질 수 있어요.
+        </Text>
 
         <Text style={styles.label}>근무 1건당 기본 휴게시간</Text>
         <FieldInput
@@ -625,6 +682,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   help: { fontSize: 12, color: colors.subtext, marginBottom: spacing.md },
   preview: { fontSize: 12, color: colors.primaryDark, fontWeight: '600', marginTop: -spacing.xs, marginBottom: spacing.md },
+  wageWarn: { fontSize: 12, color: colors.danger, fontWeight: '600', marginTop: -spacing.sm, marginBottom: spacing.md },
   switchCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -636,6 +694,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 3,
+    gap: 3,
+    marginBottom: spacing.xs,
+  },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  segmentItemActive: { backgroundColor: colors.primary },
+  segmentText: { fontSize: 12, fontWeight: '700', color: colors.subtext },
+  segmentTextActive: { color: '#fff' },
   placeCard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,5 +1,5 @@
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
@@ -39,6 +39,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [clockIn, setClockIn] = useState('');
   const [clockOut, setClockOut] = useState('');
   const [breakMinutes, setBreakMinutes] = useState(0);
+  const [isHoliday, setIsHoliday] = useState(false);
   // 휴게시간 휠을 조작하는 동안 화면 스크롤을 잠근다(네이티브).
   const [scrollEnabled, setScrollEnabled] = useState(true);
   // 수정 시 폼에 노출하지 않는 필드(출퇴근 GPS 위치 등)를 잃지 않도록 원본 기록을 보관한다.
@@ -56,6 +57,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
           setBreakMinutes(clampBreakMinutes(record.breakMinutes));
         }
         existingRef.current = record;
+        setIsHoliday(record.isHoliday ?? false);
       } else {
         const workplace = await getWorkplace(workplaceId);
         if (workplace) setBreakMinutes(clampBreakMinutes(workplace.breakMinutesPerShift));
@@ -97,6 +99,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
       clockIn,
       clockOut,
       breakMinutes,
+      isHoliday,
     });
     navigation.goBack();
   };
@@ -178,6 +181,19 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
             : '4시간 미만 근무는 휴게시간이 자동으로 반영되지 않아요.'}
         </Text>
 
+        <View style={styles.switchCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>휴일근로</Text>
+            <Text style={styles.switchHelp}>공휴일·약정휴일 근무. 5인 이상 사업장이면 휴일 가산수당이 반영돼요.</Text>
+          </View>
+          <Switch
+            value={isHoliday}
+            onValueChange={setIsHoliday}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+
         <Pressable
           style={styles.saveButton}
           onPress={handleSave}
@@ -214,6 +230,18 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
   label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   help: { fontSize: 12, color: colors.subtext, marginTop: -spacing.xs, marginBottom: spacing.md },
+  switchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginBottom: spacing.md,
+  },
+  switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  switchHelp: { fontSize: 12, color: colors.subtext, paddingRight: spacing.sm },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

@@ -1,6 +1,12 @@
-import { AttendanceRecord, EvidenceFile, PayRecord, Workplace } from './types';
 import { appliedBreakMinutes, calcMonthlySummary, formatMinutesAsHours, formatWon } from './payCalc';
+import { AttendanceRecord, EvidenceFile, IncomeDeductionType, PayRecord, Workplace } from './types';
 import { formatYearMonth } from './utils/date';
+
+const DEDUCTION_LABELS: Record<IncomeDeductionType, string> = {
+  none: '없음',
+  withholding: '3.3% 원천징수',
+  insurance: '4대보험',
+};
 
 export function buildReportHtml(
   workplace: Workplace,
@@ -100,9 +106,33 @@ export function buildReportHtml(
               )}</span></div>`
             : ''
         }
-        <div class="pay-row"><span><b>예상 급여</b></span><span><b>${formatWon(
-          summary.expectedPay
-        )}</b></span></div>
+        ${
+          summary.nightPay > 0
+            ? `<div class="pay-row"><span>야간근로 가산수당(간이 계산)</span><span>${formatWon(
+                summary.nightPay
+              )}</span></div>`
+            : ''
+        }
+        ${
+          summary.holidayPay > 0
+            ? `<div class="pay-row"><span>휴일근로 가산수당(간이 계산)</span><span>${formatWon(
+                summary.holidayPay
+              )}</span></div>`
+            : ''
+        }
+        <div class="pay-row"><span><b>예상 급여${
+          summary.deductionType !== 'none' ? ' (세전)' : ''
+        }</b></span><span><b>${formatWon(summary.expectedPay)}</b></span></div>
+        ${
+          summary.deductionType !== 'none'
+            ? `<div class="pay-row"><span>예상 공제 (${DEDUCTION_LABELS[summary.deductionType]})</span><span>- ${formatWon(
+                summary.deductionPay
+              )}</span></div>
+        <div class="pay-row"><span><b>세후 예상 실수령</b></span><span><b>${formatWon(
+          summary.netExpectedPay
+        )}</b></span></div>`
+            : ''
+        }
         <div class="pay-row"><span>실제 입금액</span><span>${
           hasActual ? formatWon(payRecord!.actualPay as number) : '미입력'
         }</span></div>

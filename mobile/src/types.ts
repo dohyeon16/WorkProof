@@ -1,3 +1,10 @@
+// 급여에서 빠지는 공제 유형. 세전 예상액에서 세후 실수령액을 어림하는 데 쓴다.
+//  - none: 공제 없음(세전 = 세후)
+//  - withholding: 사업소득 원천징수 3.3%(단기 알바·프리랜서 형태에서 흔함)
+//  - insurance: 4대보험 근로자 부담분 대략 9.4%(정규 근로 형태)
+// 구버전 데이터엔 없음 → 'none'으로 취급한다.
+export type IncomeDeductionType = 'none' | 'withholding' | 'insurance';
+
 export interface Workplace {
   id: string;
   name: string;
@@ -5,6 +12,7 @@ export interface Workplace {
   payDay: number; // 1-31
   weeklyAllowance: boolean; // 주휴수당 적용 여부
   fiveOrMoreEmployees?: boolean; // 상시근로자 5인 이상 사업장 여부(연장근로 가산수당 적용 조건, 구버전 데이터엔 없음 → 미적용)
+  incomeDeductionType?: IncomeDeductionType; // 세후 실수령액 추정용 공제 유형(구버전 데이터엔 없음 → 'none')
   breakMinutesPerShift: number; // 근무 1건당 기본 차감 휴게시간(분)
   contractPhotoUri?: string; // 근로계약서 사본(사진 또는 PDF, 선택)
   contractFileKind?: EvidenceKind; // 첨부된 사본의 형식
@@ -24,6 +32,7 @@ export interface AttendanceRecord {
   clockOut: string; // HH:mm
   breakMinutes: number;
   note?: string;
+  isHoliday?: boolean; // 휴일근로 여부(관공서 공휴일·약정휴일 등). 5인 이상 사업장에서 휴일 가산수당 계산에 쓴다. 구버전 데이터엔 없음 → false
   // 출근/퇴근을 실시간 기록할 때 캡처한 실제 위치(선택). 근무지 좌표와 비교해 '근무지에서
   // 기록됨'을 증빙하는 데 쓴다. 위치 권한이 없거나 수기 입력한 기록엔 비어 있다.
   clockInLatitude?: number;

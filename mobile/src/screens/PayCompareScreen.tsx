@@ -5,9 +5,9 @@ import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootScreenProps } from '../navigation/types';
-import { getPayRecord } from '../storage';
-import { PayRecord } from '../types';
-import { formatWon } from '../payCalc';
+import { getPayRecord, getWorkplace } from '../storage';
+import { IncomeDeductionType, PayRecord } from '../types';
+import { formatWon, netPay } from '../payCalc';
 import { formatYearMonth } from '../utils/date';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -17,10 +17,12 @@ type Props = RootScreenProps<'PayCompare'>;
 export default function PayCompareScreen({ navigation, route }: Props) {
   const { workplaceId, yearMonth } = route.params;
   const [payRecord, setPayRecord] = useState<PayRecord | null | undefined>(undefined);
+  const [deductionType, setDeductionType] = useState<IncomeDeductionType>('none');
 
   useFocusEffect(
     useCallback(() => {
       getPayRecord(workplaceId, yearMonth).then((p) => setPayRecord(p ?? null));
+      getWorkplace(workplaceId).then((w) => setDeductionType(w?.incomeDeductionType ?? 'none'));
     }, [workplaceId, yearMonth])
   );
 
@@ -62,8 +64,11 @@ export default function PayCompareScreen({ navigation, route }: Props) {
       <View style={styles.boxRow}>
         <View style={styles.box}>
           <Ionicons name="calculator-outline" size={16} color={colors.subtext} />
-          <Text style={styles.boxLabel}>예상 급여</Text>
+          <Text style={styles.boxLabel}>예상 급여{deductionType !== 'none' ? ' (세전)' : ''}</Text>
           <Text style={styles.boxValue}>{formatWon(payRecord.expectedPay)}</Text>
+          {deductionType !== 'none' && (
+            <Text style={styles.boxCaption}>세후 {formatWon(netPay(payRecord.expectedPay, deductionType))}</Text>
+          )}
         </View>
         <View style={[styles.box, styles.boxSecondary]}>
           <Ionicons name="wallet-outline" size={16} color={colors.primaryDark} />
@@ -130,6 +135,7 @@ const styles = StyleSheet.create({
   boxSecondary: { backgroundColor: colors.primaryLight, borderColor: colors.primaryLight },
   boxLabel: { fontSize: 12, color: colors.subtext },
   boxValue: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
+  boxCaption: { fontSize: 11, color: colors.subtext, marginTop: 2 },
   boxValuePrimary: { fontSize: 18, fontWeight: '800', color: colors.primaryDark, marginTop: spacing.xs },
   diffCard: {
     borderRadius: radius.lg,

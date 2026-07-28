@@ -122,9 +122,15 @@ export default function HomeScreen({ navigation }: Props) {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>예상 급여</Text>
+                <Text style={styles.summaryLabel}>예상 급여{summary.deductionType !== 'none' ? ' (세전)' : ''}</Text>
                 <Text style={styles.summaryValuePrimary}>{formatWon(summary.expectedPay)}</Text>
               </View>
+              {summary.deductionType !== 'none' && (
+                <View style={styles.summaryNetRow}>
+                  <Text style={styles.summaryNetLabel}>세후 실수령 예상</Text>
+                  <Text style={styles.summaryNetValue}>{formatWon(summary.netExpectedPay)}</Text>
+                </View>
+              )}
               <View style={styles.summaryDivider} />
               <View style={styles.summaryFooterRow}>
                 <View style={styles.payDayChip}>
@@ -260,6 +266,9 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, color: colors.subtext },
   summaryValue: { fontSize: 20, fontWeight: '800', color: colors.text },
   summaryValuePrimary: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
+  summaryNetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
+  summaryNetLabel: { fontSize: 12, color: colors.subtext },
+  summaryNetValue: { fontSize: 14, fontWeight: '700', color: colors.text },
   summaryFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   payDayChip: {
     flexDirection: 'row',

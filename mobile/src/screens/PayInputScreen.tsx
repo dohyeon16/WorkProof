@@ -96,7 +96,10 @@ export default function PayInputScreen({ navigation, route }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.label}>예상 급여</Text>
             <Text style={styles.expectedValue}>{formatWon(summary.expectedPay)}</Text>
-            {(summary.weeklyAllowancePay > 0 || summary.overtimePay > 0) && (
+            {(summary.weeklyAllowancePay > 0 ||
+              summary.overtimePay > 0 ||
+              summary.nightPay > 0 ||
+              summary.holidayPay > 0) && (
               <View style={styles.breakdown}>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>기본급</Text>
@@ -112,6 +115,18 @@ export default function PayInputScreen({ navigation, route }: Props) {
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>연장근로 가산</Text>
                     <Text style={styles.breakdownValue}>+{formatWon(summary.overtimePay)}</Text>
+                  </View>
+                )}
+                {summary.nightPay > 0 && (
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>야간근로 가산</Text>
+                    <Text style={styles.breakdownValue}>+{formatWon(summary.nightPay)}</Text>
+                  </View>
+                )}
+                {summary.holidayPay > 0 && (
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>휴일근로 가산</Text>
+                    <Text style={styles.breakdownValue}>+{formatWon(summary.holidayPay)}</Text>
                   </View>
                 )}
               </View>
