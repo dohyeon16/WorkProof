@@ -54,6 +54,12 @@ const config: ExpoConfig = {
       },
     ],
     [
+      'expo-local-authentication',
+      {
+        faceIDPermission: '앱 잠금을 해제하기 위해 Face ID를 사용합니다.',
+      },
+    ],
+    [
       'expo-build-properties',
       {
         android: {
