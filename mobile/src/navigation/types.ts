@@ -39,6 +39,7 @@ export type RootStackParamList = {
   WorkplacePlacePicker: { latitude?: number; longitude?: number };
   WorkplaceRegistered: { id: string };
   Main: NavigatorScreenParams<MainTabParamList>;
+  AllWorkplaces: undefined;
   Notifications: undefined;
   WorkplaceSwitch: undefined;
   AttendanceCheck: { workplaceId: string };

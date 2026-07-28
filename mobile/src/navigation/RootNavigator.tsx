@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 import MainTabs from './MainTabs';
+import AllWorkplacesScreen from '../screens/AllWorkplacesScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -101,6 +102,11 @@ export default function RootNavigator() {
           const tab = getFocusedRouteNameFromRoute(route) ?? 'Home';
           return { headerShown: false, title: TAB_BACK_TITLES[tab] ?? '홈' };
         }}
+      />
+      <Stack.Screen
+        name="AllWorkplaces"
+        component={AllWorkplacesScreen}
+        options={{ title: '전체 근무지 합산' }}
       />
       <Stack.Screen
         name="Notifications"
