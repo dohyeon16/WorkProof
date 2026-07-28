@@ -50,13 +50,19 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
     (async () => {
       if (editingId) {
         const record = await getAttendanceRecord(editingId);
-        if (record) {
-          setDate(record.date);
-          setClockIn(record.clockIn);
-          setClockOut(record.clockOut);
-          setBreakMinutes(clampBreakMinutes(record.breakMinutes));
+        if (!record) {
+          // 알림 등으로 이 화면에 들어왔지만 대상 기록이 이미 삭제된 경우.
+          // 빈 폼을 열지 않고(빈 기록 생성 방지) 안내 후 이전 화면으로 돌아간다.
+          Alert.alert('기록을 찾을 수 없어요', '해당 근무 기록이 삭제되었거나 존재하지 않아요.', [
+            { text: '확인', onPress: () => navigation.goBack() },
+          ]);
+          return; // setLoaded(true)도 하지 않아 폼이 그려지지 않는다
         }
         existingRef.current = record;
+        setDate(record.date);
+        setClockIn(record.clockIn);
+        setClockOut(record.clockOut);
+        setBreakMinutes(clampBreakMinutes(record.breakMinutes));
         setIsHoliday(record.isHoliday ?? false);
       } else {
         const workplace = await getWorkplace(workplaceId);
@@ -64,7 +70,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
       }
       setLoaded(true);
     })();
-  }, [editingId, workplaceId]);
+  }, [editingId, workplaceId, navigation]);
 
   const isShortShift = TIME_RE.test(clockIn) && TIME_RE.test(clockOut) && shiftDurationMinutes(clockIn, clockOut) < BREAK_REQUIRED_MINUTES;
 
@@ -77,6 +83,13 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   if (!loaded) return <LoadingScreen />;
 
   const handleSave = async () => {
+    // 편집 모드인데 원본 기록이 사라졌다면(삭제 등) 빈 기록을 새로 만들지 않도록 방어한다.
+    if (editingId && !existingRef.current) {
+      Alert.alert('기록을 찾을 수 없어요', '해당 근무 기록이 삭제되었거나 존재하지 않아요.', [
+        { text: '확인', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
     if (!DATE_RE.test(date)) {
       Alert.alert('날짜를 YYYY-MM-DD 형식으로 입력해주세요.');
       return;

@@ -60,12 +60,16 @@ export default function NotificationsScreen({ navigation }: Props) {
       renderItem={({ item }) => (
         <Pressable
           style={[styles.row, !item.read && styles.rowUnread]}
-          onPress={() =>
+          onPress={() => {
+            if (item.link) {
+              navigation.navigate(item.link.screen, item.link.params);
+              return;
+            }
             navigation.navigate(item.target.hasPay ? 'PayCompare' : 'PayInput', {
               workplaceId: item.target.workplaceId,
               yearMonth: item.target.yearMonth,
-            })
-          }
+            });
+          }}
           accessibilityRole="button"
           accessibilityLabel={item.title}
         >

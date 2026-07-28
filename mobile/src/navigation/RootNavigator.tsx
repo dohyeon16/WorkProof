@@ -18,6 +18,7 @@ import WorkplaceRegisteredScreen from '../screens/WorkplaceRegisteredScreen';
 import WorkplaceSwitchScreen from '../screens/WorkplaceSwitchScreen';
 import AttendanceCheckScreen from '../screens/AttendanceCheckScreen';
 import AttendanceFormScreen from '../screens/AttendanceFormScreen';
+import ScheduleFormScreen from '../screens/ScheduleFormScreen';
 import PayInputScreen from '../screens/PayInputScreen';
 import PayCompareScreen from '../screens/PayCompareScreen';
 import ChecklistDetailScreen from '../screens/ChecklistDetailScreen';
@@ -127,6 +128,11 @@ export default function RootNavigator() {
         name="AttendanceForm"
         component={AttendanceFormScreen}
         options={({ route }) => ({ title: route.params?.id ? '근무 기록 수정' : '근무 기록 추가' })}
+      />
+      <Stack.Screen
+        name="Schedule"
+        component={ScheduleFormScreen}
+        options={({ route }) => ({ title: route.params?.id ? '예정 근무 수정' : '근무 예정 추가' })}
       />
       <Stack.Screen name="PayInput" component={PayInputScreen} options={{ title: '실제 입금액 입력' }} />
       <Stack.Screen name="PayCompare" component={PayCompareScreen} options={{ title: '급여 비교' }} />

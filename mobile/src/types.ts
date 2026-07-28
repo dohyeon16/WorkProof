@@ -41,6 +41,17 @@ export interface AttendanceRecord {
   clockOutLongitude?: number;
 }
 
+// 앞으로 예정된 근무. 실제 근무 기록(AttendanceRecord)과 별개로 관리하며, 출근 리마인더의 근거가 된다.
+export interface ScheduledShift {
+  id: string;
+  workplaceId: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime?: string; // HH:mm (선택)
+  reminderMinutes: number; // 출근 몇 분 전에 알림(0이면 알림 없음)
+  createdAt: string;
+}
+
 export type ChecklistStatus = 'risk' | 'ok';
 
 export interface ChecklistItem {

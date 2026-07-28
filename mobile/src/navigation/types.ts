@@ -44,6 +44,7 @@ export type RootStackParamList = {
   WorkplaceSwitch: undefined;
   AttendanceCheck: { workplaceId: string };
   AttendanceForm: { workplaceId: string; id?: string; date?: string };
+  Schedule: { workplaceId: string; id?: string };
   PayInput: { workplaceId: string; yearMonth: string };
   PayCompare: { workplaceId: string; yearMonth: string };
   ChecklistDetail: { workplaceId: string; yearMonth: string };

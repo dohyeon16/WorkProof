@@ -1,17 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, Workplace } from './types';
-
-const KEYS = {
-  workplaces: '@workproof/workplaces',
-  attendance: '@workproof/attendance',
-  pay: '@workproof/pay',
-  evidence: '@workproof/evidence',
-  account: '@workproof/account',
-  session: '@workproof/session',
-  onboardingDone: '@workproof/onboardingDone',
-  activeWorkplaceId: '@workproof/activeWorkplaceId',
-  readNotifications: '@workproof/readNotifications',
-};
+import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from './types';
+import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
 
 export function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -63,6 +52,11 @@ export async function deleteWorkplace(id: string): Promise<void> {
   await writeList(
     KEYS.pay,
     pay.filter((p) => p.workplaceId !== id)
+  );
+  const shifts = await getScheduledShifts();
+  await writeList(
+    KEYS.scheduledShifts,
+    shifts.filter((s) => s.workplaceId !== id)
   );
 }
 
@@ -134,6 +128,48 @@ export async function savePayRecord(record: PayRecord): Promise<void> {
     list.push(record);
   }
   await writeList(KEYS.pay, list);
+}
+
+// ---------- Scheduled shifts (근무 예정) ----------
+
+export async function getScheduledShifts(): Promise<ScheduledShift[]> {
+  return readList<ScheduledShift>(KEYS.scheduledShifts);
+}
+
+export async function getScheduledShift(id: string): Promise<ScheduledShift | undefined> {
+  const list = await getScheduledShifts();
+  return list.find((s) => s.id === id);
+}
+
+/** 아직 지나지 않은(오늘 이후) 예정 근무를 시작 시각 순으로. */
+export async function getUpcomingShifts(): Promise<ScheduledShift[]> {
+  const list = await getScheduledShifts();
+  const now = new Date();
+  return list
+    .filter((s) => new Date(`${s.date}T${s.startTime || '00:00'}:00`) >= startOfMinute(now))
+    .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+}
+
+function startOfMinute(d: Date): Date {
+  const copy = new Date(d);
+  copy.setSeconds(0, 0);
+  return copy;
+}
+
+export async function saveScheduledShift(shift: ScheduledShift): Promise<void> {
+  const list = await getScheduledShifts();
+  const idx = list.findIndex((s) => s.id === shift.id);
+  if (idx >= 0) list[idx] = shift;
+  else list.push(shift);
+  await writeList(KEYS.scheduledShifts, list);
+}
+
+export async function deleteScheduledShift(id: string): Promise<void> {
+  const list = await getScheduledShifts();
+  await writeList(
+    KEYS.scheduledShifts,
+    list.filter((s) => s.id !== id)
+  );
 }
 
 // ---------- Evidence files ----------
