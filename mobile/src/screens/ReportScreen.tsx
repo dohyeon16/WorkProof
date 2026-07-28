@@ -18,7 +18,7 @@ import {
 } from '../storage';
 import { AttendanceRecord, EvidenceFile, PayRecord, Workplace } from '../types';
 import { calcMonthlySummary, formatMinutesAsHours, formatWon } from '../payCalc';
-import { buildReportHtml } from '../report';
+import { buildComplaintHtml, buildReportHtml } from '../report';
 import { formatYearMonth } from '../utils/date';
 import { openHtmlInNewTab, toHtmlDataUri } from '../utils/webOpen';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,10 +61,14 @@ export default function ReportScreen({ navigation, route }: Props) {
   const riskCount = payRecord?.checklist.filter((c) => c.status === 'risk').length ?? 0;
   const pct = diff != null && summary.expectedPay > 0 ? (diff / summary.expectedPay) * 100 : null;
 
-  const generate = async (intent: 'save' | 'share') => {
+  const generate = async (intent: 'save' | 'share', kind: 'report' | 'complaint' = 'report') => {
     setGenerating(true);
     try {
-      const html = buildReportHtml(workplace, records, yearMonth, payRecord, evidenceFiles);
+      const html =
+        kind === 'complaint'
+          ? buildComplaintHtml(workplace, records, yearMonth, payRecord, evidenceFiles)
+          : buildReportHtml(workplace, records, yearMonth, payRecord, evidenceFiles);
+      const docLabel = kind === 'complaint' ? '진정서초안' : '리포트';
 
       if (Platform.OS === 'web') {
         // expo-print has no file-system access on web — printToFileAsync() there just calls
@@ -83,7 +87,7 @@ export default function ReportScreen({ navigation, route }: Props) {
           await addEvidenceFile({
             id: makeId(),
             workplaceId,
-            name: `WorkProof_${yearMonth}_리포트.html`,
+            name: `WorkProof_${yearMonth}_${docLabel}.html`,
             uri: toHtmlDataUri(html),
             kind: 'pdf',
             size: null,
@@ -107,7 +111,7 @@ export default function ReportScreen({ navigation, route }: Props) {
       if (intent === 'save') {
         // "저장"은 이 앱의 증빙 보관함에 실제로 남기는 것을 의미한다 — printToFileAsync()가 만든
         // 파일은 캐시 디렉터리에 있어 OS가 언제든 지울 수 있으므로, 문서 디렉터리로 복사해 보관함에 등록한다.
-        const fileName = `WorkProof_${yearMonth}_리포트_${makeId()}.pdf`;
+        const fileName = `WorkProof_${yearMonth}_${docLabel}_${makeId()}.pdf`;
         const destination = new File(Paths.document, fileName);
         await new File(uri).copy(destination);
         await addEvidenceFile({
@@ -130,7 +134,7 @@ export default function ReportScreen({ navigation, route }: Props) {
       }
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
-        dialogTitle: `WorkProof 리포트 - ${formatYearMonth(yearMonth)}`,
+        dialogTitle: `WorkProof ${docLabel} - ${formatYearMonth(yearMonth)}`,
       });
       navigation.navigate('ShareComplete', { workplaceId, yearMonth, intent });
     } catch (err) {
@@ -216,6 +220,26 @@ export default function ReportScreen({ navigation, route }: Props) {
           )}
         </Pressable>
       </View>
+
+      {diff != null && diff < 0 && (
+        <>
+          <View style={styles.complaintDivider} />
+          <Text style={styles.complaintTitle}>급여를 못 받았나요?</Text>
+          <Text style={styles.complaintSub}>
+            근무 기록을 바탕으로 고용노동부 진정에 참고할 수 있는 임금체불 진정서 초안을 만들어 드려요.
+          </Text>
+          <Pressable
+            style={styles.complaintButton}
+            onPress={() => generate('share', 'complaint')}
+            disabled={generating}
+            accessibilityRole="button"
+            accessibilityLabel="진정서 초안 만들기"
+          >
+            <Ionicons name="document-text-outline" size={16} color={colors.danger} />
+            <Text style={styles.complaintButtonText}>진정서 초안 만들기</Text>
+          </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -271,4 +295,18 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   shareButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  complaintDivider: { height: 1, backgroundColor: colors.border, marginTop: spacing.lg, marginBottom: spacing.md },
+  complaintTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
+  complaintSub: { fontSize: 12, color: colors.subtext, lineHeight: 18, marginTop: 2, marginBottom: spacing.sm },
+  complaintButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 6,
+  },
+  complaintButtonText: { color: colors.danger, fontWeight: '700', fontSize: 15 },
 });
