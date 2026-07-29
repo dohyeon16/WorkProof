@@ -13,7 +13,7 @@ import RootNavigator from './src/app/navigation/RootNavigator';
 import { AppLockGate } from './src/components/AppLockGate';
 import { AlertHost } from './src/shared/components/alert';
 import { colors } from './src/shared/theme';
-import { resumeNaverRedirectIfPending } from './src/auth/naverIdentityWeb';
+import { resumeNaverRedirectIfPending } from './src/features/auth/services/naverIdentityWeb';
 import type { RootStackParamList } from './src/app/navigation/types';
 
 function AppShell({ children }: { children: ReactNode }) {
