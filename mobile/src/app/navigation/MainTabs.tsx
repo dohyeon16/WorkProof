@@ -6,7 +6,7 @@ import type { MainTabParamList } from './types';
 import HomeScreen from '../../features/home/screens/HomeScreen';
 import RecordsCalendarScreen from '../../features/attendance/screens/RecordsCalendarScreen';
 import AnalysisScreen from '../../features/payroll/screens/AnalysisScreen';
-import VaultScreen from '../../screens/VaultScreen';
+import VaultScreen from '../../features/evidence/screens/VaultScreen';
 import MoreScreen from '../../screens/MoreScreen';
 import { colors, fonts } from '../../shared/theme';
 

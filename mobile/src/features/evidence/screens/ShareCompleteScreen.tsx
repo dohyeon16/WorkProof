@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
-import { Confetti } from '../shared/components/Confetti';
+import { Text } from '../../../shared/components/Text';
+import { Confetti } from '../../../shared/components/Confetti';
 import { Ionicons } from '@expo/vector-icons';
-import type { RootScreenProps } from '../app/navigation/types';
-import { colors, radius, shadow, spacing } from '../shared/theme';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = RootScreenProps<'ShareComplete'>;
 

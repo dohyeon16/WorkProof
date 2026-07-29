@@ -1,14 +1,14 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
+import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import type { RootScreenProps } from '../app/navigation/types';
-import { buildNotifications, type AppNotification } from '../core/notifications/notificationsFeed';
-import { markNotificationsRead } from '../core/data/storage';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { buildNotifications, type AppNotification } from '../../../core/notifications/notificationsFeed';
+import { markNotificationsRead } from '../../../core/data/storage';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'Notifications'>;
 

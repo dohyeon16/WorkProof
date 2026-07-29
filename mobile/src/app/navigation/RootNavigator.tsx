@@ -3,7 +3,7 @@ import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 import MainTabs from './MainTabs';
 import AllWorkplacesScreen from '../../features/workplace/screens/AllWorkplacesScreen';
-import NotificationsScreen from '../../screens/NotificationsScreen';
+import NotificationsScreen from '../../features/notifications/screens/NotificationsScreen';
 import SplashScreen from '../../features/onboarding/screens/SplashScreen';
 import LoginScreen from '../../features/auth/screens/LoginScreen';
 import SignupScreen from '../../features/auth/screens/SignupScreen';
@@ -23,7 +23,7 @@ import PayInputScreen from '../../features/payroll/screens/PayInputScreen';
 import PayCompareScreen from '../../features/payroll/screens/PayCompareScreen';
 import ChecklistDetailScreen from '../../features/payroll/screens/ChecklistDetailScreen';
 import ReportScreen from '../../features/payroll/screens/ReportScreen';
-import ShareCompleteScreen from '../../screens/ShareCompleteScreen';
+import ShareCompleteScreen from '../../features/evidence/screens/ShareCompleteScreen';
 import LegalDocumentScreen from '../../screens/LegalDocumentScreen';
 import { colors } from '../../shared/theme';
 
