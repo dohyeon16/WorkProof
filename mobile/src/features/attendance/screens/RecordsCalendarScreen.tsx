@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
+import { Text } from '../../../shared/components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MainTabScreenProps } from '../app/navigation/types';
-import { getAttendanceByMonth, getActiveOrFirstWorkplace } from '../core/data/storage';
-import { AttendanceRecord, Workplace } from '../core/domain/models/types';
-import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, shiftWorkedMinutes } from '../core/domain/payroll/payCalc';
-import { currentYearMonth, formatYearMonth, shiftYearMonth, todayDateString } from '../shared/utils/date';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import type { MainTabScreenProps } from '../../../app/navigation/types';
+import { getAttendanceByMonth, getActiveOrFirstWorkplace } from '../../../core/data/storage';
+import { AttendanceRecord, Workplace } from '../../../core/domain/models/types';
+import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
+import { currentYearMonth, formatYearMonth, shiftYearMonth, todayDateString } from '../../../shared/utils/date';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = MainTabScreenProps<'Records'>;
 

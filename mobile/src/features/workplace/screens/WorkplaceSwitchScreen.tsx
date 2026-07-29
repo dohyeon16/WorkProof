@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
+import { Text } from '../../../shared/components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import type { RootScreenProps } from '../app/navigation/types';
-import { getActiveWorkplaceId, getWorkplaces, setActiveWorkplaceId } from '../core/data/storage';
-import { Workplace } from '../core/domain/models/types';
-import { colors, radius, shadow, spacing } from '../shared/theme';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { getActiveWorkplaceId, getWorkplaces, setActiveWorkplaceId } from '../../../core/data/storage';
+import { Workplace } from '../../../core/domain/models/types';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = RootScreenProps<'WorkplaceSwitch'>;
 

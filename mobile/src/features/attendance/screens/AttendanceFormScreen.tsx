@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
-import { FieldInput } from '../shared/components/FieldInput';
-import { InputAccessoryToolbar } from '../shared/components/InputAccessoryToolbar';
-import { useNumericInputNavigation } from '../shared/hooks/useNumericInputNavigation';
-import { WheelPicker } from '../shared/components/WheelPicker';
-import { CalendarPickerModal } from '../shared/components/CalendarPickerModal';
+import { Text } from '../../../shared/components/Text';
+import { FieldInput } from '../../../shared/components/FieldInput';
+import { InputAccessoryToolbar } from '../../../shared/components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../../../shared/hooks/useNumericInputNavigation';
+import { WheelPicker } from '../../../shared/components/WheelPicker';
+import { CalendarPickerModal } from '../../../shared/components/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert } from '../shared/components/alert';
-import type { RootScreenProps } from '../app/navigation/types';
-import { getAttendanceRecord, getWorkplace, deleteAttendance, makeId, saveAttendance } from '../core/data/storage';
-import type { AttendanceRecord } from '../core/domain/models/types';
-import { formatTimeInput, todayDateString } from '../shared/utils/date';
-import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../core/domain/payroll/payCalc';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import { Alert } from '../../../shared/components/alert';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { getAttendanceRecord, getWorkplace, deleteAttendance, makeId, saveAttendance } from '../../../core/data/storage';
+import type { AttendanceRecord } from '../../../core/domain/models/types';
+import { formatTimeInput, todayDateString } from '../../../shared/utils/date';
+import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../../../core/domain/payroll/payCalc';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'AttendanceForm'>;
 

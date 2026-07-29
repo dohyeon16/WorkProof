@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
+import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import type { RootScreenProps } from '../app/navigation/types';
-import { getAttendanceByWorkplace, getWorkplace, makeId, saveAttendance } from '../core/data/storage';
-import { AttendanceRecord, Workplace } from '../core/domain/models/types';
-import { formatMinutesAsHours, shiftWorkedMinutes } from '../core/domain/payroll/payCalc';
-import { formatDateWithWeekday, todayDateString, currentTimeString } from '../shared/utils/date';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { getAttendanceByWorkplace, getWorkplace, makeId, saveAttendance } from '../../../core/data/storage';
+import { AttendanceRecord, Workplace } from '../../../core/domain/models/types';
+import { formatMinutesAsHours, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
+import { formatDateWithWeekday, todayDateString, currentTimeString } from '../../../shared/utils/date';
 import { getCurrentLocation } from '../utils/currentLocation';
 import { evaluateProximity, formatDistance } from '../utils/geo';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'AttendanceCheck'>;
 

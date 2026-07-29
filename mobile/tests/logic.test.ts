@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { haversineMeters, evaluateProximity } from '../src/utils/geo';
+import { haversineMeters, evaluateProximity } from '../src/features/attendance/utils/geo';
 import {
   calcMonthlySummary,
   nightOverlapMinutes,
