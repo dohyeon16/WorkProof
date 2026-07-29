@@ -24,7 +24,7 @@ import PayCompareScreen from '../../features/payroll/screens/PayCompareScreen';
 import ChecklistDetailScreen from '../../features/payroll/screens/ChecklistDetailScreen';
 import ReportScreen from '../../features/payroll/screens/ReportScreen';
 import ShareCompleteScreen from '../../features/evidence/screens/ShareCompleteScreen';
-import LegalDocumentScreen from '../../screens/LegalDocumentScreen';
+import LegalDocumentScreen from '../../features/legal/screens/LegalDocumentScreen';
 import { colors } from '../../shared/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

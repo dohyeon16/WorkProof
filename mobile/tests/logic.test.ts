@@ -19,7 +19,7 @@ import {
   BACKGROUND_LOCK_GRACE_MS,
   POST_UNLOCK_GRACE_MS,
   type AppLockState,
-} from '../src/utils/appLockState';
+} from '../src/features/security/services/appLockState';
 import { KEYS, BACKUP_KEYS, ALL_KEYS } from '../src/core/data/storageKeys';
 import type { AttendanceRecord, Workplace } from '../src/core/domain/models/types';
 

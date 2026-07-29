@@ -10,7 +10,7 @@ import {
   NotoSansKR_700Bold,
 } from '@expo-google-fonts/noto-sans-kr';
 import RootNavigator from './src/app/navigation/RootNavigator';
-import { AppLockGate } from './src/components/AppLockGate';
+import { AppLockGate } from './src/features/security/components/AppLockGate';
 import { AlertHost } from './src/shared/components/alert';
 import { colors } from './src/shared/theme';
 import { resumeNaverRedirectIfPending } from './src/features/auth/services/naverIdentityWeb';

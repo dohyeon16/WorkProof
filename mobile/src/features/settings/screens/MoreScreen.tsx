@@ -1,16 +1,16 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
-import { Alert } from '../shared/components/alert';
+import { Text } from '../../../shared/components/Text';
+import { Alert } from '../../../shared/components/alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MainTabScreenProps } from '../app/navigation/types';
-import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../core/data/storage';
-import { isAppLockAvailable, authenticateAppLock } from '../utils/appLock';
-import { createBackup, restoreBackup } from '../core/backup/backup';
-import { Account } from '../core/domain/models/types';
-import { colors, radius, shadow, spacing } from '../shared/theme';
+import type { MainTabScreenProps } from '../../../app/navigation/types';
+import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../../../core/data/storage';
+import { isAppLockAvailable, authenticateAppLock } from '../../security/services/appLock';
+import { createBackup, restoreBackup } from '../../../core/backup/backup';
+import { Account } from '../../../core/domain/models/types';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = MainTabScreenProps<'More'>;
 
