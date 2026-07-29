@@ -1,16 +1,16 @@
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
+import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import type { RootScreenProps } from '../app/navigation/types';
-import { getPayRecord, getWorkplace } from '../core/data/storage';
-import { IncomeDeductionType, PayRecord } from '../core/domain/models/types';
-import { formatWon, netPay } from '../core/domain/payroll/payCalc';
-import { formatYearMonth } from '../shared/utils/date';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { getPayRecord, getWorkplace } from '../../../core/data/storage';
+import { IncomeDeductionType, PayRecord } from '../../../core/domain/models/types';
+import { formatWon, netPay } from '../../../core/domain/payroll/payCalc';
+import { formatYearMonth } from '../../../shared/utils/date';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'PayCompare'>;
 

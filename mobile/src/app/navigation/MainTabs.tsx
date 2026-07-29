@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from './types';
 import HomeScreen from '../../features/home/screens/HomeScreen';
 import RecordsCalendarScreen from '../../features/attendance/screens/RecordsCalendarScreen';
-import AnalysisScreen from '../../screens/AnalysisScreen';
+import AnalysisScreen from '../../features/payroll/screens/AnalysisScreen';
 import VaultScreen from '../../screens/VaultScreen';
 import MoreScreen from '../../screens/MoreScreen';
 import { colors, fonts } from '../../shared/theme';

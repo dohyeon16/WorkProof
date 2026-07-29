@@ -1,21 +1,21 @@
 import { useCallback, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../shared/components/Text';
-import { FieldInput } from '../shared/components/FieldInput';
-import { InputAccessoryToolbar } from '../shared/components/InputAccessoryToolbar';
-import { useNumericInputNavigation } from '../shared/hooks/useNumericInputNavigation';
-import { CalendarPickerModal } from '../shared/components/CalendarPickerModal';
+import { Text } from '../../../shared/components/Text';
+import { FieldInput } from '../../../shared/components/FieldInput';
+import { InputAccessoryToolbar } from '../../../shared/components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../../../shared/hooks/useNumericInputNavigation';
+import { CalendarPickerModal } from '../../../shared/components/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert } from '../shared/components/alert';
+import { Alert } from '../../../shared/components/alert';
 import { useFocusEffect } from '@react-navigation/native';
-import type { RootScreenProps } from '../app/navigation/types';
-import { getAttendanceByMonth, getPayRecord, getWorkplace, makeId, savePayRecord } from '../core/data/storage';
-import { AttendanceRecord, Workplace, buildChecklist } from '../core/domain/models/types';
-import { calcDiff, calcMonthlySummary, formatWon } from '../core/domain/payroll/payCalc';
-import { formatYearMonth, todayDateString } from '../shared/utils/date';
-import { colors, radius, shadow, spacing } from '../shared/theme';
-import { LoadingScreen } from '../shared/components/LoadingScreen';
+import type { RootScreenProps } from '../../../app/navigation/types';
+import { getAttendanceByMonth, getPayRecord, getWorkplace, makeId, savePayRecord } from '../../../core/data/storage';
+import { AttendanceRecord, Workplace, buildChecklist } from '../../../core/domain/models/types';
+import { calcDiff, calcMonthlySummary, formatWon } from '../../../core/domain/payroll/payCalc';
+import { formatYearMonth, todayDateString } from '../../../shared/utils/date';
+import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'PayInput'>;
 

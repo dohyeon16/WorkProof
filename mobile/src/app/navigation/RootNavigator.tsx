@@ -18,11 +18,11 @@ import WorkplaceRegisteredScreen from '../../features/workplace/screens/Workplac
 import WorkplaceSwitchScreen from '../../features/workplace/screens/WorkplaceSwitchScreen';
 import AttendanceCheckScreen from '../../features/attendance/screens/AttendanceCheckScreen';
 import AttendanceFormScreen from '../../features/attendance/screens/AttendanceFormScreen';
-import ScheduleFormScreen from '../../screens/ScheduleFormScreen';
-import PayInputScreen from '../../screens/PayInputScreen';
-import PayCompareScreen from '../../screens/PayCompareScreen';
-import ChecklistDetailScreen from '../../screens/ChecklistDetailScreen';
-import ReportScreen from '../../screens/ReportScreen';
+import ScheduleFormScreen from '../../features/schedule/screens/ScheduleFormScreen';
+import PayInputScreen from '../../features/payroll/screens/PayInputScreen';
+import PayCompareScreen from '../../features/payroll/screens/PayCompareScreen';
+import ChecklistDetailScreen from '../../features/payroll/screens/ChecklistDetailScreen';
+import ReportScreen from '../../features/payroll/screens/ReportScreen';
 import ShareCompleteScreen from '../../screens/ShareCompleteScreen';
 import LegalDocumentScreen from '../../screens/LegalDocumentScreen';
 import { colors } from '../../shared/theme';
