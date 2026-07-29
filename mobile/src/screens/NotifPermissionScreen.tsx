@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
-import { Alert } from '../alert';
+import { Text } from '../shared/components/Text';
+import { Alert } from '../shared/components/alert';
 import { Ionicons } from '@expo/vector-icons';
-import type { RootScreenProps } from '../navigation/types';
-import { getWorkplaces } from '../storage';
-import { rescheduleAllPaydayReminders } from '../notifications';
-import { isExpoGo } from '../utils/expoGo';
-import { colors, radius, shadow, spacing } from '../theme';
+import type { RootScreenProps } from '../app/navigation/types';
+import { getWorkplaces } from '../core/data/storage';
+import { rescheduleAllPaydayReminders } from '../core/notifications/notifications';
+import { isExpoGo } from '../shared/utils/expoGo';
+import { colors, radius, shadow, spacing } from '../shared/theme';
 
 type Props = RootScreenProps<'NotifPermission'>;
 

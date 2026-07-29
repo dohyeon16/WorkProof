@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
-import { FieldInput } from '../components/FieldInput';
-import { InputAccessoryToolbar } from '../components/InputAccessoryToolbar';
-import { useNumericInputNavigation } from '../hooks/useNumericInputNavigation';
-import { CalendarPickerModal } from '../components/CalendarPickerModal';
+import { Text } from '../shared/components/Text';
+import { FieldInput } from '../shared/components/FieldInput';
+import { InputAccessoryToolbar } from '../shared/components/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../shared/hooks/useNumericInputNavigation';
+import { CalendarPickerModal } from '../shared/components/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert } from '../alert';
-import type { RootScreenProps } from '../navigation/types';
+import { Alert } from '../shared/components/alert';
+import type { RootScreenProps } from '../app/navigation/types';
 import {
   deleteScheduledShift,
   getScheduledShift,
   getWorkplace,
   makeId,
   saveScheduledShift,
-} from '../storage';
-import { cancelShiftReminder, scheduleShiftReminder } from '../notifications';
-import { formatTimeInput, todayDateString } from '../utils/date';
-import { colors, radius, shadow, spacing } from '../theme';
-import { LoadingScreen } from '../components/LoadingScreen';
+} from '../core/data/storage';
+import { cancelShiftReminder, scheduleShiftReminder } from '../core/notifications/notifications';
+import { formatTimeInput, todayDateString } from '../shared/utils/date';
+import { colors, radius, shadow, spacing } from '../shared/theme';
+import { LoadingScreen } from '../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'Schedule'>;
 

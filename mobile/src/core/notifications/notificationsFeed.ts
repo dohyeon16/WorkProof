@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { getAllAttendance, getAllPayRecords, getReadNotificationIds, getWorkplaces } from './storage';
-import { formatWon } from './payCalc';
-import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, shiftYearMonth, todayDateString } from './utils/date';
+import { getAllAttendance, getAllPayRecords, getReadNotificationIds, getWorkplaces } from '../data/storage';
+import { formatWon } from '../domain/payroll/payCalc';
+import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, shiftYearMonth, todayDateString } from '../../shared/utils/date';
 
 // 백엔드가 없으므로 알림은 저장된 데이터(근무지/근태/급여)에서 그때그때 파생한다.
 // 각 알림은 안정적인 id를 가져 읽음 처리(배지 계산)에 쓰인다.

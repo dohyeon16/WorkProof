@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { exportAllData, importAllData } from './storage';
+import { exportAllData, importAllData } from '../data/storage';
 
 // 백업 파일 포맷: 앱이 관리하는 AsyncStorage 값(JSON 문자열)을 그대로 담는다.
 // 증빙 파일 원본(계약서 사진/PDF)은 기기 로컬 파일이라 이 JSON에는 포함되지 않는다.

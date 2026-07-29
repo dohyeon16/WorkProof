@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
-import { TextInput } from '../components/TextInput';
+import { Text } from '../shared/components/Text';
+import { TextInput } from '../shared/components/TextInput';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { Alert } from '../alert';
-import type { RootScreenProps } from '../navigation/types';
-import { colors, radius, shadow, spacing } from '../theme';
+import { Alert } from '../shared/components/alert';
+import type { RootScreenProps } from '../app/navigation/types';
+import { colors, radius, shadow, spacing } from '../shared/theme';
 import LocationMapPicker from '../components/LocationMapPicker';
 import { searchPlaces } from '../places/kakaoPlaces';
 import { PLACE_CATEGORY_CHIPS } from '../places/placeCategories';

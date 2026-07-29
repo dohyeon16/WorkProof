@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from './types';
+import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from '../domain/models/types';
 import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
 
 export function makeId(): string {

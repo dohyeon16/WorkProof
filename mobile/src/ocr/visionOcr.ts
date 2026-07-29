@@ -1,4 +1,4 @@
-import { readFileBase64 } from '../utils/fileStore';
+import { readFileBase64 } from '../shared/utils/fileStore';
 import type { OcrResult } from './types';
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_VISION_API_KEY;

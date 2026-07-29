@@ -1,4 +1,4 @@
-import { exportAllData, importAllData } from './storage';
+import { exportAllData, importAllData } from '../data/storage';
 import type { BackupPayload, CreateBackupResult, RestoreBackupResult } from './backup';
 
 // 웹에서는 expo-sharing/expo-file-system을 못 쓰므로, Blob 다운로드와 <input type=file>로 처리한다.

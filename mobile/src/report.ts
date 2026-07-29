@@ -1,6 +1,6 @@
-import { AttendanceRecord, EvidenceFile, IncomeDeductionType, PayRecord, Workplace } from './types';
-import { appliedBreakMinutes, calcMonthlySummary, formatMinutesAsHours, formatWon, shiftWorkedMinutes } from './payCalc';
-import { formatYearMonth } from './utils/date';
+import { AttendanceRecord, EvidenceFile, IncomeDeductionType, PayRecord, Workplace } from './core/domain/models/types';
+import { appliedBreakMinutes, calcMonthlySummary, formatMinutesAsHours, formatWon, shiftWorkedMinutes } from './core/domain/payroll/payCalc';
+import { formatYearMonth } from './shared/utils/date';
 
 const DEDUCTION_LABELS: Record<IncomeDeductionType, string> = {
   none: '없음',

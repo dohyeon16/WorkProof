@@ -1,15 +1,15 @@
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
+import { Text } from '../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import type { RootScreenProps } from '../navigation/types';
-import { getPayRecord } from '../storage';
-import { PayRecord } from '../types';
-import { formatWon } from '../payCalc';
-import { colors, radius, shadow, spacing } from '../theme';
-import { LoadingScreen } from '../components/LoadingScreen';
+import type { RootScreenProps } from '../app/navigation/types';
+import { getPayRecord } from '../core/data/storage';
+import { PayRecord } from '../core/domain/models/types';
+import { formatWon } from '../core/domain/payroll/payCalc';
+import { colors, radius, shadow, spacing } from '../shared/theme';
+import { LoadingScreen } from '../shared/components/LoadingScreen';
 
 type Props = RootScreenProps<'ChecklistDetail'>;
 

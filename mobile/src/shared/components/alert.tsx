@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert as RNAlert, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from './components/Text';
-import { colors, spacing } from './theme';
+import { Text } from './Text';
+import { colors, spacing } from '../theme';
 
 export interface AlertButtonSpec {
   text: string;

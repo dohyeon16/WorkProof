@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
-import { FieldInput } from '../components/FieldInput';
-import { EmailDomainField, EMAIL_DOMAINS, buildEmail } from '../components/EmailDomainField';
-import { Checkbox } from '../components/Checkbox';
+import { Text } from '../shared/components/Text';
+import { FieldInput } from '../shared/components/FieldInput';
+import { EmailDomainField, EMAIL_DOMAINS, buildEmail } from '../shared/components/EmailDomainField';
+import { Checkbox } from '../shared/components/Checkbox';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleLogo } from '../components/GoogleLogo';
-import { Alert } from '../alert';
-import type { RootScreenProps } from '../navigation/types';
-import { clearAllData, getAccount, saveAccount } from '../storage';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { GoogleLogo } from '../shared/components/GoogleLogo';
+import { Alert } from '../shared/components/alert';
+import type { RootScreenProps } from '../app/navigation/types';
+import { clearAllData, getAccount, saveAccount } from '../core/data/storage';
+import { colors, fonts, radius, shadow, spacing } from '../shared/theme';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../auth/socialLogin';
-import type { AuthProvider } from '../types';
+import type { AuthProvider } from '../core/domain/models/types';
 
 type Props = RootScreenProps<'Signup'>;
 

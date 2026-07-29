@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
+import { Text } from '../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
-import type { RootScreenProps } from '../navigation/types';
-import { colors, radius, shadow, spacing } from '../theme';
+import type { RootScreenProps } from '../app/navigation/types';
+import { colors, radius, shadow, spacing } from '../shared/theme';
 
 type Props = RootScreenProps<'WorkplacePrompt'>;
 

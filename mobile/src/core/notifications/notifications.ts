@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import type { ScheduledShift, Workplace } from './types';
-import { isExpoGo } from './utils/expoGo';
+import type { ScheduledShift, Workplace } from '../domain/models/types';
+import { isExpoGo } from '../../shared/utils/expoGo';
 
 const PAYDAY_REMINDER_ID_PREFIX = 'payday-reminder-';
 const PAYDAY_REMINDER_HOUR = 10;

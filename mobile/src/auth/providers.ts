@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { AuthDiscoveryDocument } from 'expo-auth-session';
-import type { AuthProvider } from '../types';
+import type { AuthProvider } from '../core/domain/models/types';
 
 export interface SocialProfile {
   provider: AuthProvider;

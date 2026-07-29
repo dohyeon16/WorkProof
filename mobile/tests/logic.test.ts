@@ -10,7 +10,7 @@ import {
   nightOverlapMinutes,
   deductionAmount,
   netPay,
-} from '../src/payCalc';
+} from '../src/core/domain/payroll/payCalc';
 import {
   reduceAppState,
   initialAppLockState,
@@ -20,8 +20,8 @@ import {
   POST_UNLOCK_GRACE_MS,
   type AppLockState,
 } from '../src/utils/appLockState';
-import { KEYS, BACKUP_KEYS, ALL_KEYS } from '../src/storageKeys';
-import type { AttendanceRecord, Workplace } from '../src/types';
+import { KEYS, BACKUP_KEYS, ALL_KEYS } from '../src/core/data/storageKeys';
+import type { AttendanceRecord, Workplace } from '../src/core/domain/models/types';
 
 let seq = 0;
 function wp(over: Partial<Workplace> = {}): Workplace {

@@ -3,12 +3,12 @@ import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from './types';
-import HomeScreen from '../screens/HomeScreen';
-import RecordsCalendarScreen from '../screens/RecordsCalendarScreen';
-import AnalysisScreen from '../screens/AnalysisScreen';
-import VaultScreen from '../screens/VaultScreen';
-import MoreScreen from '../screens/MoreScreen';
-import { colors, fonts } from '../theme';
+import HomeScreen from '../../screens/HomeScreen';
+import RecordsCalendarScreen from '../../screens/RecordsCalendarScreen';
+import AnalysisScreen from '../../screens/AnalysisScreen';
+import VaultScreen from '../../screens/VaultScreen';
+import MoreScreen from '../../screens/MoreScreen';
+import { colors, fonts } from '../../shared/theme';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 

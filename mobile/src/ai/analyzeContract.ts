@@ -1,7 +1,7 @@
 import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { summarizeContractText } from './geminiSummary';
-import { resolveReadableUri } from '../utils/fileStore';
-import type { EvidenceKind } from '../types';
+import { resolveReadableUri } from '../shared/utils/fileStore';
+import type { EvidenceKind } from '../core/domain/models/types';
 
 /**
  * 첨부 파일(이미지/PDF) 하나를 OCR → AI 요약까지 처리하는 공용 파이프라인.

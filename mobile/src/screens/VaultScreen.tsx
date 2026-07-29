@@ -1,15 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../components/Text';
-import { FieldInput } from '../components/FieldInput';
-import { Alert } from '../alert';
+import { Text } from '../shared/components/Text';
+import { FieldInput } from '../shared/components/FieldInput';
+import { Alert } from '../shared/components/alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
-import type { MainTabScreenProps } from '../navigation/types';
+import type { MainTabScreenProps } from '../app/navigation/types';
 import {
   addEvidenceFile,
   deleteEvidenceFile,
@@ -18,14 +18,14 @@ import {
   makeId,
   renameEvidenceFile,
   updateEvidenceAnalysis,
-} from '../storage';
-import { EvidenceFile, EvidenceKind, Workplace } from '../types';
-import { colors, radius, shadow, spacing } from '../theme';
-import { LoadingScreen } from '../components/LoadingScreen';
-import { openStoredUriInNewTab, shareStoredUri } from '../utils/webOpen';
+} from '../core/data/storage';
+import { EvidenceFile, EvidenceKind, Workplace } from '../core/domain/models/types';
+import { colors, radius, shadow, spacing } from '../shared/theme';
+import { LoadingScreen } from '../shared/components/LoadingScreen';
+import { openStoredUriInNewTab, shareStoredUri } from '../shared/utils/webOpen';
 import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../ai/analyzeContract';
 import { FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
-import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
+import { persistPickedFile, resolveReadableUri } from '../shared/utils/fileStore';
 
 type Props = MainTabScreenProps<'Vault'>;
 

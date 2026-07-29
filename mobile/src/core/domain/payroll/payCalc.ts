@@ -1,4 +1,4 @@
-import { AttendanceRecord, IncomeDeductionType, Workplace } from './types';
+import { AttendanceRecord, IncomeDeductionType, Workplace } from '../models/types';
 
 /**
  * 공제 유형별 근로자 부담 공제율(간이 추정, 법적 자문 아님).
