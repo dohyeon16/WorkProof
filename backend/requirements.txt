@@ -4,3 +4,6 @@ httpx
 python-dotenv
 python-multipart
 itsdangerous
+
+# --- Phase 1: 설정 계층 ---
+pydantic-settings
