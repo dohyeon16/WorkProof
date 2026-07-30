@@ -7,3 +7,8 @@ itsdangerous
 
 # --- Phase 1: 설정 계층 ---
 pydantic-settings
+
+# --- Phase 1: DB / 마이그레이션 ---
+sqlalchemy
+alembic
+psycopg[binary]
