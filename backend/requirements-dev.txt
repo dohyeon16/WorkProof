@@ -1,0 +1,3 @@
+# 개발/테스트 전용 의존성. 운영(Render) 설치 대상 아님 — requirements.txt만 배포에 사용.
+-r requirements.txt
+pytest

@@ -1,0 +1,81 @@
+name: WorkProof Backend CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-foundation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # 앱 import / pytest 에 필요한 비-비밀 CI 값. SESSION_SIGNING_SECRET 은 실제
+    # 시크릿이 아니라 설정 로드용 더미다. DATABASE_URL 은 여기에 두지 않는다 —
+    # pytest 의 db-health 테스트가 URL 이 있으면 실제 접속을 시도하므로, offline
+    # 검증 단계에만 국한한다(실제 PostgreSQL 미접속 보장).
+    env:
+      ENVIRONMENT: test
+      LOG_LEVEL: INFO
+      SESSION_SIGNING_SECRET: ci-test-signing-secret-not-a-real-secret
+      # alembic.ini 에 한글 주석이 있어 configparser 가 encoding="locale" 로 읽는다.
+      # 러너 로케일을 UTF-8 로 고정해 인코딩 모호성을 제거한다(기능 코드 무변경).
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Print Python version
+        run: python --version
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dev requirements
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Compile check
+        run: python -m compileall app main.py
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: FastAPI import
+        run: python -c "from main import app; print(app.title)"
+
+      - name: Alembic heads
+        run: alembic heads
+
+      # offline(--sql) 전용 placeholder URL. 이 단계는 DB 에 접속하지 않고
+      # 방언 렌더링만 한다. 실제 서버/시크릿 아님.
+      - name: Alembic offline SQL
+        env:
+          DATABASE_URL: postgresql+psycopg://ci:ci@localhost/workproof_ci
+        run: |
+          alembic upgrade head --sql > /tmp/workproof-alembic.sql
+          test -s /tmp/workproof-alembic.sql
+          echo "offline SQL generated ($(wc -l < /tmp/workproof-alembic.sql) lines)"
