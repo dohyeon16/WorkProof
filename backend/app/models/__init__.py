@@ -1,6 +1,10 @@
 """ORM 모델 패키지.
 
-Phase 1에는 모델이 없다(사용자/데이터 테이블은 Phase 2+). 새 모델을 추가하면
-여기서 import 해 Alembic autogenerate(alembic/env.py의 Base.metadata)가
-인식하게 한다.
+새 모델은 여기서 import 해 Alembic(alembic/env.py의 Base.metadata)과
+매퍼 설정(relationship 문자열 참조 해석)이 인식하게 한다.
 """
+from app.models.oauth_account import OAuthAccount
+from app.models.refresh_token import RefreshToken
+from app.models.user import User
+
+__all__ = ["User", "OAuthAccount", "RefreshToken"]
