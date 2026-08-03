@@ -12,3 +12,12 @@ pydantic-settings
 sqlalchemy
 alembic
 psycopg[binary]
+
+# --- Phase 2: 인증 (JWT / 비밀번호 해시 / 이메일 검증) ---
+# pyjwt: access JWT(HS256) 발급/검증. HS256은 stdlib hmac만 쓰므로 cryptography 불필요.
+# argon2-cffi: Argon2id 비밀번호 해시.
+# email-validator: Pydantic EmailStr 검증에 필요.
+# refresh 토큰 랜덤/해시는 stdlib secrets + hashlib(SHA-256)로 처리(추가 패키지 없음).
+pyjwt
+argon2-cffi
+email-validator

@@ -29,6 +29,18 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
+    # --- 신규 (Phase 2: 인증) ---
+    # JWT access token 서명 키. SESSION_SIGNING_SECRET(브릿지 state 서명)과 분리한다.
+    # 비어 있으면 앱 import는 가능하되(브릿지 전용 모드), 토큰 발급/검증 시점에
+    # security 계층이 명시적으로 실패시킨다(무설정으로 서명되는 사고 방지).
+    JWT_SECRET_KEY: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    # 클라이언트가 보낸 provider_user_id를 서버가 검증하지 못하는 직접 소셜 로그인
+    # (POST /api/v1/auth/social)을 허용할지. 기본 False — 검증기 미등록 provider는
+    # 거부한다(임의 identity 위조로 계정 탈취를 막는 production-safe 기본값).
+    ALLOW_UNVERIFIED_SOCIAL: bool = False
+
     @property
     def cors_allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.FRONTEND_ALLOWED_ORIGIN.split(",") if o.strip()]
