@@ -13,6 +13,7 @@ from app.core.logging import configure_logging
 from app.api.v1 import auth as v1_auth
 from app.api.v1 import bridge as legacy_bridge
 from app.api.v1 import health as v1_health
+from app.api.v1 import users as v1_users
 
 configure_logging()
 
@@ -32,5 +33,6 @@ app.add_middleware(
 app.include_router(legacy_bridge.router)
 # 신규 버전 API: 기존 경로와 분리된 /api/v1 아래에만 추가.
 app.include_router(v1_health.router, prefix="/api/v1")
-# Phase 2 인증 API (/api/v1/auth/*).
+# Phase 2 인증/사용자 API (/api/v1/auth/*, /api/v1/users/*).
 app.include_router(v1_auth.router, prefix="/api/v1")
+app.include_router(v1_users.router, prefix="/api/v1")
