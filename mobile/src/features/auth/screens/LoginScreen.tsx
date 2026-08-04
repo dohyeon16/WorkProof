@@ -10,6 +10,8 @@ import { GoogleLogo } from '../../../shared/components/GoogleLogo';
 import { Alert } from '../../../shared/components/alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { getAccount, isOnboardingDone, setLoggedIn } from '../../../core/data/storage';
+import { useAuth } from '../state/AuthContext';
+import { authErrorMessage } from '../services/authErrors';
 import { colors, fonts, radius, shadow, spacing } from '../../../shared/theme';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/socialLogin';
 import type { AuthProvider } from '../../../core/domain/models/types';
@@ -18,12 +20,14 @@ type Props = RootScreenProps<'Login'>;
 
 export default function LoginScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const { login } = useAuth();
   const prefill = parseEmail(route.params?.prefillEmail ?? '');
   const [emailLocal, setEmailLocal] = useState(prefill.local);
   const [emailDomain, setEmailDomain] = useState(prefill.domain);
   const [emailCustomDomain, setEmailCustomDomain] = useState(prefill.customDomain);
   const [password, setPassword] = useState('');
   const [saveId, setSaveId] = useState(true);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<AuthProvider | null>(null);
 
   // Alert의 '확인'을 누른 뒤에 홈(또는 온보딩)으로 이동한다. 이메일/소셜
@@ -43,22 +47,23 @@ export default function LoginScreen({ navigation, route }: Props) {
   };
 
   const handleLogin = async () => {
+    if (emailLoading || socialLoading) return; // 중복 제출 방지
     if (!emailLocal.trim() || !password) {
       Alert.alert('이메일과 비밀번호를 입력해주세요.');
       return;
     }
     const email = buildEmail(emailLocal, emailDomain, emailCustomDomain);
-    const account = await getAccount();
-    if (!account) {
-      Alert.alert('가입된 계정이 없어요', '먼저 회원가입을 진행해주세요.');
-      return;
+    setEmailLoading(true);
+    try {
+      // 백엔드 이메일 로그인. 사용자 열거 방지를 위해 서버는 실패를 통합 메시지로
+      // 내려주며, 그 문구를 그대로 노출한다(존재하지 않는 계정/오답 구분 안 함).
+      await login(email, password);
+      enterAppAfterLogin();
+    } catch (e) {
+      Alert.alert('로그인 실패', authErrorMessage(e, '이메일 또는 비밀번호가 올바르지 않아요.'));
+    } finally {
+      setEmailLoading(false);
     }
-    if (account.email !== email || account.password !== password) {
-      Alert.alert('로그인 실패', '이메일 또는 비밀번호가 일치하지 않아요.');
-      return;
-    }
-    await setLoggedIn(true);
-    enterAppAfterLogin();
   };
 
   const finishSocialLogin = async (provider: 'google' | 'kakao' | 'naver', result: SocialLoginResult) => {
@@ -171,12 +176,13 @@ export default function LoginScreen({ navigation, route }: Props) {
         </View>
 
         <Pressable
-          style={styles.primaryButton}
+          style={[styles.primaryButton, (emailLoading || socialLoading !== null) && styles.socialButtonBusy]}
           onPress={handleLogin}
+          disabled={emailLoading || socialLoading !== null}
           accessibilityRole="button"
           accessibilityLabel="로그인"
         >
-          <Text style={styles.primaryButtonText}>로그인</Text>
+          <Text style={styles.primaryButtonText}>{emailLoading ? '로그인 중...' : '로그인'}</Text>
         </Pressable>
 
         <View style={styles.divider}>
@@ -188,7 +194,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         <Pressable
           style={[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy]}
           onPress={() => handleSocial('kakao')}
-          disabled={socialLoading !== null}
+          disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
           accessibilityLabel="카카오로 로그인"
         >
@@ -201,7 +207,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         <Pressable
           style={[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy]}
           onPress={() => handleSocial('google')}
-          disabled={socialLoading !== null}
+          disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
           accessibilityLabel="Google로 로그인"
         >
@@ -214,7 +220,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         <Pressable
           style={[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy]}
           onPress={() => handleSocial('naver')}
-          disabled={socialLoading !== null}
+          disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
           accessibilityLabel="네이버로 로그인"
         >

@@ -8,6 +8,7 @@ import SplashScreen from '../../features/onboarding/screens/SplashScreen';
 import LoginScreen from '../../features/auth/screens/LoginScreen';
 import SignupScreen from '../../features/auth/screens/SignupScreen';
 import ResetPasswordScreen from '../../features/auth/screens/ResetPasswordScreen';
+import AccountScreen from '../../features/settings/screens/AccountScreen';
 import OnboardingIntroScreen from '../../features/onboarding/screens/OnboardingIntroScreen';
 import OnboardingValuesScreen from '../../features/onboarding/screens/OnboardingValuesScreen';
 import NotifPermissionScreen from '../../features/onboarding/screens/NotifPermissionScreen';
@@ -59,6 +60,7 @@ export default function RootNavigator() {
         component={ResetPasswordScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="Account" component={AccountScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="OnboardingIntro"
         component={OnboardingIntroScreen}

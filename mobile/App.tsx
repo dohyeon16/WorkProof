@@ -10,6 +10,7 @@ import {
   NotoSansKR_700Bold,
 } from '@expo-google-fonts/noto-sans-kr';
 import RootNavigator from './src/app/navigation/RootNavigator';
+import { AuthProvider } from './src/features/auth/state/AuthContext';
 import { AppLockGate } from './src/features/security/components/AppLockGate';
 import { AlertHost } from './src/shared/components/alert';
 import { colors } from './src/shared/theme';
@@ -70,11 +71,13 @@ export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AppShell>
-        <AppLockGate>
-          <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
-            <RootNavigator />
-          </NavigationContainer>
-        </AppLockGate>
+        <AuthProvider>
+          <AppLockGate>
+            <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
+              <RootNavigator />
+            </NavigationContainer>
+          </AppLockGate>
+        </AuthProvider>
         <StatusBar style="auto" />
         <AlertHost />
       </AppShell>
