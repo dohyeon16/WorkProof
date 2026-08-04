@@ -2,6 +2,8 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportAllData, importAllData } from '../data/storage';
+import { formatLocalDate } from '../../shared/utils/date';
+import { BackupRestoreError } from './restoreData';
 
 // 백업 파일 포맷: 앱이 관리하는 AsyncStorage 값(JSON 문자열)을 그대로 담는다.
 // 증빙 파일 원본(계약서 사진/PDF)은 기기 로컬 파일이라 이 JSON에는 포함되지 않는다.
@@ -22,7 +24,8 @@ export type RestoreBackupResult =
   | { status: 'error'; message: string };
 
 function fileStamp(): string {
-  return new Date().toISOString().slice(0, 10);
+  // 파일명은 로컬 날짜 기준(사용자가 만든 날과 일치). toISOString(UTC)은 KST에서 하루 밀릴 수 있다.
+  return formatLocalDate();
 }
 
 function buildPayload(data: Record<string, string>): string {
@@ -83,7 +86,12 @@ export async function restoreBackup(): Promise<RestoreBackupResult> {
     }
     await importAllData(payload.data);
     return { status: 'done' };
-  } catch {
+  } catch (e) {
+    // 복원 적용 실패(롤백 시도됨/실패)는 restoreData.ts가 사용자 친화적 메시지를 담아 던진다.
+    // 그 외(파일 읽기 실패 등)는 일반 안내로 처리한다. 백업 원문은 로그에 남기지 않는다.
+    if (e instanceof BackupRestoreError) {
+      return { status: 'error', message: e.message };
+    }
     return { status: 'error', message: '백업 파일을 읽지 못했어요. 다시 시도해주세요.' };
   }
 }

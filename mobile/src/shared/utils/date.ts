@@ -1,9 +1,36 @@
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/**
+ * 기기 로컬 시간 기준 YYYY-MM-DD. 근무 날짜·"오늘" 판정 등 로컬 달력 날짜에 쓴다.
+ * Date.toISOString()은 UTC로 변환돼 KST 00:00~08:59 구간에서 전날로 밀리므로 로컬
+ * 날짜 용도로는 쓰지 않는다.
+ */
+export function formatLocalDate(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/** 기기 로컬 시간 기준 YYYY-MM. */
+export function formatLocalYearMonth(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+}
+
+/**
+ * "YYYY-MM-DD"를 로컬 자정 Date로 파싱한다. new Date("YYYY-MM-DD")는 UTC 자정으로
+ * 해석돼 로컬에서 하루 밀릴 수 있으므로(파싱 함정) 이 함수를 쓴다.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 export function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalDate();
 }
 
 export function currentYearMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return formatLocalYearMonth();
 }
 
 export function shiftYearMonth(yearMonth: string, delta: number): string {
@@ -36,7 +63,7 @@ export function currentTimeString(): string {
 const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function formatDateWithWeekday(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
+  const d = parseLocalDate(dateStr);
   const [, m, day] = dateStr.split('-');
   return `${Number(m)}.${Number(day)}(${WEEKDAY_KO[d.getDay()]})`;
 }
