@@ -332,3 +332,76 @@ test('deleteCurrentUser: 204 처리 후 세션 완전 정리', async () => {
   assert.equal(session.getState().status, 'unauthenticated');
   assert.equal(s.value, null);
 });
+
+// ---------- 손상/빈 토큰 & SecureStore 오류 견고성 ----------
+test('initialize: 빈 문자열 토큰은 없는 것으로 취급(refresh 미호출)', async () => {
+  const s = makeStore('');
+  const a = makeApi();
+  const session = createSession({ api: a.api, store: s.store });
+  await session.initialize();
+  assert.equal(session.getState().status, 'unauthenticated');
+  assert.equal(a.counts.refresh, 0);
+});
+
+test('initialize: SecureStore 읽기 예외에도 크래시 없이 unauthenticated', async () => {
+  const store = {
+    async get(): Promise<string | null> {
+      throw new Error('keychain read failed');
+    },
+    async set() {},
+    async clear() {},
+  };
+  const a = makeApi();
+  const session = createSession({ api: a.api, store });
+  await session.initialize(); // reject 하지 않아야 함
+  assert.equal(session.getState().status, 'unauthenticated');
+});
+
+test('login: refresh 토큰 저장(store.set) 실패 시 인증 상태로 전환하지 않음', async () => {
+  const store = {
+    async get(): Promise<string | null> {
+      return null;
+    },
+    async set() {
+      throw new Error('keychain write failed');
+    },
+    async clear() {},
+  };
+  const a = makeApi();
+  const session = createSession({ api: a.api, store });
+  await assert.rejects(() => session.login({ email: 'a@b.com', password: 'pw' }));
+  assert.notEqual(session.getState().status, 'authenticated');
+});
+
+test('single-flight: in-flight 중 두 번째 refreshSession 은 같은 실행을 공유', async () => {
+  const s = makeStore(null);
+  const a = makeApi();
+  const session = createSession({ api: a.api, store: s.store });
+  await session.login({ email: 'a@b.com', password: 'pw' });
+
+  const p1 = session.refreshSession();
+  const p2 = session.refreshSession(); // 아직 첫 refresh 진행 중
+  const [t1, t2] = await Promise.all([p1, p2]);
+  assert.equal(t1, t2);
+  assert.equal(a.counts.refresh, 1); // 한 번만 실행
+});
+
+test('logout: store.clear 예외에도 unauthenticated 로 전환', async () => {
+  let value: string | null = null;
+  const store = {
+    async get() {
+      return value;
+    },
+    async set(t: string) {
+      value = t;
+    },
+    async clear() {
+      throw new Error('keychain delete failed');
+    },
+  };
+  const a = makeApi();
+  const session = createSession({ api: a.api, store });
+  await session.login({ email: 'a@b.com', password: 'pw' });
+  await session.logout(); // reject 하지 않아야 함
+  assert.equal(session.getState().status, 'unauthenticated');
+});

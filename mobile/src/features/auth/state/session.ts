@@ -76,28 +76,40 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
 
   // refresh 원문을 새 값으로 교체하고 access/user를 메모리에 반영한다(rotation).
   async function applySession(session: AuthSession): Promise<AuthUser> {
+    // refresh 토큰을 안전 저장소에 먼저 쓴다. 실패하면 세션을 세우지 않는다 —
+    // access만 메모리에 남고 refresh가 없으면 재시작 시 복원 불가한 반쪽 상태가 되므로.
+    try {
+      await store.set(session.refreshToken);
+    } catch (err) {
+      accessToken = null;
+      throw err;
+    }
     accessToken = session.accessToken;
-    await store.set(session.refreshToken);
     setAuthenticated(session.user);
     return session.user;
   }
 
   async function clearLocalSession(): Promise<void> {
     accessToken = null;
-    await store.clear();
+    // 저장소 삭제 실패는 무시한다(메모리 세션은 이미 비웠고, 남은 refresh는 다음 refresh에서 폐기됨).
+    try {
+      await store.clear();
+    } catch {
+      /* best-effort */
+    }
   }
 
   async function initialize(): Promise<void> {
-    const refreshToken = await store.get();
-    if (!refreshToken) {
-      setUnauthenticated();
-      return;
-    }
     try {
+      const refreshToken = await store.get();
+      if (!refreshToken) {
+        setUnauthenticated();
+        return;
+      }
       const session = await api.refresh(refreshToken);
       await applySession(session);
     } catch {
-      // 앱 시작 시 복원 실패(만료/네트워크 등)는 조용히 로그아웃 상태로 둔다.
+      // SecureStore 읽기 실패/손상 토큰/만료/네트워크 등 어떤 이유든 안전하게 로그아웃 상태로 둔다.
       await clearLocalSession();
       setUnauthenticated();
     }

@@ -6,6 +6,9 @@
 //  - 개발 로그도 메서드·경로·상태 코드만 남긴다(민감 정보 redaction).
 //  - refresh 엔드포인트에는 이 클라이언트가 자동 재시도를 걸지 않는다
 //    (재시도/single-flight는 session 계층이 담당) — 무한 루프 방지.
+//
+// 테스트 용이성: fetch를 주입할 수 있게 하고 DOM 전역 타입(Response/fetch)에
+// 직접 의존하지 않는다 — 그래야 node:test(순수, DOM lib 없음)에서 검증 가능하다.
 import { API_BASE_URL, API_V1_PREFIX, DEFAULT_TIMEOUT_MS } from './config';
 import { ApiError, networkError, normalizeHttpError, timeoutError } from './errors';
 
@@ -27,20 +30,53 @@ export interface ApiClient {
   request<T>(path: string, opts?: RequestOptions): Promise<T>;
 }
 
+// fetch/Response의 최소 표면만 선언해 DOM lib 없이도 컴파일된다(RN·node 양쪽 호환).
+interface ResponseLike {
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+  json(): Promise<unknown>;
+}
+interface RequestInitLike {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  signal?: unknown;
+}
+export type FetchLike = (url: string, init?: RequestInitLike) => Promise<ResponseLike>;
+
+// __DEV__ 전역을 타입 참조 없이 안전하게 읽는다(RN에선 true/false, node 테스트에선 undefined).
+function isDev(): boolean {
+  return Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
+}
+
 function devLog(method: HttpMethod, path: string, status: number | 'network' | 'timeout'): void {
-  // 민감 정보 없이 요청 결과만 남긴다. __DEV__ 는 RN 런타임 전역.
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+  // 민감 정보 없이 요청 결과만 남긴다.
+  if (isDev()) {
     // eslint-disable-next-line no-console
     console.log(`[api] ${method} ${path} -> ${status}`);
   }
 }
 
-export function createApiClient(baseUrl: string = API_BASE_URL): ApiClient {
+// path 앞의 슬래시 유무와 상관없이 정확히 하나의 슬래시로 결합한다(이중 슬래시 방지).
+function joinUrl(root: string, prefix: string, path: string): string {
+  const base = `${root}${prefix}`.replace(/\/+$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${suffix}`;
+}
+
+export function createApiClient(
+  baseUrl: string = API_BASE_URL,
+  fetchImpl?: FetchLike
+): ApiClient {
+  // 주입이 없으면 전역 fetch를 쓴다(RN 런타임). trailing slash는 여기서 한 번 더 정규화.
+  const doFetch: FetchLike =
+    fetchImpl ?? ((globalThis as { fetch: FetchLike }).fetch);
   const root = baseUrl.replace(/\/+$/, '');
 
   async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     const method = opts.method ?? 'GET';
-    const url = `${root}${API_V1_PREFIX}${path}`;
+    const url = joinUrl(root, API_V1_PREFIX, path);
 
     const controller = new AbortController();
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -50,9 +86,9 @@ export function createApiClient(baseUrl: string = API_BASE_URL): ApiClient {
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
     if (opts.accessToken) headers['Authorization'] = `Bearer ${opts.accessToken}`;
 
-    let response: Response;
+    let response: ResponseLike;
     try {
-      response = await fetch(url, {
+      response = await doFetch(url, {
         method,
         headers,
         body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
