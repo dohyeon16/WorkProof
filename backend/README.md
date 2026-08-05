@@ -90,8 +90,9 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 ## Work data API (Phase 3A)
 
 근무지·근무예정·출퇴근 기록을 다루는 인증 기반 REST API입니다. 아직 **모바일 앱과
-연동되지 않았습니다**. **Preview 환경에서 검증을 마쳤고**(Neon Preview DB `0003_work_data`,
-live verification 55/55 PASS), **Production에는 아직 migration/deploy가 적용되지 않았습니다**.
+연동되지 않았습니다**. **Preview 환경 검증(Neon Preview DB `0003_work_data`,
+live verification 55/55 PASS)에 이어 Production 배포도 완료했습니다**(Neon Production DB
+`0003_work_data`, commit `e6bb6a0`, live smoke verification PASS).
 스키마는 모바일 로컬 저장 모델(`mobile/src/.../types.ts`)의 실제 필드를 기준으로 정했습니다.
 
 ### 리소스와 엔드포인트
@@ -164,6 +165,6 @@ live verification 55/55 PASS), **Production에는 아직 migration/deploy가 적
 
 - Alembic revision `0003_work_data`(← `0002_auth_tables`). 세 테이블 + FK +
   `unique(user_id, client_id)` + check 제약 + 인덱스를 만듭니다.
-- **Neon Preview DB에는 적용되어 검증을 마쳤고**(revision `0003_work_data`), **Production
-  DB에는 아직 적용하지 않았습니다**. 로컬/CI에서 upgrade→downgrade→upgrade 라운드트립을
+- **Neon Preview DB와 Production DB 모두 적용을 마쳤습니다**(revision `0003_work_data`).
+  로컬/CI에서 upgrade→downgrade→upgrade 라운드트립을
   검증했습니다(다운그레이드 시 auth 테이블은 보존).
