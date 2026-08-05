@@ -86,3 +86,82 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 4. 로그인/회원가입 화면에서 소셜 로그인 버튼을 누르면 인앱 브라우저가
    `<BASE_URL>/auth/{provider}/...`로 열립니다. 실제 계정으로 로그인하면
    "로그인 완료" 안내가 뜨고, 앱이 자동으로 로그인을 이어서 처리합니다.
+
+## Work data API (Phase 3A)
+
+근무지·근무예정·출퇴근 기록을 다루는 인증 기반 REST API입니다. 아직 **모바일 앱과
+연동되지 않았고**, Render/Neon에도 **배포되지 않았습니다**(로컬/CI 테스트만 통과).
+스키마는 모바일 로컬 저장 모델(`mobile/src/.../types.ts`)의 실제 필드를 기준으로 정했습니다.
+
+### 리소스와 엔드포인트
+
+모든 엔드포인트는 `Authorization: Bearer <access_token>`이 필요합니다(미인증 → 401).
+모든 데이터는 토큰의 사용자 소유이며, 요청 본문으로 `user_id`를 받지 않습니다.
+
+| 리소스 | 경로 |
+| --- | --- |
+| 근무지 | `POST/GET /api/v1/workplaces`, `GET/PATCH/DELETE /api/v1/workplaces/{id}` |
+| 근무 예정 | `POST/GET /api/v1/work-schedules`, `GET/PATCH/DELETE /api/v1/work-schedules/{id}` |
+| 출퇴근 기록 | `POST/GET /api/v1/attendance-records`, `GET/PATCH/DELETE /api/v1/attendance-records/{id}` |
+
+### 필드 요약
+
+- **workplaces**: `name`(필수, trim 후 빈 문자열 금지), `hourly_wage`(원 단위 정수 ≥ 0),
+  `address`, `latitude`/`longitude`(선택, 둘 다 있거나 둘 다 없음). 급여 정책 필드
+  (payDay·주휴수당 등)와 근로계약서/OCR 필드는 payroll/contracts 단계로 미뤘습니다.
+- **work-schedules**: `workplace_id`(본인 활성 근무지), `work_date`(DATE), `start_time`,
+  `end_time`(선택), `reminder_minutes`(출근 N분 전 알림, 0=없음).
+- **attendance-records**: `workplace_id`, `work_date`, `clock_in`(필수), `clock_out`(선택,
+  진행 중 근무), `break_minutes`(≥ 0), `note`, `is_holiday`, 출근/퇴근 GPS 좌표(각 선택).
+
+### 날짜·시간
+
+- `work_date`는 **DATE**(타임존/시각 없음) — 로컬 날짜를 UTC로 변환하지 않습니다.
+- `start_time`/`end_time`/`clock_in`/`clock_out`은 `"HH:mm"` 문자열(모바일과 동일).
+- **자정 넘김**: 종료 시각이 시작 시각보다 이르면 다음 날 종료로 해석합니다. 별도 종료
+  날짜 컬럼을 두지 않으며 서버는 시작/종료 대소를 강제하지 않습니다.
+- `created_at`/`updated_at`은 timezone-aware UTC.
+
+### client_id / 멱등성
+
+- 모바일 로컬 ID(`client_id`)는 사용자 범위에서 유일합니다(`unique(user_id, client_id)`).
+- 같은 `client_id`로 재요청(오프라인 재전송): 활성 레코드가 있으면 **새로 만들지 않고
+  기존 레코드를 200으로** 반환합니다. 이미 **삭제된** `client_id`로 재생성하면 **409**
+  (삭제분이 동기화로 부활하는 것을 막습니다). `client_id`가 없으면 매번 새로 생성됩니다.
+
+### 삭제 정책
+
+- 모두 **soft delete**(`deleted_at`) — 목록/조회에서 삭제분은 제외됩니다.
+- 근무지를 삭제해도 그 근무지의 근무예정/출퇴근은 **삭제하지 않습니다**(과거 기록 보존).
+- 새 근무예정/출퇴근은 **삭제된 근무지를 참조할 수 없습니다**(→ 422).
+
+### GPS 거리 계산
+
+- 출퇴근 응답의 `clock_in_proximity`/`clock_out_proximity`는 저장값이 아니라, 근무지
+  좌표와 기록 좌표로 **서버가 하버사인 공식으로 재계산**한 값입니다(`app/core/geo.py`).
+  클라이언트가 보낸 거리는 받지도 신뢰하지도 않습니다.
+- `{ "distance_m": <미터, 정수>, "verified": <반경 200m 이내 여부> }`. 근무지나 기록에
+  좌표가 없으면 `null`입니다. 반경 판정은 반올림 전 실제 거리로 하여 모바일과 일치시킵니다.
+
+### 목록 · 필터 · 페이지네이션
+
+- `limit`(기본 50, 1~200), `offset`(기본 0).
+- 근무예정/출퇴근: `workplace_id`, `date_from`, `date_to` 필터. `date_from > date_to` → 422.
+- 정렬은 결정적입니다(근무지: 생성 최신순 / 예정·출퇴근: `work_date` 내림차순 + 시각 + id).
+- 응답에는 내부 필드(`user_id`, `deleted_at`)를 노출하지 않습니다.
+
+### 오류 코드
+
+| 상황 | 코드 |
+| --- | --- |
+| 미인증 / 잘못된 토큰 | 401 |
+| 본인 소유 아님 · 미존재 · 삭제됨(조회/수정/삭제) | 404 |
+| 삭제된 `client_id` 재생성 | 409 |
+| 유효성 실패(형식·범위·좌표 짝) · 잘못된 근무지 참조 · `date_from>date_to` | 422 |
+
+### 마이그레이션
+
+- Alembic revision `0003_work_data`(← `0002_auth_tables`). 세 테이블 + FK +
+  `unique(user_id, client_id)` + check 제약 + 인덱스를 만듭니다.
+- 실제 Neon/Render DB에는 아직 적용하지 않았습니다. 로컬/CI에서 upgrade→downgrade→
+  upgrade 라운드트립을 검증했습니다(다운그레이드 시 auth 테이블은 보존).

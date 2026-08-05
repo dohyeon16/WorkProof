@@ -18,22 +18,33 @@ def _alembic_config():
     return Config(os.path.join(BACKEND_DIR, "alembic.ini"))
 
 
-def test_single_head_is_auth_tables():
+def test_single_head_is_work_data():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_alembic_config())
     heads = list(script.get_heads())
-    assert heads == ["0002_auth_tables"], f"단일 head 여야 함: {heads}"
+    assert heads == ["0003_work_data"], f"단일 head 여야 함: {heads}"
 
 
-def test_revision_chain_0002_to_0001_to_base():
+def test_revision_chain_0003_to_0002_to_0001_to_base():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_alembic_config())
+    work = script.get_revision("0003_work_data")
+    assert work.down_revision == "0002_auth_tables"
     rev = script.get_revision("0002_auth_tables")
     assert rev.down_revision == "0001_initial"
     base = script.get_revision("0001_initial")
     assert base.down_revision is None
+
+
+def test_work_data_migration_has_upgrade_and_downgrade():
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(_alembic_config())
+    module = script.get_revision("0003_work_data").module
+    assert callable(module.upgrade)
+    assert callable(module.downgrade)
 
 
 def test_migration_has_upgrade_and_downgrade():
@@ -65,3 +76,75 @@ def test_offline_sql_creates_all_three_tables():
     assert "create table refresh_tokens" in sql
     # 부분 unique index 가 PostgreSQL WHERE 절과 함께 렌더링되는지.
     assert "where deleted_at is null" in sql
+
+
+def test_offline_sql_0003_creates_work_data_tables():
+    env = dict(os.environ)
+    env["DATABASE_URL"] = "postgresql+psycopg://ci:ci@localhost/workproof_ci"
+    env["SESSION_SIGNING_SECRET"] = "test-signing-secret-not-a-real-value"
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "0002_auth_tables:0003_work_data", "--sql"],
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    sql = result.stdout.lower()
+    assert "create table workplaces" in sql
+    assert "create table work_schedules" in sql
+    assert "create table attendance_records" in sql
+    assert "uq_workplaces_user_client" in sql
+    assert "ck_workplaces_coords_paired" in sql
+
+
+def _run_alembic(db_url, *args):
+    env = dict(os.environ)
+    env["DATABASE_URL"] = db_url
+    env["SESSION_SIGNING_SECRET"] = "test-signing-secret-not-a-real-value"
+    env["JWT_SECRET_KEY"] = "test-jwt-secret-not-a-real-value"
+    return subprocess.run(
+        [sys.executable, "-m", "alembic", *args],
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _sqlite_tables(path):
+    import sqlite3
+
+    con = sqlite3.connect(path)
+    try:
+        rows = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    finally:
+        con.close()
+    return {r[0] for r in rows}
+
+
+def test_upgrade_downgrade_roundtrip_sqlite(tmp_path):
+    """빈 DB → head 업그레이드 → 0002 다운그레이드 → 다시 head. DDL 만 실행(실 DB 무접속).
+
+    다운그레이드 시 work-data 테이블만 사라지고 auth 테이블(users 등)은 보존되는지 확인.
+    """
+    db_file = tmp_path / "roundtrip.db"
+    db_url = f"sqlite:///{db_file.as_posix()}"
+
+    up = _run_alembic(db_url, "upgrade", "head")
+    assert up.returncode == 0, up.stderr
+    tables = _sqlite_tables(str(db_file))
+    assert {"users", "workplaces", "work_schedules", "attendance_records"} <= tables
+
+    down = _run_alembic(db_url, "downgrade", "0002_auth_tables")
+    assert down.returncode == 0, down.stderr
+    tables = _sqlite_tables(str(db_file))
+    assert "users" in tables  # auth 보존
+    assert not {"workplaces", "work_schedules", "attendance_records"} & tables
+
+    up2 = _run_alembic(db_url, "upgrade", "head")
+    assert up2.returncode == 0, up2.stderr
+    tables = _sqlite_tables(str(db_file))
+    assert {"workplaces", "work_schedules", "attendance_records"} <= tables

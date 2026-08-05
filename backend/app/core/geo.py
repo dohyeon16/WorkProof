@@ -44,5 +44,7 @@ def proximity(
     """
     if work_lat is None or work_lon is None or rec_lat is None or rec_lon is None:
         return None
-    meters = round_half_up_m(haversine_meters(work_lat, work_lon, rec_lat, rec_lon))
-    return meters, meters <= VERIFY_RADIUS_M
+    # 반경 판정은 반올림하지 않은 실제 거리로 한다(모바일 evaluateProximity 와 동일).
+    # 표기용 거리만 half-up 반올림한다 — 200.4m 같은 경계값에서 모바일과 판정이 어긋나지 않게.
+    raw_meters = haversine_meters(work_lat, work_lon, rec_lat, rec_lon)
+    return round_half_up_m(raw_meters), raw_meters <= VERIFY_RADIUS_M
