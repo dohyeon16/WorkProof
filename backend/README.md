@@ -109,8 +109,15 @@ live verification 55/55 PASS)에 이어 Production 배포도 완료했습니다*
 ### 필드 요약
 
 - **workplaces**: `name`(필수, trim 후 빈 문자열 금지), `hourly_wage`(원 단위 정수 ≥ 0),
-  `address`, `latitude`/`longitude`(선택, 둘 다 있거나 둘 다 없음). 급여 정책 필드
-  (payDay·주휴수당 등)와 근로계약서/OCR 필드는 payroll/contracts 단계로 미뤘습니다.
+  `address`, `latitude`/`longitude`(선택, 둘 다 있거나 둘 다 없음).
+  - **급여 정책(Phase 3C)**: `pay_day`(매월 며칠, 1~31 정수 — DATE 아님),
+    `weekly_allowance`(bool), `five_or_more_employees`(bool),
+    `income_deduction_type`(`none`|`withholding`|`insurance`),
+    `break_minutes_per_shift`(≥ 0). 근무지당 1:1 정책이라 별도 리소스가 아니라 workplaces
+    확장입니다. 전부 NOT NULL + 기본값이 있어 생략하면 기본값이 들어갑니다. PATCH 에서는
+    생략=유지이고, 명시적 `null` 은 거부합니다(422).
+  - 근로계약서 원본/파일/OCR 텍스트·요약은 기기 로컬 파일 참조라 서버 동기화 대상이
+    아닙니다(파일 저장·OCR 은 별도 contracts 단계).
 - **work-schedules**: `workplace_id`(본인 활성 근무지), `work_date`(DATE), `start_time`,
   `end_time`(선택), `reminder_minutes`(출근 N분 전 알림, 0=없음).
 - **attendance-records**: `workplace_id`, `work_date`, `clock_in`(필수), `clock_out`(선택,
@@ -168,3 +175,7 @@ live verification 55/55 PASS)에 이어 Production 배포도 완료했습니다*
 - **Neon Preview DB와 Production DB 모두 적용을 마쳤습니다**(revision `0003_work_data`).
   로컬/CI에서 upgrade→downgrade→upgrade 라운드트립을
   검증했습니다(다운그레이드 시 auth 테이블은 보존).
+- Alembic revision `0004_workplace_policy`(← `0003_work_data`). workplaces 에 급여 정책
+  컬럼 5개를 추가합니다(순수 additive, `batch_alter_table` 로 SQLite/PostgreSQL 양쪽 호환).
+  전부 NOT NULL + `server_default` 라 3B 이전에 동기화된 **기존 행도 기본값으로 백필**되어
+  데이터 손실이 없습니다. CI 에서 오프라인 SQL·SQLite 백필·다운그레이드를 검증했습니다.

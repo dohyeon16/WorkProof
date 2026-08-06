@@ -154,3 +154,90 @@ def test_delete_is_soft_and_idempotent_404(client):
     assert client.get(f"/api/v1/workplaces/{wid}", headers=h).status_code == 404
     # 이미 삭제됨 → 재삭제 404.
     assert client.delete(f"/api/v1/workplaces/{wid}", headers=h).status_code == 404
+
+
+# --- 급여 정책(Phase 3C) ---
+def test_policy_defaults_when_omitted(client):
+    h = _auth(client)
+    body = _create(client, h).json()
+    # 정책 필드를 안 보내면 서버 기본값(모바일 폼 기본값과 일치).
+    assert body["pay_day"] == 10
+    assert body["weekly_allowance"] is True
+    assert body["five_or_more_employees"] is False
+    assert body["income_deduction_type"] == "none"
+    assert body["break_minutes_per_shift"] == 0
+
+
+def test_policy_full_create_get_roundtrip(client):
+    h = _auth(client)
+    r = _create(
+        client,
+        h,
+        pay_day=25,
+        weekly_allowance=False,
+        five_or_more_employees=True,
+        income_deduction_type="withholding",
+        break_minutes_per_shift=60,
+    )
+    assert r.status_code == 201, r.text
+    got = client.get(f"/api/v1/workplaces/{r.json()['id']}", headers=h).json()
+    assert got["pay_day"] == 25
+    assert got["weekly_allowance"] is False
+    assert got["five_or_more_employees"] is True
+    assert got["income_deduction_type"] == "withholding"
+    assert got["break_minutes_per_shift"] == 60
+
+
+def test_policy_validation(client):
+    h = _auth(client)
+    assert _create(client, h, pay_day=0).status_code == 422
+    assert _create(client, h, pay_day=32).status_code == 422
+    assert _create(client, h, break_minutes_per_shift=-1).status_code == 422
+    assert _create(client, h, income_deduction_type="bad").status_code == 422
+
+
+def test_patch_policy_fields(client):
+    h = _auth(client)
+    wid = _create(client, h, pay_day=10, break_minutes_per_shift=30).json()["id"]
+    r = client.patch(
+        f"/api/v1/workplaces/{wid}",
+        json={"pay_day": 5, "income_deduction_type": "insurance"},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pay_day"] == 5
+    assert body["income_deduction_type"] == "insurance"
+    # 생략한 정책 필드는 유지.
+    assert body["break_minutes_per_shift"] == 30
+    assert body["weekly_allowance"] is True
+
+
+def test_patch_policy_explicit_null_rejected(client):
+    h = _auth(client)
+    wid = _create(client, h).json()["id"]
+    # NOT NULL 정책 필드는 명시적 null 로 지울 수 없다(422).
+    for field in (
+        "pay_day",
+        "weekly_allowance",
+        "five_or_more_employees",
+        "income_deduction_type",
+        "break_minutes_per_shift",
+    ):
+        r = client.patch(
+            f"/api/v1/workplaces/{wid}", json={field: None}, headers=h
+        )
+        assert r.status_code == 422, f"{field} null 이 거부되지 않음"
+
+
+def test_patch_policy_validation(client):
+    h = _auth(client)
+    wid = _create(client, h).json()["id"]
+    assert client.patch(
+        f"/api/v1/workplaces/{wid}", json={"pay_day": 40}, headers=h
+    ).status_code == 422
+    assert client.patch(
+        f"/api/v1/workplaces/{wid}",
+        json={"income_deduction_type": "nope"},
+        headers=h,
+    ).status_code == 422

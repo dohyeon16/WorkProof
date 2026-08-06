@@ -18,24 +18,35 @@ def _alembic_config():
     return Config(os.path.join(BACKEND_DIR, "alembic.ini"))
 
 
-def test_single_head_is_work_data():
+def test_single_head_is_workplace_policy():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_alembic_config())
     heads = list(script.get_heads())
-    assert heads == ["0003_work_data"], f"단일 head 여야 함: {heads}"
+    assert heads == ["0004_workplace_policy"], f"단일 head 여야 함: {heads}"
 
 
-def test_revision_chain_0003_to_0002_to_0001_to_base():
+def test_revision_chain_0004_to_0001_to_base():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_alembic_config())
+    policy = script.get_revision("0004_workplace_policy")
+    assert policy.down_revision == "0003_work_data"
     work = script.get_revision("0003_work_data")
     assert work.down_revision == "0002_auth_tables"
     rev = script.get_revision("0002_auth_tables")
     assert rev.down_revision == "0001_initial"
     base = script.get_revision("0001_initial")
     assert base.down_revision is None
+
+
+def test_0004_migration_has_upgrade_and_downgrade():
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(_alembic_config())
+    module = script.get_revision("0004_workplace_policy").module
+    assert callable(module.upgrade)
+    assert callable(module.downgrade)
 
 
 def test_work_data_migration_has_upgrade_and_downgrade():
@@ -98,6 +109,33 @@ def test_offline_sql_0003_creates_work_data_tables():
     assert "ck_workplaces_coords_paired" in sql
 
 
+def test_offline_sql_0004_adds_policy_columns():
+    env = dict(os.environ)
+    env["DATABASE_URL"] = "postgresql+psycopg://ci:ci@localhost/workproof_ci"
+    env["SESSION_SIGNING_SECRET"] = "test-signing-secret-not-a-real-value"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "upgrade",
+            "0003_work_data:0004_workplace_policy",
+            "--sql",
+        ],
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    sql = result.stdout.lower()
+    assert "add column pay_day" in sql
+    assert "weekly_allowance" in sql
+    assert "income_deduction_type" in sql
+    assert "break_minutes_per_shift" in sql
+    assert "ck_workplaces_pay_day_range" in sql
+
+
 def _run_alembic(db_url, *args):
     env = dict(os.environ)
     env["DATABASE_URL"] = db_url
@@ -148,3 +186,60 @@ def test_upgrade_downgrade_roundtrip_sqlite(tmp_path):
     assert up2.returncode == 0, up2.stderr
     tables = _sqlite_tables(str(db_file))
     assert {"workplaces", "work_schedules", "attendance_records"} <= tables
+
+
+def test_0004_backfills_existing_rows_sqlite(tmp_path):
+    """3B 이전에 생긴 정책 필드 없는 행이, 0004 적용 후 server_default 로 채워지는지.
+
+    0003 상태에서 근무지 1건을 직접 INSERT → head(0004) 업그레이드 → 정책 컬럼이
+    기본값(pay_day=10 등)으로 백필됐는지 확인. 기존 사용자 데이터 손실 없는 마이그레이션.
+    """
+    import sqlite3
+    import uuid
+
+    db_file = tmp_path / "backfill.db"
+    db_url = f"sqlite:///{db_file.as_posix()}"
+
+    up = _run_alembic(db_url, "upgrade", "0003_work_data")
+    assert up.returncode == 0, up.stderr
+
+    con = sqlite3.connect(str(db_file))
+    try:
+        con.execute(
+            "INSERT INTO workplaces "
+            "(id, user_id, client_id, name, hourly_wage, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                uuid.uuid4().hex,
+                uuid.uuid4().hex,
+                "legacy-1",
+                "옛근무지",
+                12000,
+                "2026-08-01T00:00:00Z",
+                "2026-08-01T00:00:00Z",
+            ),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    up2 = _run_alembic(db_url, "upgrade", "head")
+    assert up2.returncode == 0, up2.stderr
+
+    con = sqlite3.connect(str(db_file))
+    try:
+        row = con.execute(
+            "SELECT pay_day, weekly_allowance, five_or_more_employees, "
+            "income_deduction_type, break_minutes_per_shift "
+            "FROM workplaces WHERE client_id = 'legacy-1'"
+        ).fetchone()
+    finally:
+        con.close()
+
+    assert row is not None, "기존 행이 사라지면 안 됨"
+    pay_day, weekly, five, income, brk = row
+    assert pay_day == 10
+    assert weekly == 1  # true
+    assert five == 0  # false
+    assert income == "none"
+    assert brk == 0

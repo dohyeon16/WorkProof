@@ -94,6 +94,11 @@ def create_workplace(
         address=data.address,
         latitude=data.latitude,
         longitude=data.longitude,
+        pay_day=data.pay_day,
+        weekly_allowance=data.weekly_allowance,
+        five_or_more_employees=data.five_or_more_employees,
+        income_deduction_type=data.income_deduction_type,
+        break_minutes_per_shift=data.break_minutes_per_shift,
     )
     db.add(wp)
     try:
