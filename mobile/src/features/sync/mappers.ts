@@ -6,11 +6,13 @@
 // 핵심 규칙:
 //  - 로컬 record.id 를 그대로 client_id 로 보낸다(재전송 멱등 키).
 //  - 좌표는 서버가 "위도·경도 짝"을 강제하므로 항상 둘 다 보내거나 둘 다 null 로 보낸다.
-//  - 서버는 아래 "서버 관리 필드"만 저장한다. 로컬 전용 필드(payDay/weeklyAllowance/
-//    breakMinutesPerShift/contract*/createdAt 등)는 보내지도 받지도 않는다.
+//  - 서버 관리 필드: name/hourly_wage/address/좌표 + (Phase 3C) 급여 정책 5필드
+//    (pay_day/weekly_allowance/five_or_more_employees/income_deduction_type/
+//    break_minutes_per_shift). 계약서/OCR 등 기기 로컬 필드는 여전히 보내지 않는다.
 //  - 응답의 proximity(거리·반경)는 무시한다 — 모바일은 자체 좌표로 로컬 계산한다.
 import type {
   AttendanceRecord,
+  IncomeDeductionType,
   ScheduledShift,
   Workplace,
 } from '../../core/domain/models/types';
@@ -27,6 +29,12 @@ export interface WireWorkplace {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  // 급여 정책(Phase 3C). 서버에서 NOT NULL(항상 값이 온다).
+  pay_day: number;
+  weekly_allowance: boolean;
+  five_or_more_employees: boolean;
+  income_deduction_type: IncomeDeductionType;
+  break_minutes_per_shift: number;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +93,12 @@ export function workplaceManagedBody(w: Workplace): Record<string, unknown> {
     hourly_wage: Math.round(w.hourlyWage), // 서버는 정수(ge=0)
     address: w.address ?? null,
     ...coordPair(w.latitude, w.longitude),
+    // 급여 정책(Phase 3C). 구버전 데이터의 optional 필드는 모바일 기본값으로 채운다.
+    pay_day: w.payDay,
+    weekly_allowance: w.weeklyAllowance,
+    five_or_more_employees: w.fiveOrMoreEmployees ?? false,
+    income_deduction_type: w.incomeDeductionType ?? 'none',
+    break_minutes_per_shift: w.breakMinutesPerShift,
   };
 }
 
@@ -157,6 +171,13 @@ export function workplaceFingerprint(w: Workplace): string {
     w.address ?? null,
     w.latitude ?? null,
     w.longitude ?? null,
+    // 급여 정책(Phase 3C) — 지문에 포함하므로, 3B 에서 정책 없이 동기화된 근무지는
+    // 3C 첫 sync 때 지문 불일치로 update 가 나가 정책 값이 서버로 backfill 된다.
+    w.payDay,
+    w.weeklyAllowance,
+    w.fiveOrMoreEmployees ?? false,
+    w.incomeDeductionType ?? 'none',
+    w.breakMinutesPerShift,
   ]);
 }
 
@@ -206,23 +227,20 @@ export function fingerprintOf(
 //  - 기존 로컬 레코드가 있으면 서버 관리 필드만 갱신한다.
 //  - 서버에만 존재하는 레코드(로컬 없음)는 로컬 전용 필수 필드에 안전한 기본값을 넣어
 //    새로 추가한다(재설치/재로그인 복원 시). 이 값들은 서버에 없으므로 근사값이다.
-// ---------------------------------------------------------------------------
-// 서버에만 존재하는 근무지를 로컬에 추가할 때의 로컬 전용 필수 필드 기본값.
-// (서버는 이 값들을 저장하지 않는다 — 파일 백업/복원이 완전 복원 경로다.)
-const DEFAULT_PAY_DAY = 25;
-
 export function applyServerWorkplace(
   local: Workplace | undefined,
   wire: WireWorkplace
 ): Workplace {
+  // 급여 정책은 이제 서버 관리 필드다. 계약서/OCR 등 기기 로컬 필드만 기존 로컬에서 보존.
+  // 서버 전용(재설치/재로그인 복원)이면 정책도 서버 값 그대로 복원된다.
   const base: Workplace =
     local ?? {
       id: wire.client_id ?? wire.id,
       name: wire.name,
       hourlyWage: wire.hourly_wage,
-      payDay: DEFAULT_PAY_DAY,
-      weeklyAllowance: false,
-      breakMinutesPerShift: 0,
+      payDay: wire.pay_day,
+      weeklyAllowance: wire.weekly_allowance,
+      breakMinutesPerShift: wire.break_minutes_per_shift,
       createdAt: wire.created_at,
     };
   return {
@@ -232,6 +250,11 @@ export function applyServerWorkplace(
     address: wire.address ?? undefined,
     latitude: wire.latitude ?? undefined,
     longitude: wire.longitude ?? undefined,
+    payDay: wire.pay_day,
+    weeklyAllowance: wire.weekly_allowance,
+    fiveOrMoreEmployees: wire.five_or_more_employees,
+    incomeDeductionType: wire.income_deduction_type,
+    breakMinutesPerShift: wire.break_minutes_per_shift,
   };
 }
 

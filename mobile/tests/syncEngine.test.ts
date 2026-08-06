@@ -15,6 +15,7 @@ import {
   makeSchedule,
   makeWorkplace,
   networkError,
+  wireWorkplace,
   withFault,
 } from './support/syncHarness';
 
@@ -191,17 +192,14 @@ test('merge: 서버 전용 레코드는 로컬에 추가(재로그인 복원)', 
     state,
     fetched: {
       workplace: [
-        {
+        wireWorkplace({
           id: 'srv-x',
           client_id: 'wp-remote',
           name: '원격',
           hourly_wage: 9860,
-          address: null,
-          latitude: null,
-          longitude: null,
-          created_at: 'c',
-          updated_at: 'u',
-        },
+          pay_day: 15,
+          break_minutes_per_shift: 45,
+        }),
       ],
       schedule: [],
       attendance: [],
@@ -210,6 +208,9 @@ test('merge: 서버 전용 레코드는 로컬에 추가(재로그인 복원)', 
   });
   assert.equal(merged.workplaces.length, 1);
   assert.equal(merged.workplaces[0].id, 'wp-remote');
+  // 서버 전용 복원 시 정책 필드도 서버 값으로 채워진다.
+  assert.equal(merged.workplaces[0].payDay, 15);
+  assert.equal(merged.workplaces[0].breakMinutesPerShift, 45);
   assert.equal(merged.state.workplace['wp-remote'].status, 'synced');
   assert.equal(merged.state.workplace['wp-remote'].serverId, 'srv-x');
   void server;
@@ -231,17 +232,13 @@ test('merge: pending local update/delete 는 서버 fetch 로 덮이지 않는�
     state,
     fetched: {
       workplace: [
-        {
+        wireWorkplace({
           id: 'srv-1',
           client_id: 'wp-1',
           name: local.name,
           hourly_wage: 8000, // 서버는 예전 값
-          address: null,
-          latitude: null,
-          longitude: null,
-          created_at: 'c',
           updated_at: 'u2',
-        },
+        }),
       ],
       schedule: [],
       attendance: [],
@@ -266,19 +263,7 @@ test('merge: pendingDelete 는 서버 목록에 있어도 되살리지 않음', 
     local: { workplace: [], schedule: [], attendance: [] },
     state,
     fetched: {
-      workplace: [
-        {
-          id: 'srv-1',
-          client_id: 'wp-1',
-          name: 'x',
-          hourly_wage: 1,
-          address: null,
-          latitude: null,
-          longitude: null,
-          created_at: 'c',
-          updated_at: 'u',
-        },
-      ],
+      workplace: [wireWorkplace({ id: 'srv-1', client_id: 'wp-1', name: 'x', hourly_wage: 1 })],
       schedule: [],
       attendance: [],
     },
