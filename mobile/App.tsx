@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/noto-sans-kr';
 import RootNavigator from './src/app/navigation/RootNavigator';
 import { AuthProvider } from './src/features/auth/state/AuthContext';
+import { SyncProvider } from './src/features/sync/SyncContext';
 import { AppLockGate } from './src/features/security/components/AppLockGate';
 import { AlertHost } from './src/shared/components/alert';
 import { colors } from './src/shared/theme';
@@ -72,11 +73,13 @@ export default function App() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AppShell>
         <AuthProvider>
-          <AppLockGate>
-            <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
-              <RootNavigator />
-            </NavigationContainer>
-          </AppLockGate>
+          <SyncProvider>
+            <AppLockGate>
+              <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
+                <RootNavigator />
+              </NavigationContainer>
+            </AppLockGate>
+          </SyncProvider>
         </AuthProvider>
         <StatusBar style="auto" />
         <AlertHost />

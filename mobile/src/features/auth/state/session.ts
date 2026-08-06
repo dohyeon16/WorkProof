@@ -45,6 +45,12 @@ export interface Session {
   updateCurrentUser(input: UpdateProfileInput): Promise<AuthUser>;
   deleteCurrentUser(): Promise<void>;
   clearLocalSession(): Promise<void>;
+  /**
+   * access 토큰이 필요한 임의 요청을 single-flight refresh + 401 1회 재시도로 실행한다.
+   * work-data 동기화 등 인증 API 호출부가 이 실행기를 재사용한다(중복 refresh 방지).
+   * 세션 만료 시 SessionExpiredError 를 던지고 unauthenticated 로 전환한다.
+   */
+  runAuthorized<T>(run: (accessToken: string) => Promise<T>): Promise<T>;
 }
 
 export interface CreateSessionDeps {
@@ -230,5 +236,6 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
     updateCurrentUser,
     deleteCurrentUser,
     clearLocalSession,
+    runAuthorized: authorized,
   };
 }
