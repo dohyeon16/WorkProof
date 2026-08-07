@@ -5,7 +5,8 @@ import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAttendanceByWorkplace, getWorkplace, makeId, saveAttendance } from '../../../core/data/storage';
+import { getAttendanceByWorkplace, getScheduledShifts, getWorkplace, makeId, saveAttendanceWithHistory } from '../../../core/data/storage';
+import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../core/notifications/notifications';
 import { AttendanceRecord, Workplace } from '../../../core/domain/models/types';
 import { formatMinutesAsHours, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
 import { formatDateWithWeekday, todayDateString, currentTimeString } from '../../../shared/utils/date';
@@ -69,7 +70,7 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
     setLocating(true);
     const loc = await getCurrentLocation();
     setLocating(false);
-    await saveAttendance({
+    const record: AttendanceRecord = {
       id: makeId(),
       workplaceId,
       date: today,
@@ -79,7 +80,11 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
       ...(loc.status === 'ok'
         ? { clockInLatitude: loc.coords.latitude, clockInLongitude: loc.coords.longitude }
         : {}),
-    });
+    };
+    await saveAttendanceWithHistory(record, 'clock');
+    // 진행 중(퇴근 전) 기록 → 예정 종료/일정 시간 뒤 미퇴근 알림 예약(best-effort).
+    const shift = (await getScheduledShifts()).find((s) => s.workplaceId === workplaceId && s.date === today);
+    scheduleMissingClockOutReminder(record, workplace.name, shift).catch(() => {});
     load();
   };
 
@@ -89,13 +94,18 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
     setLocating(true);
     const loc = await getCurrentLocation();
     setLocating(false);
-    await saveAttendance({
-      ...todayRecord,
-      clockOut: time,
-      ...(loc.status === 'ok'
-        ? { clockOutLatitude: loc.coords.latitude, clockOutLongitude: loc.coords.longitude }
-        : {}),
-    });
+    await saveAttendanceWithHistory(
+      {
+        ...todayRecord,
+        clockOut: time,
+        ...(loc.status === 'ok'
+          ? { clockOutLatitude: loc.coords.latitude, clockOutLongitude: loc.coords.longitude }
+          : {}),
+      },
+      'clock'
+    );
+    // 퇴근이 채워졌으니 예약해둔 미퇴근 알림을 취소한다.
+    cancelMissingClockOutReminder(todayRecord.id).catch(() => {});
     load();
   };
 

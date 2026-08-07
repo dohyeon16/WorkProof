@@ -10,8 +10,10 @@ import { CalendarPickerModal } from '../../../shared/components/CalendarPickerMo
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from '../../../shared/components/alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAttendanceRecord, getWorkplace, deleteAttendance, makeId, saveAttendance } from '../../../core/data/storage';
-import type { AttendanceRecord } from '../../../core/domain/models/types';
+import { getAttendanceHistory, getAttendanceRecord, getScheduledShifts, getWorkplace, deleteAttendance, makeId, saveAttendanceWithHistory } from '../../../core/data/storage';
+import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../core/notifications/notifications';
+import type { AttendanceChange, AttendanceRecord } from '../../../core/domain/models/types';
+import { FIELD_LABELS, formatChangeValue, type AuditedField } from '../audit/auditTrail';
 import { formatTimeInput, todayDateString } from '../../../shared/utils/date';
 import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../../../core/domain/payroll/payCalc';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
@@ -31,6 +33,14 @@ function clampBreakMinutes(n: number) {
   return Math.round(clamped / 10) * 10;
 }
 
+const SOURCE_LABEL: Record<string, string> = { clock: '원터치', manual: '직접 수정' };
+
+function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function AttendanceFormScreen({ navigation, route }: Props) {
   const { workplaceId, id: editingId, date: dateParam } = route.params;
   const [loaded, setLoaded] = useState(false);
@@ -44,11 +54,13 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   // 수정 시 폼에 노출하지 않는 필드(출퇴근 GPS 위치 등)를 잃지 않도록 원본 기록을 보관한다.
   const existingRef = useRef<AttendanceRecord | null>(null);
+  const [history, setHistory] = useState<AttendanceChange[]>([]);
   const numericNav = useNumericInputNavigation(NUMERIC_FIELDS);
 
   useEffect(() => {
     (async () => {
       if (editingId) {
+        setHistory(await getAttendanceHistory(editingId));
         const record = await getAttendanceRecord(editingId);
         if (!record) {
           // 알림 등으로 이 화면에 들어왔지만 대상 기록이 이미 삭제된 경우.
@@ -103,7 +115,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
       return;
     }
 
-    await saveAttendance({
+    const record: AttendanceRecord = {
       // 폼에 없는 필드(출퇴근 GPS 위치 등)는 원본에서 이어받아 수정 시 유실되지 않게 한다.
       ...(existingRef.current ?? {}),
       id: editingId ?? makeId(),
@@ -113,7 +125,17 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
       clockOut,
       breakMinutes,
       isHoliday,
-    });
+    };
+    // 기록 화면 편집은 'manual' 소스로 변경 이력을 남긴다.
+    await saveAttendanceWithHistory(record, 'manual');
+    // 퇴근이 비어 있으면(진행 중) 미퇴근 알림을 예약, 채워졌으면 취소한다(best-effort).
+    if (!clockOut) {
+      const [workplace, shifts] = await Promise.all([getWorkplace(workplaceId), getScheduledShifts()]);
+      const shift = shifts.find((s) => s.workplaceId === workplaceId && s.date === date);
+      if (workplace) scheduleMissingClockOutReminder(record, workplace.name, shift).catch(() => {});
+    } else {
+      cancelMissingClockOutReminder(record.id).catch(() => {});
+    }
     navigation.goBack();
   };
 
@@ -126,6 +148,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
         style: 'destructive',
         onPress: async () => {
           await deleteAttendance(editingId);
+          cancelMissingClockOutReminder(editingId).catch(() => {});
           navigation.goBack();
         },
       },
@@ -227,6 +250,35 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
             <Text style={styles.deleteButtonText}>기록 삭제</Text>
           </Pressable>
         )}
+
+        {editingId && history.length > 0 && (
+          <View style={styles.historyCard}>
+            <View style={styles.historyTitleRow}>
+              <Ionicons name="time-outline" size={14} color={colors.subtext} />
+              <Text style={styles.historyTitle}>변경 이력</Text>
+            </View>
+            {history.map((h) => (
+              <View key={h.id} style={styles.historyItem}>
+                <View style={styles.historyHead}>
+                  <Text style={styles.historyOp}>{h.op === 'create' ? '최초 기록' : '수정'}</Text>
+                  <Text style={styles.historyMeta}>
+                    {SOURCE_LABEL[h.source] ?? h.source} · {fmtWhen(h.changedAt)}
+                  </Text>
+                </View>
+                {h.op === 'create' ? (
+                  <Text style={styles.historyLine}>기록을 처음 생성했어요.</Text>
+                ) : (
+                  h.changes.map((c) => (
+                    <Text key={c.field} style={styles.historyLine}>
+                      {FIELD_LABELS[c.field as AuditedField] ?? c.field}: {formatChangeValue(c.field, c.before)} → {formatChangeValue(c.field, c.after)}
+                    </Text>
+                  ))
+                )}
+              </View>
+            ))}
+            <Text style={styles.historyHelp}>이 기기에 저장된 변경 기록이에요. 서버로 전송되지 않아요.</Text>
+          </View>
+        )}
       </ScrollView>
 
       <InputAccessoryToolbar
@@ -273,4 +325,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   deleteButtonText: { color: colors.danger, fontWeight: '600', fontSize: 13 },
+  historyCard: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+  },
+  historyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm },
+  historyTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  historyItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: spacing.sm,
+  },
+  historyHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  historyOp: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  historyMeta: { fontSize: 11, color: colors.subtext },
+  historyLine: { fontSize: 12, color: colors.text, lineHeight: 18 },
+  historyHelp: { fontSize: 11, color: colors.subtext, marginTop: spacing.sm },
 });

@@ -12,6 +12,9 @@ export const KEYS = {
   onboardingDone: '@workproof/onboardingDone',
   activeWorkplaceId: '@workproof/activeWorkplaceId',
   readNotifications: '@workproof/readNotifications',
+  // 근무 기록 변경 이력(append-only, 로컬 전용). 업무 데이터라 백업/복원에는 포함하고,
+  // 서버 동기화(syncState)와는 무관하다 — 서버로 보내지 않는다.
+  attendanceHistory: '@workproof/attendanceHistory',
   appLock: '@workproof/appLock',
   // work-data ↔ 백엔드 동기화 metadata(clientId↔serverId 매핑·상태·재시도). 업무 데이터가
   // 아니라 '이 기기와 이 서버 계정 사이'의 동기화 상태라, 백업/복원에서는 제외한다.
