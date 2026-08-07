@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.api.v1 import ai_proxy as v1_ai
 from app.api.v1 import attendance_records as v1_attendance
 from app.api.v1 import auth as v1_auth
 from app.api.v1 import bridge as legacy_bridge
@@ -45,6 +46,8 @@ app.include_router(v1_users.router, prefix="/api/v1")
 app.include_router(v1_workplaces.router, prefix="/api/v1")
 app.include_router(v1_work_schedules.router, prefix="/api/v1")
 app.include_router(v1_attendance.router, prefix="/api/v1")
+# Phase 4C AI 프록시 (/api/v1/ai/ocr, /ai/summarize) — 키는 서버 보관, 인증 필수.
+app.include_router(v1_ai.router, prefix="/api/v1")
 
 
 # work-data 도메인 예외 → HTTP 상태 매핑(라우터를 얇게 유지).
