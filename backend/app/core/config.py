@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     # 거부한다(임의 identity 위조로 계정 탈취를 막는 production-safe 기본값).
     ALLOW_UNVERIFIED_SOCIAL: bool = False
 
+    # --- 신규 (Phase 4C: AI 프록시) ---
+    # Google Cloud Vision / Gemini API 키. 서버에서만 보관한다(클라이언트 번들에
+    # 절대 싣지 않는다 — EXPO_PUBLIC_* 아님). 비어 있으면 해당 프록시는 503으로
+    # "미설정"을 돌려준다(키 없이 조용히 실패하지 않게 명시).
+    GOOGLE_VISION_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+
     @property
     def cors_allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.FRONTEND_ALLOWED_ORIGIN.split(",") if o.strip()]
