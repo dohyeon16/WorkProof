@@ -274,6 +274,7 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
                     </Text>
                   ))
                 )}
+                {h.reason ? <Text style={styles.historyReason}>사유: {h.reason}</Text> : null}
               </View>
             ))}
             <Text style={styles.historyHelp}>이 기기에 저장된 변경 기록이에요. 서버로 전송되지 않아요.</Text>
@@ -344,5 +345,6 @@ const styles = StyleSheet.create({
   historyOp: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
   historyMeta: { fontSize: 11, color: colors.subtext },
   historyLine: { fontSize: 12, color: colors.text, lineHeight: 18 },
+  historyReason: { fontSize: 12, color: colors.subtext, fontStyle: 'italic', marginTop: 2 },
   historyHelp: { fontSize: 11, color: colors.subtext, marginTop: spacing.sm },
 });

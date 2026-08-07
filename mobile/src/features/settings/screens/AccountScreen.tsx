@@ -12,6 +12,7 @@ import { Alert } from '../../../shared/components/alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { useAuth } from '../../auth/state/AuthContext';
 import { authErrorMessage } from '../../auth/services/authErrors';
+import { clearAllData } from '../../../core/data/storage';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = RootScreenProps<'Account'>;
@@ -77,6 +78,9 @@ export default function AccountScreen({ navigation }: Props) {
             setDeleting(true);
             try {
               await deleteAccount();
+              // 탈퇴 시 이 기기의 로컬 데이터(근무 기록·변경 이력·급여·증빙 등)도 함께 지운다.
+              // 서버 계정만 지우고 기기에 개인정보가 남지 않도록 한다(변경 이력 포함, ALL_KEYS).
+              await clearAllData();
               Alert.alert('탈퇴 완료', '회원탈퇴가 완료되었어요.', [
                 {
                   text: '확인',
