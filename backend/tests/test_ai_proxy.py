@@ -146,3 +146,92 @@ def test_summarize_empty_body_422(client, monkeypatch):
     _mock_http(_fixed(200, {"candidates": [{"content": {"parts": [{"text": ""}]}}]}))
     r = client.post("/api/v1/ai/summarize", json={"text": "some text"}, headers=_auth(client))
     assert r.status_code == 422
+
+
+# ---- 하드닝: MIME/payload/timeout/network/malformed/forwarding/logging ----
+def test_ocr_unsupported_mime_415(client, monkeypatch):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "k")
+    _mock_http(_fixed(200, {"responses": [{"fullTextAnnotation": {"text": "x"}}]}))
+    r = client.post("/api/v1/ai/ocr", json={"content_base64": "AAAA", "mime_type": "text/plain"}, headers=_auth(client))
+    assert r.status_code == 415
+
+
+def test_ocr_oversized_payload_422(client, monkeypatch):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "k")
+    big = "A" * 12_000_001
+    r = client.post("/api/v1/ai/ocr", json={"content_base64": big, "mime_type": "image/png"}, headers=_auth(client))
+    assert r.status_code == 422
+
+
+def test_ocr_missing_field_422(client):
+    r = client.post("/api/v1/ai/ocr", json={"mime_type": "image/png"}, headers=_auth(client))
+    assert r.status_code == 422
+
+
+def test_ocr_timeout_504(client, monkeypatch):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "k")
+
+    def handler(request):
+        raise httpx.TimeoutException("timeout", request=request)
+
+    _mock_http(handler)
+    r = client.post("/api/v1/ai/ocr", json={"content_base64": "AAAA", "mime_type": "image/png"}, headers=_auth(client))
+    assert r.status_code == 504
+
+
+def test_ocr_network_error_502(client, monkeypatch):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "k")
+
+    def handler(request):
+        raise httpx.ConnectError("boom", request=request)
+
+    _mock_http(handler)
+    r = client.post("/api/v1/ai/ocr", json={"content_base64": "AAAA", "mime_type": "image/png"}, headers=_auth(client))
+    assert r.status_code == 502
+
+
+def test_ocr_malformed_provider_response_502(client, monkeypatch):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "k")
+
+    def handler(request):
+        return httpx.Response(200, content=b"<html>not json</html>", headers={"content-type": "text/html"})
+
+    _mock_http(handler)
+    r = client.post("/api/v1/ai/ocr", json={"content_base64": "AAAA", "mime_type": "image/png"}, headers=_auth(client))
+    assert r.status_code == 502
+
+
+def test_proxy_does_not_forward_user_auth_and_adds_key(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "server-side-secret")
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers.get("authorization")
+        seen["api_key_header"] = request.headers.get("x-goog-api-key")
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "요약"}]}}]})
+
+    _mock_http(handler)
+    headers = _auth(client)  # 사용자 Bearer(앱 JWT)
+    r = client.post("/api/v1/ai/summarize", json={"text": "문서 원문"}, headers=headers)
+    assert r.status_code == 200
+    # 정책: 사용자 토큰은 provider 로 전달하지 않는다(서버가 key 로만 인증).
+    assert seen["auth"] is None
+    # 키는 헤더로만 전달되고 URL(로그에 남을 수 있음)에는 절대 넣지 않는다.
+    assert seen["api_key_header"] == "server-side-secret"
+    assert "server-side-secret" not in seen["url"]
+
+
+def test_key_and_doc_text_not_logged(client, monkeypatch, caplog):
+    monkeypatch.setattr(settings, "GOOGLE_VISION_API_KEY", "super-secret-key-xyz")
+    secret_doc = "SENSITIVE_DOC_BODY_12345"
+    _mock_http(_fixed(200, {"responses": [{"fullTextAnnotation": {"text": "ok"}}]}))
+    with caplog.at_level("DEBUG"):
+        r = client.post(
+            "/api/v1/ai/ocr",
+            json={"content_base64": secret_doc, "mime_type": "image/png"},
+            headers=_auth(client),
+        )
+    assert r.status_code == 200
+    assert "super-secret-key-xyz" not in caplog.text  # 키가 로그에 안 남음
+    assert secret_doc not in caplog.text  # 문서 원문이 로그에 안 남음

@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 
 class OcrRequest(BaseModel):
     # base64 인코딩한 이미지/PDF 원본. 서버는 이 값을 Vision 으로 그대로 전달한다.
-    content_base64: str = Field(min_length=1)
+    # 과대 payload(악의적/실수) 방어: base64 약 12M자 ≈ 원본 ~9MB 상한. 초과 시 422.
+    content_base64: str = Field(min_length=1, max_length=12_000_000)
     mime_type: str = Field(min_length=1, max_length=100)
 
 

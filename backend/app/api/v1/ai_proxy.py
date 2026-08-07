@@ -27,13 +27,27 @@ def get_http_client() -> Iterator[httpx.Client]:
 def _to_http_error(e: Exception) -> HTTPException:
     if isinstance(e, ai_proxy.AiNotConfigured):
         return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI 기능이 아직 설정되지 않았어요.")
+    if isinstance(e, ai_proxy.AiUnsupportedMime):
+        return HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "이미지 또는 PDF만 처리할 수 있어요.")
     if isinstance(e, ai_proxy.AiEmptyResult):
         return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "인식된 내용이 없어요. 더 선명한 파일로 다시 시도해주세요.")
+    if isinstance(e, ai_proxy.AiTimeout):
+        return HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, "처리 시간이 초과됐어요. 잠시 후 다시 시도해주세요.")
     if isinstance(e, ai_proxy.AiUpstreamError):
         if e.upstream_status == 429:
             return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "요청이 많아요. 잠시 후 다시 시도해주세요.")
         return HTTPException(status.HTTP_502_BAD_GATEWAY, "AI 처리에 실패했어요. 잠시 후 다시 시도해주세요.")
     return HTTPException(status.HTTP_502_BAD_GATEWAY, "AI 처리에 실패했어요.")
+
+
+# 프록시가 던지는 매핑 대상 예외들(라우터에서 한 번에 잡아 안전 응답으로 변환).
+_AI_ERRORS = (
+    ai_proxy.AiNotConfigured,
+    ai_proxy.AiUnsupportedMime,
+    ai_proxy.AiUpstreamError,
+    ai_proxy.AiEmptyResult,
+    ai_proxy.AiTimeout,
+)
 
 
 @router.post("/ocr", response_model=OcrResponse)
@@ -44,7 +58,7 @@ def ocr(
 ) -> OcrResponse:
     try:
         return OcrResponse(text=ai_proxy.ocr_extract(client, body.content_base64, body.mime_type))
-    except (ai_proxy.AiNotConfigured, ai_proxy.AiUpstreamError, ai_proxy.AiEmptyResult) as e:
+    except _AI_ERRORS as e:
         raise _to_http_error(e)
 
 
@@ -56,5 +70,5 @@ def summarize(
 ) -> SummarizeResponse:
     try:
         return SummarizeResponse(summary=ai_proxy.summarize_text(client, body.text))
-    except (ai_proxy.AiNotConfigured, ai_proxy.AiUpstreamError, ai_proxy.AiEmptyResult) as e:
+    except _AI_ERRORS as e:
         raise _to_http_error(e)
