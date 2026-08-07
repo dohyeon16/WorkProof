@@ -5,7 +5,8 @@ import { Text } from '../../../shared/components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../../../app/navigation/types';
-import { getAttendanceByMonth, getPayRecord, getActiveOrFirstWorkplace, getUpcomingShifts } from '../../../core/data/storage';
+import { getAttendanceByMonth, getAttendanceByWorkplace, getPayRecord, getActiveOrFirstWorkplace, getScheduledShifts, getUpcomingShifts } from '../../../core/data/storage';
+import { computeWeeklyWorktime, weeklyInsight, weekMondayOf, type WeeklyWorktime } from '../../insights/weeklyWorktime';
 import { getUnreadCount } from '../../../core/notifications/notificationsFeed';
 import { AttendanceRecord, PayRecord, ScheduledShift, Workplace } from '../../../core/domain/models/types';
 import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
@@ -21,6 +22,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [payRecord, setPayRecord] = useState<PayRecord | undefined>(undefined);
   const [nextShift, setNextShift] = useState<ScheduledShift | null>(null);
+  const [weekly, setWeekly] = useState<WeeklyWorktime | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const yearMonth = currentYearMonth();
 
@@ -31,14 +33,25 @@ export default function HomeScreen({ navigation }: Props) {
         const w = await getActiveOrFirstWorkplace();
         setWorkplace(w ?? null);
         if (!w) return;
-        const [list, pay, upcoming] = await Promise.all([
+        const [list, pay, upcoming, allRecords, shifts] = await Promise.all([
           getAttendanceByMonth(w.id, yearMonth),
           getPayRecord(w.id, yearMonth),
           getUpcomingShifts(),
+          getAttendanceByWorkplace(w.id), // 주 경계가 달을 넘을 수 있어 전체 기록으로 이번 주 계산
+          getScheduledShifts(),
         ]);
         setRecords(list);
         setPayRecord(pay);
         setNextShift(upcoming.find((s) => s.workplaceId === w.id) ?? null);
+        setWeekly(
+          computeWeeklyWorktime({
+            records: allRecords,
+            shifts,
+            workplaceId: w.id,
+            weekMonday: weekMondayOf(todayDateString()),
+            now: Date.now(),
+          })
+        );
       })();
     }, [yearMonth])
   );
@@ -66,6 +79,7 @@ export default function HomeScreen({ navigation }: Props) {
   }
 
   const summary = calcMonthlySummary(records, workplace, yearMonth);
+  const weekInsight = weekly && weekly.expectedMinutes > 0 ? weeklyInsight(weekly.expectedMinutes) : null;
   const recent = [...records].reverse().slice(0, 3);
   const { daysUntil } = nextPayDate(workplace.payDay);
   const today = todayDateString();
@@ -147,6 +161,37 @@ export default function HomeScreen({ navigation }: Props) {
                 </Text>
               </View>
             </View>
+
+            {weekly && weekInsight && (
+              <View style={styles.weekCard}>
+                <View style={styles.weekHeader}>
+                  <Text style={styles.weekTitle}>이번 주 근무</Text>
+                  <Text style={styles.weekExpected}>예상 {formatWorkDuration(weekly.expectedMinutes)}</Text>
+                </View>
+                <Text style={styles.weekBreakdown}>
+                  실제 {formatWorkDuration(weekly.actualMinutes)} · 예정 {formatWorkDuration(weekly.plannedMinutes)}
+                </Text>
+                {(weekInsight.allowance === 'possible' || weekInsight.overtime !== 'none') && (
+                  <View style={styles.weekBadgeRow}>
+                    {weekInsight.allowance === 'possible' && (
+                      <View style={[styles.weekBadge, styles.weekBadgeInfo]}>
+                        <Text style={styles.weekBadgeTextInfo}>주휴수당 요건 확인</Text>
+                      </View>
+                    )}
+                    {weekInsight.overtime !== 'none' && (
+                      <View style={[styles.weekBadge, styles.weekBadgeWarn]}>
+                        <Text style={styles.weekBadgeTextWarn}>
+                          {weekInsight.overtime === 'exceed' ? '40시간 초과 가능' : '40시간 근접'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                <Text style={styles.weekHelp}>
+                  간이 안내예요. 실제 적용은 근로계약·사업장·근무조건에 따라 달라질 수 있어요.
+                </Text>
+              </View>
+            )}
 
             <Pressable
               style={styles.checkInButton}
@@ -300,6 +345,25 @@ const styles = StyleSheet.create({
   summaryNetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
   summaryNetLabel: { fontSize: 12, color: colors.subtext },
   summaryNetValue: { fontSize: 14, fontWeight: '700', color: colors.text },
+  weekCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  weekTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  weekExpected: { fontSize: 15, fontWeight: '800', color: colors.primaryDark },
+  weekBreakdown: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  weekBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  weekBadge: { borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
+  weekBadgeInfo: { backgroundColor: colors.primaryLight },
+  weekBadgeWarn: { backgroundColor: colors.accentLight },
+  weekBadgeTextInfo: { fontSize: 11, fontWeight: '700', color: colors.primaryDark },
+  weekBadgeTextWarn: { fontSize: 11, fontWeight: '700', color: colors.accent },
+  weekHelp: { fontSize: 11, color: colors.subtext, marginTop: spacing.sm },
   summaryFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   payDayChip: {
     flexDirection: 'row',
