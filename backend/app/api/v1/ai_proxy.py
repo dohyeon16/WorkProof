@@ -10,7 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.ai import OcrRequest, OcrResponse, SummarizeRequest, SummarizeResponse
+from app.schemas.ai import (
+    OcrRequest,
+    OcrResponse,
+    PayslipExtractRequest,
+    PayslipExtractResponse,
+    SummarizeRequest,
+    SummarizeResponse,
+)
 from app.services import ai_proxy
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -70,5 +77,17 @@ def summarize(
 ) -> SummarizeResponse:
     try:
         return SummarizeResponse(summary=ai_proxy.summarize_text(client, body.text))
+    except _AI_ERRORS as e:
+        raise _to_http_error(e)
+
+
+@router.post("/extract-payslip", response_model=PayslipExtractResponse)
+def extract_payslip(
+    body: PayslipExtractRequest,
+    _user: User = Depends(get_current_user),
+    client: httpx.Client = Depends(get_http_client),
+) -> PayslipExtractResponse:
+    try:
+        return PayslipExtractResponse(raw=ai_proxy.extract_payslip(client, body.ocr_text))
     except _AI_ERRORS as e:
         raise _to_http_error(e)
