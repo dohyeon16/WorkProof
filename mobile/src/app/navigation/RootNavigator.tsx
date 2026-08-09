@@ -22,6 +22,7 @@ import AttendanceFormScreen from '../../features/attendance/screens/AttendanceFo
 import ScheduleFormScreen from '../../features/schedule/screens/ScheduleFormScreen';
 import PayInputScreen from '../../features/payroll/screens/PayInputScreen';
 import PayCompareScreen from '../../features/payroll/screens/PayCompareScreen';
+import PayComparisonDetailScreen from '../../features/payroll/screens/PayComparisonDetailScreen';
 import PayslipListScreen from '../../features/payroll/screens/PayslipListScreen';
 import PayslipReviewScreen from '../../features/payroll/screens/PayslipReviewScreen';
 import ChecklistDetailScreen from '../../features/payroll/screens/ChecklistDetailScreen';
@@ -140,6 +141,7 @@ export default function RootNavigator() {
       />
       <Stack.Screen name="PayInput" component={PayInputScreen} options={{ title: '실제 입금액 입력' }} />
       <Stack.Screen name="PayCompare" component={PayCompareScreen} options={{ title: '급여 비교' }} />
+      <Stack.Screen name="PayComparisonDetail" component={PayComparisonDetailScreen} options={{ title: '항목별 차이' }} />
       <Stack.Screen name="PayslipList" component={PayslipListScreen} options={{ title: '급여명세서' }} />
       <Stack.Screen name="PayslipReview" component={PayslipReviewScreen} options={{ title: '명세서 확인' }} />
       <Stack.Screen

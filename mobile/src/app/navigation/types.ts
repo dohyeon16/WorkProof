@@ -49,6 +49,7 @@ export type RootStackParamList = {
   Schedule: { workplaceId: string; id?: string };
   PayInput: { workplaceId: string; yearMonth: string };
   PayCompare: { workplaceId: string; yearMonth: string };
+  PayComparisonDetail: { workplaceId: string; yearMonth: string };
   PayslipList: { workplaceId: string };
   // 새 추출/수동 입력은 저장 전 draft 를 params 로 전달하고, 기존 편집은 payslipId 로 로드한다.
   PayslipReview: {
