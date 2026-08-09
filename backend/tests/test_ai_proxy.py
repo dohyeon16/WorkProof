@@ -235,3 +235,98 @@ def test_key_and_doc_text_not_logged(client, monkeypatch, caplog):
     assert r.status_code == 200
     assert "super-secret-key-xyz" not in caplog.text  # 키가 로그에 안 남음
     assert secret_doc not in caplog.text  # 문서 원문이 로그에 안 남음
+
+
+# ---- 급여명세서 구조화(extract-payslip) ----
+import json as _json  # noqa: E402
+
+
+def test_extract_payslip_requires_auth(client):
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "기본급 1,200,000"})
+    assert r.status_code == 401
+
+
+def test_extract_payslip_not_configured(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    _mock_http(_fixed(200, {}))
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "기본급 1,200,000"}, headers=_auth(client))
+    assert r.status_code == 503
+
+
+def test_extract_payslip_missing_field_422(client):
+    r = client.post("/api/v1/ai/extract-payslip", json={}, headers=_auth(client))
+    assert r.status_code == 422
+
+
+def test_extract_payslip_success_returns_raw_json_and_forces_json_mode(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "server-key")
+    model_json = '{"basePay": 1200000, "incomeTax": 39600, "netPay": 1100000}'
+    captured = {}
+
+    def handler(request):
+        captured["url"] = str(request.url)
+        captured["body"] = _json.loads(request.content.decode())
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": model_json}]}}]})
+
+    _mock_http(handler)
+    r = client.post(
+        "/api/v1/ai/extract-payslip", json={"ocr_text": "기본급 1,200,000 소득세 39,600"}, headers=_auth(client)
+    )
+    assert r.status_code == 200
+    # 서버는 모델 원문을 그대로 raw 로 돌려준다(파싱/정규화는 클라이언트가 담당).
+    assert r.json()["raw"] == model_json
+    assert "generateContent" in captured["url"]
+    # JSON 모드를 강제한다.
+    assert captured["body"]["generationConfig"]["responseMimeType"] == "application/json"
+    assert "server-key" not in r.text  # 키 미노출
+
+
+def test_extract_payslip_empty_result_422(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "k")
+    _mock_http(_fixed(200, {"candidates": [{"content": {"parts": [{"text": ""}]}}]}))
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "빈 응답"}, headers=_auth(client))
+    assert r.status_code == 422
+
+
+def test_extract_payslip_quota_429(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "k")
+    _mock_http(_fixed(429, {"error": {"message": "RESOURCE_EXHAUSTED"}}))
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "명세서"}, headers=_auth(client))
+    assert r.status_code == 429
+    assert "RESOURCE_EXHAUSTED" not in r.text  # 업스트림 원문 미노출
+
+
+def test_extract_payslip_timeout_504(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "k")
+
+    def handler(request):
+        raise httpx.TimeoutException("timeout", request=request)
+
+    _mock_http(handler)
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "명세서"}, headers=_auth(client))
+    assert r.status_code == 504
+
+
+def test_extract_payslip_blocked_maps_502(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "k")
+    _mock_http(_fixed(200, {"promptFeedback": {"blockReason": "SAFETY"}}))
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "명세서"}, headers=_auth(client))
+    assert r.status_code == 502
+
+
+def test_extract_payslip_does_not_forward_auth_and_adds_key(client, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "server-side-secret")
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers.get("authorization")
+        seen["api_key_header"] = request.headers.get("x-goog-api-key")
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "{}"}]}}]})
+
+    _mock_http(handler)
+    r = client.post("/api/v1/ai/extract-payslip", json={"ocr_text": "명세서"}, headers=_auth(client))
+    assert r.status_code == 200
+    assert seen["auth"] is None  # 사용자 토큰은 provider 로 전달 안 함
+    assert seen["api_key_header"] == "server-side-secret"  # 키는 헤더로만
+    assert "server-side-secret" not in seen["url"]

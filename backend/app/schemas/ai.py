@@ -24,3 +24,15 @@ class SummarizeRequest(BaseModel):
 
 class SummarizeResponse(BaseModel):
     summary: str
+
+
+class PayslipExtractRequest(BaseModel):
+    # OCR 로 추출한 급여명세서 텍스트. 서버가 Gemini(JSON 모드)로 구조화한다.
+    ocr_text: str = Field(min_length=1, max_length=20000)
+
+
+class PayslipExtractResponse(BaseModel):
+    # 모델이 낸 급여명세서 구조화 JSON "원문"(문자열). 서버는 provider 호출/오류 매핑만
+    # 담당하고, 실제 파싱·정규화·검증(쉼표/음수/합계 대조 등)은 클라이언트 parser 가 한다
+    # — 단일 검증 지점 유지 + 앱 모델에 그대로 저장하지 않기 위함.
+    raw: str
