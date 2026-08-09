@@ -67,13 +67,30 @@ test('로그인 요약 → POST /ai/summarize (text, Bearer)', async () => {
   assert.deepEqual(calls[0].body, { text: '원문 텍스트' });
 });
 
+test('로그인 급여명세서 구조화 → POST /ai/extract-payslip (ocr_text, Bearer)', async () => {
+  const { client, calls } = fakeClient(() => ({ raw: '{"basePay":1000000}' }));
+  const remote = createAiRemote(client, (run) => run('AT'));
+  const raw = await remote.extractPayslip('명세서 OCR 텍스트');
+  assert.equal(raw, '{"basePay":1000000}');
+  assert.equal(calls[0].path, '/ai/extract-payslip');
+  assert.equal(calls[0].method, 'POST');
+  assert.deepEqual(calls[0].body, { ocr_text: '명세서 OCR 텍스트' });
+  assert.equal(calls[0].accessToken, 'AT');
+});
+
 test('remote 는 오직 /ai/* 경로만 호출한다(직접 provider URL 0)', async () => {
-  const { client, calls } = fakeClient((rec) => (rec.path === '/ai/ocr' ? { text: 't' } : { summary: 's' }));
+  const { client, calls } = fakeClient((rec) =>
+    rec.path === '/ai/ocr' ? { text: 't' } : rec.path === '/ai/summarize' ? { summary: 's' } : { raw: '{}' }
+  );
   const remote = createAiRemote(client, (run) => run('AT'));
   await remote.ocr('B', 'image/png');
   await remote.summarize('x');
+  await remote.extractPayslip('y');
   for (const c of calls) {
-    assert.ok(c.path === '/ai/ocr' || c.path === '/ai/summarize', `unexpected path ${c.path}`);
+    assert.ok(
+      c.path === '/ai/ocr' || c.path === '/ai/summarize' || c.path === '/ai/extract-payslip',
+      `unexpected path ${c.path}`
+    );
     assert.ok(!c.path.includes('googleapis'), 'must not call provider URL directly');
   }
 });
@@ -89,7 +106,7 @@ test('비로그인(authorized 가 SessionExpiredError) → provider 요청 0회'
 
 // ========== B. geminiSummary 매핑 ==========
 function remoteWith(summarize: (t: string) => Promise<string>): AiRemote {
-  return { ocr: async () => '', summarize };
+  return { ocr: async () => '', summarize, extractPayslip: async () => '' };
 }
 
 test('요약 성공 → success', async () => {

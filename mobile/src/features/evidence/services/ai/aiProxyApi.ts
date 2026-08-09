@@ -17,6 +17,11 @@ export interface AiRemote {
   ocr(contentBase64: string, mimeType: string): Promise<string>;
   /** OCR 로 추출한 텍스트를 서버 프록시로 보내 요약을 받는다(POST /ai/summarize). */
   summarize(text: string): Promise<string>;
+  /**
+   * 급여명세서 OCR 텍스트를 서버 프록시로 보내 구조화 JSON "원문"을 받는다
+   * (POST /ai/extract-payslip). 파싱/정규화/검증은 클라이언트 parser 가 한다.
+   */
+  extractPayslip(ocrText: string): Promise<string>;
 }
 
 interface OcrResponse {
@@ -24,6 +29,9 @@ interface OcrResponse {
 }
 interface SummarizeResponse {
   summary: string;
+}
+interface PayslipExtractResponse {
+  raw: string;
 }
 
 // AI 호출은 외부 provider 까지 왕복하므로 기본 타임아웃(20s)보다 넉넉히 잡는다
@@ -57,6 +65,17 @@ export function createAiRemote(client: ApiClient, authorized: AuthorizedRunner):
             timeoutMs: AI_TIMEOUT_MS,
           })
           .then((r) => r.summary)
+      ),
+    extractPayslip: (ocrText) =>
+      authorized((token) =>
+        client
+          .request<PayslipExtractResponse>('/ai/extract-payslip', {
+            method: 'POST',
+            body: { ocr_text: ocrText },
+            accessToken: token,
+            timeoutMs: AI_TIMEOUT_MS,
+          })
+          .then((r) => r.raw)
       ),
   };
 }

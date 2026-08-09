@@ -2,6 +2,7 @@ import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigat
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SocialLoginResult } from '../../features/auth/services/socialLogin';
+import type { PayslipAmounts, PayslipExtractionSource } from '../../core/domain/models/types';
 
 // 네이버는 전체 페이지 리다이렉트로 로그인/회원가입을 처리한다. 리다이렉트 후
 // 앱이 재부팅되면 이 값을 통해 어느 화면에서, 로그인/회원가입 중 무엇을 하다가
@@ -48,6 +49,19 @@ export type RootStackParamList = {
   Schedule: { workplaceId: string; id?: string };
   PayInput: { workplaceId: string; yearMonth: string };
   PayCompare: { workplaceId: string; yearMonth: string };
+  PayslipList: { workplaceId: string };
+  // 새 추출/수동 입력은 저장 전 draft 를 params 로 전달하고, 기존 편집은 payslipId 로 로드한다.
+  PayslipReview: {
+    workplaceId: string;
+    payslipId?: string;
+    yearMonth?: string;
+    amounts?: PayslipAmounts;
+    aiExtracted?: PayslipAmounts | null;
+    rawOcrText?: string;
+    evidenceFileId?: string;
+    source?: PayslipExtractionSource;
+    extractionFailed?: boolean; // OCR 성공·구조화 실패 → 수동 입력 안내
+  };
   ChecklistDetail: { workplaceId: string; yearMonth: string };
   Report: { workplaceId: string; yearMonth: string };
   ShareComplete: { workplaceId: string; yearMonth: string; intent: 'save' | 'share'; note?: string };

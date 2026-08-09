@@ -6,6 +6,9 @@ export const KEYS = {
   attendance: '@workproof/attendance',
   pay: '@workproof/pay',
   evidence: '@workproof/evidence',
+  // 급여명세서 구조화 레코드(로컬 전용, 4C-3). 업무 데이터라 백업/복원 포함,
+  // 서버 동기화(syncState) 대상은 아니다(현재 로컬 저장만).
+  payslips: '@workproof/payslips',
   scheduledShifts: '@workproof/scheduledShifts',
   account: '@workproof/account',
   session: '@workproof/session',

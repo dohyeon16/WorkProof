@@ -16,3 +16,11 @@ test('attendanceHistory 는 백업 제외 목록에 없다(=서버 동기화 대
   // syncState 는 여전히 백업/복원에서 제외된다(계정·기기별 동기화 상태).
   assert.ok(BACKUP_EXCLUDED_KEYS.includes(KEYS.syncState));
 });
+
+// Phase 4C-3: 급여명세서(payslips)는 로컬 업무 데이터라 백업/복원·초기화에 포함되고,
+// 서버 동기화(syncState) 대상은 아니다(현재 로컬 저장만).
+test('payslips 는 백업 대상이며 전체 초기화 대상이다(백업 제외 아님)', () => {
+  assert.ok(BACKUP_KEYS.includes(KEYS.payslips));
+  assert.ok(ALL_KEYS.includes(KEYS.payslips));
+  assert.ok(!BACKUP_EXCLUDED_KEYS.includes(KEYS.payslips));
+});
