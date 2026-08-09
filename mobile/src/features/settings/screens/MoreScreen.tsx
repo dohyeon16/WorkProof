@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../../shared/components/Text';
 import { Alert } from '../../../shared/components/alert';
@@ -183,7 +183,14 @@ export default function MoreScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xl },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>더보기</Text>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
@@ -328,12 +335,13 @@ export default function MoreScreen({ navigation }: Props) {
       </Pressable>
 
       <Text style={styles.version}>WorkProof v1.0.0</Text>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md },
   title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
   profileCard: {
     flexDirection: 'row',
