@@ -167,7 +167,7 @@ export default function MoreScreen({ navigation }: Props) {
   const handleResetApp = () => {
     Alert.alert(
       '앱 초기화',
-      '계정, 근무지, 근태 기록 등 이 기기에 저장된 모든 데이터가 삭제되고 로그인 화면으로 돌아가요. 계속할까요?',
+      '이 기기에 저장된 근무지·근태·급여 데이터와 로그인 정보가 삭제되고 로그인 화면으로 돌아가요. 서버 계정은 삭제되지 않아요 — 다시 로그인하면 이어서 사용할 수 있어요. 계속할까요?',
       [
         { text: '취소', style: 'cancel' },
         {
@@ -175,6 +175,14 @@ export default function MoreScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             await clearAllData();
+            // 로컬 로그인 상태와 SecureStore refresh 토큰까지 정리한다(서버 계정은 유지).
+            // 이걸 빼면 refresh 토큰이 SecureStore에 남아 앱 재시작 시 자동 로그인으로
+            // 세션이 복원될 수 있다("모든 데이터 삭제"와 불일치). best-effort — 실패해도 진행.
+            try {
+              await logout();
+            } catch {
+              /* 서버 폐기 실패 등은 무시하고 로컬 정리/이동은 계속한다 */
+            }
             navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
           },
         },

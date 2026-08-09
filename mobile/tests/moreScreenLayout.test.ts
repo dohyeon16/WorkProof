@@ -52,3 +52,15 @@ test('MoreScreen: 하단 항목이 tab bar/홈 인디케이터에 가리지 않�
     '마지막 항목이 하단 안전영역/탭바 뒤로 숨지 않도록 paddingBottom 에 insets.bottom 을 더해야 한다'
   );
 });
+
+test('MoreScreen: 앱 초기화가 로컬 세션(SecureStore 토큰)까지 정리한다 (자동로그인 잔존 회귀 방지)', () => {
+  // 앱 초기화(handleResetApp)는 clearAllData(AsyncStorage) 뒤에 세션 로그아웃까지
+  // 호출해야 한다. 이걸 빼면 SecureStore refresh 토큰이 남아 재시작 시 자동
+  // 로그인으로 복원된다("모든 데이터 삭제"와 불일치). handleResetApp 는 파일 마지막
+  // 핸들러라, 그 선언 이후에 등장하는 logout()/clearAllData 는 이 핸들러 안에 있다.
+  const idx = src.indexOf('handleResetApp');
+  assert.ok(idx >= 0, 'handleResetApp 핸들러가 있어야 한다');
+  const after = src.slice(idx);
+  assert.match(after, /clearAllData\(\)/, '앱 초기화는 clearAllData 로 로컬 데이터를 지워야 한다');
+  assert.match(after, /\blogout\(\)/, '앱 초기화는 logout() 으로 세션/SecureStore 토큰까지 정리해야 한다');
+});
