@@ -14,7 +14,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -74,6 +74,40 @@ def _resolve_workplace(db: Session, user: User, workplace_id: uuid.UUID) -> Work
 def _soft_delete(db: Session, obj: OwnedRecordMixin) -> None:
     obj.deleted_at = security.utcnow()
     db.commit()
+
+
+def reset_work_data(db: Session, user: User) -> dict[str, int]:
+    """현재 사용자 소유의 모든 업무 데이터를 하드 삭제한다(근무지·예정근무·출퇴근).
+
+    회원탈퇴(delete_account)와 다르다 — user/oauth/refresh_token 은 건드리지 않고
+    업무 데이터만 지운다. 계정은 유지되고, 재로그인하면 빈 상태로 시작한다(앱
+    '초기화'의 서버측 동작). soft-delete 된 잔여 행까지 물리 삭제하므로, 이후
+    목록 조회(sync pull)에 과거 데이터가 다시 내려오지 않는다.
+
+    FK 제약(attendance_records·work_schedules → workplaces, ondelete 미지정)
+    때문에 자식(출퇴근·예정)을 먼저 지우고 근무지를 나중에 지운다. 세 삭제는 한
+    트랜잭션에서 처리하고 마지막에 한 번만 commit 한다 — 중간 실패 시 전체 롤백
+    되어 부분 삭제가 남지 않는다. 멱등: 데이터가 없어도 0건 삭제로 성공한다.
+    """
+    try:
+        att = db.execute(
+            delete(AttendanceRecord).where(AttendanceRecord.user_id == user.id)
+        ).rowcount
+        sch = db.execute(
+            delete(WorkSchedule).where(WorkSchedule.user_id == user.id)
+        ).rowcount
+        wp = db.execute(
+            delete(Workplace).where(Workplace.user_id == user.id)
+        ).rowcount
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {
+        "attendance_records": int(att or 0),
+        "work_schedules": int(sch or 0),
+        "workplaces": int(wp or 0),
+    }
 
 
 # ---------------------------------------------------------------------------
