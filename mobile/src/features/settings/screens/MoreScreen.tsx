@@ -11,6 +11,11 @@ import { useAuth } from '../../auth/state/AuthContext';
 import { useSync } from '../../sync/SyncContext';
 import { isAppLockAvailable, authenticateAppLock } from '../../security/services/appLock';
 import { createBackup, restoreBackup } from '../../../core/backup/backup';
+import { cancelAllScheduledNotifications } from '../../../core/notifications/notifications';
+import { createApiClient } from '../../../core/api/client';
+
+// 앱 초기화 시 서버 업무 데이터를 지우는 엔드포인트(회원탈퇴가 아님 — 계정은 유지).
+const apiClient = createApiClient();
 import { Account } from '../../../core/domain/models/types';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
@@ -48,11 +53,12 @@ const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; action: (nav:
 export default function MoreScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   // 백엔드 이메일 세션이 있으면 그 사용자를, 없으면(소셜/로컬) 기존 로컬 Account를 표시한다.
-  const { isAuthenticated, user: authUser, logout } = useAuth();
+  const { isAuthenticated, user: authUser, logout, runAuthorized } = useAuth();
   const sync = useSync();
   const [account, setAccount] = useState<Account | null>(null);
   const [busy, setBusy] = useState<null | 'backup' | 'restore'>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [appLock, setAppLock] = useState(false);
   const [lockAvailable, setLockAvailable] = useState(false);
 
@@ -167,23 +173,58 @@ export default function MoreScreen({ navigation }: Props) {
   const handleResetApp = () => {
     Alert.alert(
       '앱 초기화',
-      '이 기기에 저장된 근무지·근태·급여 데이터와 로그인 정보가 삭제되고 로그인 화면으로 돌아가요. 서버 계정은 삭제되지 않아요 — 다시 로그인하면 이어서 사용할 수 있어요. 계속할까요?',
+      isAuthenticated
+        ? '이 기기의 데이터와 서버에 동기화된 근무지·근태·급여 기록이 모두 삭제되고 로그인 화면으로 돌아가요. 계정(이메일)은 삭제되지 않아요 — 다시 로그인하면 빈 상태로 시작해요. 계속할까요?'
+        : '이 기기에 저장된 근무지·근태·급여 데이터와 로그인 정보가 삭제되고 로그인 화면으로 돌아가요. 계속할까요?',
       [
         { text: '취소', style: 'cancel' },
         {
           text: '초기화',
           style: 'destructive',
           onPress: async () => {
-            await clearAllData();
-            // 로컬 로그인 상태와 SecureStore refresh 토큰까지 정리한다(서버 계정은 유지).
-            // 이걸 빼면 refresh 토큰이 SecureStore에 남아 앱 재시작 시 자동 로그인으로
-            // 세션이 복원될 수 있다("모든 데이터 삭제"와 불일치). best-effort — 실패해도 진행.
+            if (resetting) return; // 중복 실행 방지
+            setResetting(true);
             try {
-              await logout();
-            } catch {
-              /* 서버 폐기 실패 등은 무시하고 로컬 정리/이동은 계속한다 */
+              // 1) 로그인 상태면 서버 업무 데이터부터 지운다. 회원탈퇴가 아니라 업무
+              //    데이터만 삭제하는 전용 엔드포인트다(계정 유지). 이게 실패하면 로컬은
+              //    건드리지 않고 중단한다 — 서버에 데이터가 남았는데 로컬만 지우면 다음
+              //    로그인 시 sync pull 로 과거 데이터가 다시 내려오기 때문이다(§4-2).
+              if (isAuthenticated) {
+                try {
+                  await runAuthorized((token) =>
+                    apiClient.request<void>('/users/me/work-data', {
+                      method: 'DELETE',
+                      accessToken: token,
+                      expectNoContent: true,
+                    })
+                  );
+                } catch {
+                  Alert.alert(
+                    '초기화 실패',
+                    '서버 데이터를 지우지 못했어요. 네트워크 연결을 확인하고 다시 시도해주세요. (이 기기의 데이터는 그대로 있어요.)'
+                  );
+                  return; // 로컬 정리를 진행하지 않는다
+                }
+              }
+
+              // 2) 서버 정리 성공(또는 비로그인) 이후에만 로컬을 지운다.
+              await clearAllData();
+              // 초기화는 AsyncStorage만 지우므로, OS에 이미 예약된 로컬 알림(급여일·교대·
+              // 미퇴근 리마인더)은 그대로 남는다. 데이터가 사라진 뒤에도 유령 알림이 발화하지
+              // 않도록 예약을 모두 취소한다. best-effort — 실패해도 초기화는 계속한다.
+              await cancelAllScheduledNotifications().catch(() => {});
+              // 로컬 로그인 상태와 SecureStore refresh 토큰까지 정리한다(서버 계정은 유지).
+              // 이걸 빼면 refresh 토큰이 SecureStore에 남아 앱 재시작 시 자동 로그인으로
+              // 세션이 복원될 수 있다("모든 데이터 삭제"와 불일치). best-effort — 실패해도 진행.
+              try {
+                await logout();
+              } catch {
+                /* 서버 폐기 실패 등은 무시하고 로컬 정리/이동은 계속한다 */
+              }
+              navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
+            } finally {
+              setResetting(false);
             }
-            navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
           },
         },
       ]
@@ -335,6 +376,7 @@ export default function MoreScreen({ navigation }: Props) {
       <Pressable
         style={styles.resetButton}
         onPress={handleResetApp}
+        disabled={resetting}
         accessibilityRole="button"
         accessibilityLabel="앱 초기화"
       >

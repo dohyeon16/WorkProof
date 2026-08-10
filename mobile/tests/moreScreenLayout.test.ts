@@ -64,3 +64,42 @@ test('MoreScreen: 앱 초기화가 로컬 세션(SecureStore 토큰)까지 정�
   assert.match(after, /clearAllData\(\)/, '앱 초기화는 clearAllData 로 로컬 데이터를 지워야 한다');
   assert.match(after, /\blogout\(\)/, '앱 초기화는 logout() 으로 세션/SecureStore 토큰까지 정리해야 한다');
 });
+
+test('MoreScreen: 앱 초기화가 서버 업무 데이터를 먼저 지운 뒤에 로컬을 지운다 (§4 server reset)', () => {
+  // 로그인 상태면 서버 업무 데이터 전용 삭제 엔드포인트(회원탈퇴 아님)를 호출해야 한다.
+  const idx = src.indexOf('handleResetApp');
+  const after = src.slice(idx);
+  assert.match(
+    after,
+    /['"`]\/users\/me\/work-data['"`]/,
+    '앱 초기화는 /users/me/work-data 엔드포인트로 서버 업무 데이터를 지워야 한다'
+  );
+  assert.match(after, /method:\s*'DELETE'/, 'work-data 초기화는 DELETE 여야 한다');
+  // 실패-안전: 서버 삭제 실패 시 로컬을 지우지 않고 return 해야 한다. 그러려면
+  // 서버 삭제 호출이 clearAllData() 보다 먼저 등장해야 한다.
+  const resetPos = after.indexOf("'/users/me/work-data'");
+  const clearPos = after.indexOf('clearAllData()');
+  assert.ok(resetPos >= 0 && clearPos >= 0, '두 호출이 모두 있어야 한다');
+  assert.ok(
+    resetPos < clearPos,
+    '서버 업무 데이터 삭제가 로컬 clearAllData() 보다 먼저 호출돼야 한다(실패 시 로컬 보존)'
+  );
+});
+
+test('MoreScreen: 앱 초기화가 예약된 로컬 알림을 모두 취소한다 (유령 알림 회귀 방지)', () => {
+  // 앱 초기화(handleResetApp)는 clearAllData(AsyncStorage) 만으로는 OS 에 이미 예약된
+  // 급여일·교대·미퇴근 알림을 지우지 못한다. 데이터가 사라진 뒤에도 유령 알림이 발화하지
+  // 않도록 cancelAllScheduledNotifications() 를 호출해야 한다.
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bcancelAllScheduledNotifications\b[^}]*\}\s*from\s*'[^']*notifications'/,
+    'MoreScreen 이 cancelAllScheduledNotifications 를 import 해야 한다'
+  );
+  const idx = src.indexOf('handleResetApp');
+  const after = src.slice(idx);
+  assert.match(
+    after,
+    /cancelAllScheduledNotifications\(\)/,
+    '앱 초기화는 cancelAllScheduledNotifications() 로 예약 알림을 취소해야 한다'
+  );
+});
