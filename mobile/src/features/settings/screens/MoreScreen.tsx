@@ -381,7 +381,7 @@ export default function MoreScreen({ navigation }: Props) {
         accessibilityLabel="앱 초기화"
       >
         <Ionicons name="refresh-outline" size={16} color={colors.subtext} />
-        <Text style={styles.resetButtonText}>앱 초기화 (모든 데이터 삭제)</Text>
+        <Text style={styles.resetButtonText}>앱 초기화</Text>
       </Pressable>
 
       <Text style={styles.version}>WorkProof v1.0.0</Text>
