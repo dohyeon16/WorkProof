@@ -14,6 +14,9 @@ from __future__ import annotations
 import httpx
 
 from app.core.config import settings
+from app.core.logging import get_logger
+
+logger = get_logger("workproof.ai_proxy")
 
 # Vision 동기 요청 PDF 최대 페이지(그 이상은 GCS 비동기 배치 필요). 근로계약서/명세서는 이 범위.
 MAX_PDF_PAGES = 5
@@ -86,6 +89,16 @@ def _post_json(client: httpx.Client, url: str, payload: dict, api_key: str) -> d
         # 연결 실패/DNS 등 — 원인 원문을 담지 않고 502 로 일반화.
         raise AiUpstreamError(502)
     if resp.status_code != 200:
+        # 진단용: provider의 오류 JSON(error.status/message/details)만 남긴다.
+        # 요청 payload(사용자 문서 텍스트)·API 키는 절대 로그하지 않는다 — Google
+        # 오류 응답 자체에는 우리가 보낸 키가 echo되지 않으므로 이 바디는 안전하다.
+        try:
+            body_preview = resp.text[:500]
+        except Exception:
+            body_preview = "(응답 본문 읽기 실패)"
+        logger.warning(
+            "AI 업스트림 오류 status=%s body=%s", resp.status_code, body_preview
+        )
         raise AiUpstreamError(resp.status_code)
     try:
         data = resp.json()
