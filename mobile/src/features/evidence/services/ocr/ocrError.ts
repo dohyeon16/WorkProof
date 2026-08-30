@@ -13,9 +13,12 @@ export const OCR_EMPTY_MESSAGE = '텍스트를 인식하지 못했어요. 더 �
 /**
  * 프록시 OCR 요청의 ApiError 를 OcrResult 로 변환한다.
  *  - 503: 서버에 Vision 키 미설정 → not_configured(호출부가 설정 안내).
- *  - 422: 인식된 내용 없음 → empty.
+ *  - 422: 인식된 내용 없음 → empty(사진 화질 문제로 안내).
  *  - 415: 이미지/PDF 가 아님 → request_failed(서버 안내 문구 사용).
- *  - 그 외(429/5xx/파싱) 및 network/timeout → request_failed/network.
+ *  - 429: 요청 한도 초과 → rate_limit(사진 문제 아님 — 잠시 후 재시도 안내).
+ *  - network/timeout/5xx → network/server_error(서버·연결 문제로 안내, 사진 문제 아님).
+ * empty 만 "사진 상태 확인" 문구로 이어지고, rate_limit/server_error/network 는 서버·연결
+ * 문제로 별도 안내해야 한다 — 여기서 원인을 뭉뚱그리면 호출부가 구분할 수 없다.
  */
 export function mapOcrApiError(err: ApiError): OcrResult {
   const status = err.status;
@@ -30,6 +33,13 @@ export function mapOcrApiError(err: ApiError): OcrResult {
       code: 'request_failed',
     };
   }
+  if (status === 429) {
+    return {
+      status: 'error',
+      message: err.detail ?? '요청이 많아요. 잠시 후 다시 시도해주세요.',
+      code: 'rate_limit',
+    };
+  }
   if (err.kind === 'network') {
     return { status: 'error', message: '네트워크 오류로 텍스트 추출에 실패했어요.', code: 'network' };
   }
@@ -37,13 +47,32 @@ export function mapOcrApiError(err: ApiError): OcrResult {
     return {
       status: 'error',
       message: '처리 시간이 초과됐어요. 잠시 후 다시 시도해주세요.',
-      code: 'request_failed',
+      code: 'server_error',
     };
   }
-  // 429/500/502/504 등 — 서버 안내가 있으면 노출, 없으면 일반 문구.
+  if (status !== undefined && status >= 500) {
+    return {
+      status: 'error',
+      message: err.detail ?? '분석 서버에 연결하지 못했어요. 다시 시도해주세요.',
+      code: 'server_error',
+    };
+  }
+  // 400/404 등 — 재시도해도 소용없는 요청/구성 문제.
   return {
     status: 'error',
     message: err.detail ?? '텍스트 추출에 실패했어요. 잠시 후 다시 시도해주세요.',
     code: 'request_failed',
   };
+}
+
+// Google Vision 의 images:annotate/files:annotate 는 HEIC/HEIF 원본 바이트를 디코드하지
+// 못한다(JPEG/PNG/WEBP/BMP/GIF/RAW/ICO/PDF/TIFF 만 지원). iPhone 사진 보관함 기본 형식이
+// HEIC 라, 압축 없이 원본을 그대로 첨부하면(예: 파일 선택기로 사진을 고를 때) 서버가
+// 업스트림 오류를 돌려주고 원인이 형식 미지원인데도 "사진 상태 확인" 문구로만 보이게
+// 된다. 파일을 읽거나 서버를 호출하기 전에 걸러 정확한 안내로 대체할 수 있도록 이 함수는
+// 여기(순수, RN 비의존)에 둔다 — analyzeContract.ts는 visionOcr 경유로 RN(파일시스템)에
+// 결합돼 있어 이 판정 로직만은 분리해야 node:test 로 단독 검증할 수 있다.
+export function isUnsupportedOcrMimeType(mimeType: string): boolean {
+  const lower = mimeType.toLowerCase();
+  return lower === 'image/heic' || lower === 'image/heif';
 }

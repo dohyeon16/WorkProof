@@ -1,9 +1,11 @@
 import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
+import { isUnsupportedOcrMimeType } from '../ocr/ocrError';
 import { summarizeContractText } from './geminiSummary';
 import { resolveReadableUri } from '../../../../shared/utils/fileStore';
 import { SessionExpiredError } from '../../../auth/state/session';
 import type { AiRemote } from './aiProxyApi';
 import type { EvidenceKind } from '../../../../core/domain/models/types';
+import type { OcrResult } from '../ocr/types';
 
 /**
  * 첨부 파일(이미지/PDF) 하나를 OCR → AI 요약까지 처리하는 공용 파이프라인.
@@ -21,8 +23,12 @@ export type AnalyzeErrorCode =
   | 'FILE_NOT_READY'
   | 'AUTH_REQUIRED'
   | 'OCR_NOT_CONFIGURED'
+  | 'OCR_UNSUPPORTED_FORMAT'
   | 'OCR_FAILED'
   | 'OCR_EMPTY'
+  | 'OCR_RATE_LIMIT'
+  | 'OCR_NETWORK_ERROR'
+  | 'OCR_SERVER_ERROR'
   | 'SUMMARY_NOT_CONFIGURED'
   | 'GEMINI_NETWORK_ERROR'
   | 'GEMINI_RATE_LIMIT'
@@ -55,6 +61,28 @@ export function mimeTypeForKind(kind: EvidenceKind, name?: string): string {
   if (lower.endsWith('.webp')) return 'image/webp';
   if (lower.endsWith('.heic')) return 'image/heic';
   return 'image/jpeg';
+}
+
+/**
+ * OCR 실패(ocr.status === 'error')를 상위(화면)가 쓸 AnalyzeErrorCode 로 매핑한다.
+ * RN/파일시스템 의존이 없는 순수 함수라 node:test 로 단독 검증 가능하다 — 사진 화질
+ * 문제(OCR_EMPTY)와 서버/네트워크 문제(OCR_RATE_LIMIT/OCR_NETWORK_ERROR/OCR_SERVER_ERROR)
+ * 를 여기서 갈라야 화면이 서로 다른 문구를 보여줄 수 있다.
+ */
+export function mapOcrErrorToAnalyzeCode(ocr: Extract<OcrResult, { status: 'error' }>): AnalyzeErrorCode {
+  if (ocr.code === 'file_unreadable' || ocr.message === FILE_UNREADABLE_MESSAGE) return 'FILE_NOT_READY';
+  switch (ocr.code) {
+    case 'empty':
+      return 'OCR_EMPTY';
+    case 'rate_limit':
+      return 'OCR_RATE_LIMIT';
+    case 'network':
+      return 'OCR_NETWORK_ERROR';
+    case 'server_error':
+      return 'OCR_SERVER_ERROR';
+    default:
+      return 'OCR_FAILED';
+  }
 }
 
 /** URI에서 스킴만 뽑는다(로그용). 파일 내용/키는 절대 로그하지 않는다. */
@@ -92,6 +120,13 @@ export async function analyzeEvidenceFile(
   const { name, mimeType, size } = input;
   log('start', input);
 
+  // 0) HEIC/HEIF 는 Vision 이 디코드하지 못하는 형식 — 파일을 읽거나 서버를 호출하기
+  // 전에 바로 걸러 정확한 안내로 대체한다(사진 화질 문제로 오해하지 않도록).
+  if (isUnsupportedOcrMimeType(mimeType)) {
+    log('ocr_unsupported_format', input);
+    return { status: 'error', errorCode: 'OCR_UNSUPPORTED_FORMAT' };
+  }
+
   // 1) 파일 준비 확인: 저장된 URI를 읽을 수 있는 형태로 정규화(웹 idb://→data:, 네이티브 file:// 존재 확인).
   const readableUri = await resolveReadableUri(input.uri);
   if (!readableUri) {
@@ -118,12 +153,7 @@ export async function analyzeEvidenceFile(
     return { status: 'error', errorCode: 'OCR_NOT_CONFIGURED' };
   }
   if (ocr.status === 'error') {
-    const errorCode: AnalyzeErrorCode =
-      ocr.code === 'file_unreadable' || ocr.message === FILE_UNREADABLE_MESSAGE
-        ? 'FILE_NOT_READY'
-        : ocr.code === 'empty'
-        ? 'OCR_EMPTY'
-        : 'OCR_FAILED';
+    const errorCode = mapOcrErrorToAnalyzeCode(ocr);
     log('ocr_error', input, { errorCode, ocrCode: ocr.code });
     return { status: 'error', errorCode };
   }

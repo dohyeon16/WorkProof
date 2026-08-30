@@ -339,14 +339,22 @@ export default function VaultScreen(_props: Props) {
         return;
       }
       if (result.status === 'error') {
-        // 만료된 URI 등 파일을 못 읽는 경우는 별도 안내(다시 추가 유도).
-        const isMissing = result.errorCode === 'FILE_NOT_READY';
-        Alert.alert(
-          isMissing ? '원본 파일 없음' : '텍스트 추출 실패',
-          isMissing
-            ? FILE_UNREADABLE_MESSAGE
-            : '계약서 내용을 인식하지 못했어요. 사진 상태를 확인하고 다시 시도해주세요.'
-        );
+        // 만료된 URI 등 파일을 못 읽는 경우는 별도 안내(다시 추가 유도). 사진 자체의 문제(형식/화질)와
+        // 서버·네트워크 문제(요청 한도/타임아웃/장애)도 같은 "사진 상태 확인" 문구로 뭉뚱그리지 않는다.
+        if (result.errorCode === 'FILE_NOT_READY') {
+          Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
+        } else if (result.errorCode === 'OCR_UNSUPPORTED_FORMAT') {
+          Alert.alert(
+            '지원하지 않는 사진 형식',
+            'HEIC 형식의 사진은 아직 지원하지 않아요. "사진 보관함에서 선택"으로 다시 시도해주세요.'
+          );
+        } else if (result.errorCode === 'OCR_RATE_LIMIT') {
+          Alert.alert('요청이 많아요', '요청이 많아요. 잠시 후 다시 시도해주세요.');
+        } else if (result.errorCode === 'OCR_NETWORK_ERROR' || result.errorCode === 'OCR_SERVER_ERROR') {
+          Alert.alert('연결 실패', '분석 서버에 연결하지 못했어요. 다시 시도해주세요.');
+        } else {
+          Alert.alert('텍스트 추출 실패', '계약서 내용을 인식하지 못했어요. 사진 상태를 확인하고 다시 시도해주세요.');
+        }
         return;
       }
 
