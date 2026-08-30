@@ -293,6 +293,9 @@ test('만료 access → refresh 성공 → 1회 재시도로 성공', async () =
     async login() {
       return sessionResp('login');
     },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
+    },
     async refresh() {
       refreshCalls.push(1);
       return sessionResp('r1'); // 새 access-r1
@@ -332,6 +335,9 @@ test('refresh 실패 → SessionExpiredError + unauthenticated(무한 retry 없�
     async login() {
       return sessionResp('login');
     },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
+    },
     async refresh() {
       throw new ApiError('http', '인증 실패', 401); // isUnauthorized
     },
@@ -365,6 +371,9 @@ test('social/local-only(백엔드 refresh 토큰 없음) → provider 0회 + Ses
     },
     async login() {
       return sessionResp('login');
+    },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
     },
     async refresh() {
       return sessionResp('r');

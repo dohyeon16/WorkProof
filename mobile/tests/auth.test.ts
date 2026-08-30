@@ -70,7 +70,7 @@ function makeStore(initial: string | null = null) {
 
 /** 프로그래머블 SessionApi 목. 각 메서드 호출 횟수를 센다. */
 function makeApi(impl: Partial<SessionApi> = {}) {
-  const counts = { refresh: 0, getMe: 0, logout: 0, deleteMe: 0, login: 0, register: 0 };
+  const counts = { refresh: 0, getMe: 0, logout: 0, deleteMe: 0, login: 0, register: 0, exchangeBridgeSession: 0 };
   let lastLogoutToken: string | undefined;
   const api: SessionApi = {
     async register(input) {
@@ -80,6 +80,12 @@ function makeApi(impl: Partial<SessionApi> = {}) {
     async login(input) {
       counts.login += 1;
       return impl.login ? impl.login(input) : makeSessionResp('login');
+    },
+    async exchangeBridgeSession(bridgeSessionId, deviceLabel) {
+      counts.exchangeBridgeSession += 1;
+      return impl.exchangeBridgeSession
+        ? impl.exchangeBridgeSession(bridgeSessionId, deviceLabel)
+        : makeSessionResp('bridge');
     },
     async refresh(rt) {
       counts.refresh += 1;
@@ -197,6 +203,50 @@ test('register: 성공 시 authenticated (자동 로그인)', async () => {
   await session.register({ email: 'a@b.com', password: 'pw', name: 'A' });
   assert.equal(session.getState().status, 'authenticated');
   assert.equal(s.value, 'refresh-register');
+});
+
+// 회귀 배경: 실기기에서 이메일/Google/Kakao/Naver 로그인이 전부 앱에는 "로그인됨"으로
+// 보이는데, AI 분석은 모든 진입점에서 로그인 게이트가 떴다. 원인은 소셜 로그인이 로컬
+// Account/isLoggedIn 플래그만 세우고 이 세션(useAuth().isAuthenticated)은 전혀 갱신하지
+// 않았기 때문 — AI 게이트는 오직 이 세션만 본다. loginWithBridgeSession은 서버가 이미
+// OAuth code 교환으로 검증한 bridge session_id를 실제 백엔드 인증 세션으로 바꿔, 로그인
+// 수단과 무관하게 이 세션 하나로 통일한다.
+test('loginWithBridgeSession: 성공 시 authenticated + refresh 저장(소셜 로그인도 같은 세션 사용)', async () => {
+  const s = makeStore(null);
+  const a = makeApi();
+  const session = createSession({ api: a.api, store: s.store });
+  const user = await session.loginWithBridgeSession('bridge-session-id-1', 'WorkProof ios');
+  assert.equal(user.email, 'a@b.com');
+  assert.equal(session.getState().status, 'authenticated');
+  assert.equal(s.value, 'refresh-bridge');
+  assert.equal(a.counts.exchangeBridgeSession, 1);
+});
+
+test('loginWithBridgeSession: bridgeSessionId/deviceLabel 을 그대로 API에 전달한다', async () => {
+  const s = makeStore(null);
+  let received: [string, string | undefined] | null = null;
+  const a = makeApi({
+    exchangeBridgeSession: async (bridgeSessionId, deviceLabel) => {
+      received = [bridgeSessionId, deviceLabel];
+      return makeSessionResp('bridge');
+    },
+  });
+  const session = createSession({ api: a.api, store: s.store });
+  await session.loginWithBridgeSession('sess-abc', 'WorkProof ios');
+  assert.deepEqual(received, ['sess-abc', 'WorkProof ios']);
+});
+
+test('loginWithBridgeSession: 만료/무효 세션(API 오류)이면 unauthenticated 유지, 예외 전파', async () => {
+  const s = makeStore(null);
+  const a = makeApi({
+    exchangeBridgeSession: async () => {
+      throw new Error('세션을 찾을 수 없거나 만료됐어요.');
+    },
+  });
+  const session = createSession({ api: a.api, store: s.store });
+  await assert.rejects(() => session.loginWithBridgeSession('expired'), /만료/);
+  assert.notEqual(session.getState().status, 'authenticated');
+  assert.equal(s.value, null); // refresh 토큰 저장 안 됨
 });
 
 // ---------- refresh rotation ----------

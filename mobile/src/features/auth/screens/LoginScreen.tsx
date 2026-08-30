@@ -20,7 +20,7 @@ type Props = RootScreenProps<'Login'>;
 
 export default function LoginScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, loginWithBridgeSession } = useAuth();
   const prefill = parseEmail(route.params?.prefillEmail ?? '');
   const [emailLocal, setEmailLocal] = useState(prefill.local);
   const [emailDomain, setEmailDomain] = useState(prefill.domain);
@@ -87,6 +87,18 @@ export default function LoginScreen({ navigation, route }: Props) {
       return;
     }
     await setLoggedIn(true);
+    // Expo Go 경로는 서버가 검증한 bridge session_id를 받는다 — 이걸 실제 백엔드
+    // 인증 세션으로 교환해야 AI 분석(useAiAnalysis의 isAuthenticated) 등 백엔드
+    // 인증이 필요한 기능이 소셜 로그인 사용자에게도 정상 동작한다. 실패해도(네트워크
+    // 등) 앱 로그인 자체는 이미 끝난 흐름이라 사용자에게 별도로 막지 않는다 —
+    // 다음 로그인이나 재시도에서 다시 시도된다.
+    if (result.bridgeSessionId) {
+      try {
+        await loginWithBridgeSession(result.bridgeSessionId);
+      } catch (e) {
+        console.warn('[LoginScreen] bridge session 교환 실패:', e instanceof Error ? e.message : String(e));
+      }
+    }
     // 소셜 인증 성공 → 앱 복귀 직후 앱 내부 팝업만 짧게 표시한다(Render 성공
     // 웹페이지는 정상 흐름에서 더 이상 보이지 않는다). 확인 후 홈으로 이동.
     Alert.alert('로그인 완료', '로그인되었습니다.', [

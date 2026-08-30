@@ -42,6 +42,12 @@ export interface UpdateProfileInput {
 export interface SessionApi {
   register(input: RegisterInput): Promise<AuthSession>;
   login(input: LoginInput): Promise<AuthSession>;
+  /**
+   * 서버가 직접 OAuth code 교환으로 검증한 브릿지 세션(POST /auth/session/{provider}
+   * 이후 성공한 session_id)을 서버 JWT로 교환한다(일회성 — 서버가 소비함). Expo Go의
+   * Google/Kakao/Naver 로그인이 이 경로로 실제 백엔드 인증 세션을 얻는다.
+   */
+  exchangeBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthSession>;
   refresh(refreshToken: string): Promise<AuthSession>;
   logout(refreshToken: string): Promise<void>;
   getMe(accessToken: string): Promise<AuthUser>;

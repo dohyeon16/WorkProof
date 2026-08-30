@@ -16,7 +16,16 @@ import {
 WebBrowser.maybeCompleteAuthSession();
 
 export type SocialLoginResult =
-  | { status: 'success'; profile: SocialProfile }
+  | {
+      status: 'success';
+      profile: SocialProfile;
+      // Expo Go 경로(server-verified OAuth 브릿지)에서만 채워진다. 있으면 호출부가
+      // /auth/bridge/exchange 로 실제 백엔드 인증 세션을 얻을 수 있다(§AuthContext).
+      // 네이티브 AuthSession/SDK 경로는 백엔드를 거치지 않아 이 값이 없다 —
+      // 그 경로는 아직 서버측 provider credential 검증기가 없어(§social_verify.py)
+      // 백엔드 세션 발급 대상이 아니다.
+      bridgeSessionId?: string;
+    }
   | { status: 'cancelled' }
   // `reason` is a specific, provider+platform-aware explanation shown
   // directly to the user (see LoginScreen/SignupScreen) — there is no shared
