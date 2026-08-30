@@ -89,6 +89,13 @@ export default function RootNavigator() {
       <Stack.Screen
         name="WorkplaceForm"
         component={WorkplaceFormScreen}
+        // getId: React Navigation 7부터 navigate()는 같은 화면이 스택에 있어도 항상 새
+        // 인스턴스를 push한다(v6은 기존 인스턴스로 점프했음). 탭 화면(홈/분석 등)에서 같은
+        // 상세 화면을 여러 번 열었다 닫으면 스택에 화면이 계속 쌓여, 헤더의 "< 홈"/"< 분석"
+        // 뒤로가기를 눌러도 방금 쌓인 다른 인스턴스로만 이동해 "안 눌리는 것"처럼 보이는
+        // 실기기 회귀의 원인이었다. getId로 같은 대상(id)이면 기존 인스턴스를 재사용하게
+        // 해 스택이 무한히 쌓이는 걸 막는다 — 이 파일의 나머지 화면들도 동일하게 적용한다.
+        getId={({ params }) => params?.id ?? 'new'}
         options={({ route }) => ({ title: route.params?.id ? '근무지 수정' : '근무지 등록' })}
       />
       <Stack.Screen
@@ -112,44 +119,84 @@ export default function RootNavigator() {
       <Stack.Screen
         name="AllWorkplaces"
         component={AllWorkplacesScreen}
+        getId={() => 'singleton'}
         options={{ title: '전체 근무지 합산' }}
       />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
+        getId={() => 'singleton'}
         options={{ title: '알림' }}
       />
       <Stack.Screen
         name="WorkplaceSwitch"
         component={WorkplaceSwitchScreen}
+        getId={() => 'singleton'}
         options={{ title: '근무지 전환' }}
       />
       <Stack.Screen
         name="AttendanceCheck"
         component={AttendanceCheckScreen}
+        getId={({ params }) => params.workplaceId}
         options={{ title: '출퇴근 기록' }}
       />
       <Stack.Screen
         name="AttendanceForm"
         component={AttendanceFormScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.id ?? params.date ?? 'new'}`}
         options={({ route }) => ({ title: route.params?.id ? '근무 기록 수정' : '근무 기록 추가' })}
       />
       <Stack.Screen
         name="Schedule"
         component={ScheduleFormScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.id ?? 'new'}`}
         options={({ route }) => ({ title: route.params?.id ? '예정 근무 수정' : '근무 예정 추가' })}
       />
-      <Stack.Screen name="PayInput" component={PayInputScreen} options={{ title: '실제 입금액 입력' }} />
-      <Stack.Screen name="PayCompare" component={PayCompareScreen} options={{ title: '급여 비교' }} />
-      <Stack.Screen name="PayComparisonDetail" component={PayComparisonDetailScreen} options={{ title: '항목별 차이' }} />
-      <Stack.Screen name="PayslipList" component={PayslipListScreen} options={{ title: '급여명세서' }} />
-      <Stack.Screen name="PayslipReview" component={PayslipReviewScreen} options={{ title: '명세서 확인' }} />
+      <Stack.Screen
+        name="PayInput"
+        component={PayInputScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.yearMonth}`}
+        options={{ title: '실제 입금액 입력' }}
+      />
+      <Stack.Screen
+        name="PayCompare"
+        component={PayCompareScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.yearMonth}`}
+        options={{ title: '급여 비교' }}
+      />
+      <Stack.Screen
+        name="PayComparisonDetail"
+        component={PayComparisonDetailScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.yearMonth}`}
+        options={{ title: '항목별 차이' }}
+      />
+      <Stack.Screen
+        name="PayslipList"
+        component={PayslipListScreen}
+        getId={({ params }) => params.workplaceId}
+        options={{ title: '급여명세서' }}
+      />
+      <Stack.Screen
+        name="PayslipReview"
+        component={PayslipReviewScreen}
+        // payslipId 없는 신규 캡처(OCR draft)는 매번 내용이 달라 getId가 undefined를
+        // 돌려주면 v7 기본 동작(항상 새로 push)으로 자연스럽게 빠진다 — 기존 편집(같은
+        // payslipId 재진입)만 기존 인스턴스로 합친다.
+        getId={({ params }) => params.payslipId}
+        options={{ title: '명세서 확인' }}
+      />
       <Stack.Screen
         name="ChecklistDetail"
         component={ChecklistDetailScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.yearMonth}`}
         options={{ title: '확인 필요한 항목' }}
       />
-      <Stack.Screen name="Report" component={ReportScreen} options={{ title: 'PDF 리포트 미리보기' }} />
+      <Stack.Screen
+        name="Report"
+        component={ReportScreen}
+        getId={({ params }) => `${params.workplaceId}:${params.yearMonth}`}
+        options={{ title: 'PDF 리포트 미리보기' }}
+      />
       <Stack.Screen
         name="ShareComplete"
         component={ShareCompleteScreen}
