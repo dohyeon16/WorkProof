@@ -94,6 +94,28 @@ export interface EvidenceFile {
   analyzedAt?: string; // 마지막으로 OCR·요약 분석을 실행한 시각(ISO, 선택)
 }
 
+// 근무 기록 변경 이력(로컬 전용 · append-only). "법적 증거"가 아니라 사용자가 자기
+// 기록을 언제 무엇을 바꿨는지 되짚어 보기 위한 변경 로그다. 서버로 동기화하지 않으며
+// (attendance 지문/매핑에 영향 없음), 민감한 GPS 좌표는 이력에 담지 않는다(AUDITED_FIELDS 참고).
+export type AttendanceChangeSource = 'clock' | 'manual';
+export type AttendanceChangeOp = 'create' | 'update';
+
+export interface AttendanceFieldChange {
+  field: string;
+  before: string | number | boolean | null;
+  after: string | number | boolean | null;
+}
+
+export interface AttendanceChange {
+  id: string;
+  recordId: string; // 대상 AttendanceRecord.id
+  changedAt: string; // ISO
+  op: AttendanceChangeOp;
+  source: AttendanceChangeSource; // clock=원터치 기록, manual=기록 화면 편집
+  changes: AttendanceFieldChange[]; // 바뀐 필드의 before→after(생성 시 초기값)
+  reason?: string; // 선택 사유(현재 UI 미노출, 확장 대비)
+}
+
 export type AuthProvider = 'local' | 'google' | 'kakao' | 'naver';
 
 export interface Account {

@@ -5,8 +5,8 @@ import { Text } from '../../../shared/components/Text';
 import { Alert } from '../../../shared/components/alert';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getWorkplaces } from '../../../core/data/storage';
-import { rescheduleAllPaydayReminders } from '../../../core/notifications/notifications';
+import { getAllAttendance, getScheduledShifts, getWorkplaces } from '../../../core/data/storage';
+import { rescheduleAllPaydayReminders, rescheduleMissingClockOutReminders } from '../../../core/notifications/notifications';
 import { isExpoGo } from '../../../shared/utils/expoGo';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
@@ -34,8 +34,13 @@ export default function NotifPermissionScreen({ navigation, route }: Props) {
         const Notifications = await import('expo-notifications');
         status = (await Notifications.requestPermissionsAsync()).status;
         if (status === 'granted') {
-          const workplaces = await getWorkplaces();
+          const [workplaces, attendance, shifts] = await Promise.all([
+            getWorkplaces(),
+            getAllAttendance(),
+            getScheduledShifts(),
+          ]);
           await rescheduleAllPaydayReminders(workplaces);
+          await rescheduleMissingClockOutReminders(attendance, workplaces, shifts);
         }
       } catch {
         // 웹 등 미지원 환경에서는 조용히 넘어감

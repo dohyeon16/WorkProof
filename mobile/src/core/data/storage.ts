@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from '../domain/models/types';
+import { Account, AttendanceChange, AttendanceChangeSource, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from '../domain/models/types';
 import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
 import { restoreBackupData, type KeyValueStore } from '../backup/restoreData';
+import { buildAttendanceChange } from '../../features/attendance/audit/auditTrail';
 
 export function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -104,6 +105,53 @@ export async function deleteAttendance(id: string): Promise<void> {
     KEYS.attendance,
     list.filter((a) => a.id !== id)
   );
+  // 기록이 사라지면 그 기록의 변경 이력도 함께 정리한다(고아 이력 방지).
+  const history = await getAllAttendanceHistory();
+  const remaining = history.filter((h) => h.recordId !== id);
+  if (remaining.length !== history.length) await writeList(KEYS.attendanceHistory, remaining);
+}
+
+// ---------- Attendance 변경 이력 (append-only, 로컬 전용) ----------
+
+export async function getAllAttendanceHistory(): Promise<AttendanceChange[]> {
+  return readList<AttendanceChange>(KEYS.attendanceHistory);
+}
+
+/** 특정 기록의 변경 이력(최신순). */
+export async function getAttendanceHistory(recordId: string): Promise<AttendanceChange[]> {
+  const list = await getAllAttendanceHistory();
+  return list
+    .filter((h) => h.recordId === recordId)
+    .sort((a, b) => b.changedAt.localeCompare(a.changedAt));
+}
+
+async function appendAttendanceChange(change: AttendanceChange): Promise<void> {
+  const list = await getAllAttendanceHistory();
+  list.push(change);
+  await writeList(KEYS.attendanceHistory, list);
+}
+
+/**
+ * 사용자 편집(원터치 기록/기록 화면)에서만 쓰는 저장 함수. 이전 상태와 비교해 변경 이력을
+ * 먼저 남기고 레코드를 저장한다. sync 가 서버 응답을 반영할 때 쓰는 saveAttendance(위)는
+ * 이 경로를 타지 않으므로, 서버발(merge) 변경은 이력에 남지 않는다(사용자 편집만 기록).
+ */
+export async function saveAttendanceWithHistory(
+  next: AttendanceRecord,
+  source: AttendanceChangeSource,
+  reason?: string
+): Promise<void> {
+  const before = await getAttendanceRecord(next.id);
+  const change = buildAttendanceChange({
+    before: before ?? null,
+    after: next,
+    source,
+    at: new Date().toISOString(),
+    id: makeId(),
+    reason,
+  });
+  if (change) await appendAttendanceChange(change);
+  await saveAttendance(next);
 }
 
 // ---------- Pay records ----------

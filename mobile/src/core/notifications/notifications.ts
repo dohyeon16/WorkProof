@@ -1,6 +1,11 @@
 import { Platform } from 'react-native';
-import type { ScheduledShift, Workplace } from '../domain/models/types';
+import type { AttendanceRecord, ScheduledShift, Workplace } from '../domain/models/types';
 import { isExpoGo } from '../../shared/utils/expoGo';
+import {
+  inProgressRecords,
+  missingClockOutId,
+  planMissingClockOut,
+} from '../../features/attendance/missingClockOut/schedule';
 
 const PAYDAY_REMINDER_ID_PREFIX = 'payday-reminder-';
 const PAYDAY_REMINDER_HOUR = 10;
@@ -134,4 +139,75 @@ export async function rescheduleAllPaydayReminders(workplaces: Workplace[]): Pro
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') return;
   await Promise.all(workplaces.map((w) => schedulePaydayReminder(w)));
+}
+
+// ---------- 미퇴근(퇴근 미기록) 알림 ----------
+// 진행 중(퇴근 전) 기록에 대해, 예정 종료시간(또는 출근 후 일정 시간)에 맞춰 "퇴근 기록을
+// 확인하세요" 로컬 푸시를 예약한다. 언제 울릴지는 순수 로직(planMissingClockOut)이 결정하고,
+// 여기서는 예약/취소만 담당한다. identifier 로 항상 취소 후 재예약해 중복을 막는다.
+
+/** 진행 중 기록의 미퇴근 알림을 예약한다. 이미 퇴근했거나 예약 시각이 지났으면 예약하지 않는다. */
+export async function scheduleMissingClockOutReminder(
+  record: AttendanceRecord,
+  workplaceName: string,
+  shift?: ScheduledShift
+): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+
+  const identifier = missingClockOutId(record.id);
+  await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {});
+
+  const plan = planMissingClockOut({ record, shift, now: Date.now() });
+  if (!plan.fire || plan.fireAt == null) return;
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: '기본 알림',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title: '퇴근 기록을 확인해보세요',
+      body: `${workplaceName} · ${record.clockIn} 출근 기록의 퇴근이 아직 비어 있어요. 퇴근했다면 시간을 채워 넣어보세요.`,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: new Date(plan.fireAt),
+    },
+  });
+}
+
+export async function cancelMissingClockOutReminder(recordId: string): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+  await Notifications.cancelScheduledNotificationAsync(missingClockOutId(recordId)).catch(() => {});
+}
+
+/**
+ * 앱 시작 시(또는 권한 허용 후) 진행 중 기록들의 미퇴근 알림을 다시 예약한다.
+ * 앱 재실행으로 예약이 날아가도 복원되게 한다. 과거로 지난 건은 planMissingClockOut 가 걸러낸다.
+ */
+export async function rescheduleMissingClockOutReminders(
+  records: AttendanceRecord[],
+  workplaces: Workplace[],
+  shifts: ScheduledShift[]
+): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+  const nameById = new Map(workplaces.map((w) => [w.id, w.name]));
+  for (const r of inProgressRecords(records)) {
+    const name = nameById.get(r.workplaceId);
+    if (!name) continue; // 삭제된 근무지의 잔여 기록은 건너뛴다
+    const shift = shifts.find((s) => s.workplaceId === r.workplaceId && s.date === r.date);
+    await scheduleMissingClockOutReminder(r, name, shift);
+  }
 }
