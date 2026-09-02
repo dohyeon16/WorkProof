@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from '../domain/models/types';
 import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
+import { restoreBackupData, type KeyValueStore } from '../backup/restoreData';
 
 export function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -312,17 +313,19 @@ export async function exportAllData(): Promise<Record<string, string>> {
   return data;
 }
 
+// AsyncStorage를 복원 로직(restoreData.ts)이 기대하는 KeyValueStore로 감싼다.
+const backupStore: KeyValueStore = {
+  multiGet: (keys) => AsyncStorage.multiGet(keys),
+  multiSet: (pairs) => AsyncStorage.multiSet(pairs),
+  multiRemove: (keys) => AsyncStorage.multiRemove(keys),
+};
+
 // 백업 파일의 데이터로 기존 데이터를 통째로 교체한다. BACKUP_KEYS(=appLock 제외)만 복원하며,
 // 백업에 없던 키는 비운다(부분 복원으로 인한 데이터 불일치 방지). appLock은 복원 대상이 아니므로
 // 이 기기의 기존 잠금 설정이 그대로 유지된다(구버전 백업에 appLock이 있어도 무시됨).
+// 적용 중 실패하면 스냅샷으로 롤백을 시도한다(원자성에 가까운 처리) — restoreData.ts 참고.
 export async function importAllData(data: Record<string, unknown>): Promise<void> {
-  const pairs: [string, string][] = [];
-  for (const key of BACKUP_KEYS) {
-    const value = data[key];
-    if (typeof value === 'string') pairs.push([key, value]);
-  }
-  await AsyncStorage.multiRemove(BACKUP_KEYS);
-  if (pairs.length > 0) await AsyncStorage.multiSet(pairs);
+  await restoreBackupData(backupStore, BACKUP_KEYS, data);
 }
 
 // ---------- Onboarding ----------

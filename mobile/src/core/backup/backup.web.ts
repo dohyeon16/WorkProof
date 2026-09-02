@@ -1,4 +1,6 @@
 import { exportAllData, importAllData } from '../data/storage';
+import { formatLocalDate } from '../../shared/utils/date';
+import { BackupRestoreError } from './restoreData';
 import type { BackupPayload, CreateBackupResult, RestoreBackupResult } from './backup';
 
 // 웹에서는 expo-sharing/expo-file-system을 못 쓰므로, Blob 다운로드와 <input type=file>로 처리한다.
@@ -8,7 +10,8 @@ const BACKUP_VERSION = 1;
 export type { CreateBackupResult, RestoreBackupResult } from './backup';
 
 function fileStamp(): string {
-  return new Date().toISOString().slice(0, 10);
+  // 파일명은 로컬 날짜 기준. toISOString(UTC)은 KST에서 하루 밀릴 수 있다.
+  return formatLocalDate();
 }
 
 export async function createBackup(): Promise<CreateBackupResult> {
@@ -76,7 +79,11 @@ export async function restoreBackup(): Promise<RestoreBackupResult> {
         }
         await importAllData(payload.data);
         finish({ status: 'done' });
-      } catch {
+      } catch (e) {
+        if (e instanceof BackupRestoreError) {
+          finish({ status: 'error', message: e.message });
+          return;
+        }
         finish({ status: 'error', message: '백업 파일을 읽지 못했어요. 다시 시도해주세요.' });
       }
     };

@@ -24,6 +24,7 @@ export type RootStackParamList = {
   Login: { prefillEmail?: string; naverResume?: NaverResumeParams } | undefined;
   Signup: { naverResume?: NaverResumeParams } | undefined;
   ResetPassword: undefined;
+  Account: undefined;
   OnboardingIntro: undefined;
   OnboardingValues: undefined;
   NotifPermission: { fromSettings?: boolean } | undefined;

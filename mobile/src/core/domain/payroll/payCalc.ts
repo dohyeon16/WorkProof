@@ -1,4 +1,5 @@
 import { AttendanceRecord, IncomeDeductionType, Workplace } from '../models/types';
+import { formatLocalDate, parseLocalDate } from '../../../shared/utils/date';
 
 /**
  * 공제 유형별 근로자 부담 공제율(간이 추정, 법적 자문 아님).
@@ -105,11 +106,12 @@ export function shiftWorkedMinutes(record: AttendanceRecord): number {
 
 /** 날짜(YYYY-MM-DD)가 속한 주의 월요일 기준 키(YYYY-MM-DD) */
 function weekKeyOf(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
+  const d = parseLocalDate(dateStr);
   const day = d.getDay(); // 0=Sun
   const diffToMonday = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diffToMonday);
-  return d.toISOString().slice(0, 10);
+  // 로컬 날짜 기준 키(그룹핑 용). toISOString(UTC)은 KST에서 하루 밀려 키가 어긋나므로 쓰지 않는다.
+  return formatLocalDate(d);
 }
 
 export interface DailyBreakdown {

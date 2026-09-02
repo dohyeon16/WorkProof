@@ -10,6 +10,9 @@ import { GoogleLogo } from '../../../shared/components/GoogleLogo';
 import { Alert } from '../../../shared/components/alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { clearAllData, getAccount, saveAccount } from '../../../core/data/storage';
+import { useAuth } from '../state/AuthContext';
+import { authErrorMessage } from '../services/authErrors';
+import { ApiError } from '../../../core/api/errors';
 import { colors, fonts, radius, shadow, spacing } from '../../../shared/theme';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/socialLogin';
 import type { AuthProvider } from '../../../core/domain/models/types';
@@ -60,7 +63,9 @@ function Stepper({ step }: { step: number }) {
 
 export default function SignupScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const { register } = useAuth();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   // Step 1: 약관 동의
   const [termsService, setTermsService] = useState(false);
@@ -210,6 +215,7 @@ export default function SignupScreen({ navigation, route }: Props) {
   };
 
   const handleSignup = async () => {
+    if (submitting) return; // 중복 제출 방지
     if (!name.trim()) {
       Alert.alert('이름 또는 닉네임을 입력해주세요.');
       return;
@@ -218,10 +224,10 @@ export default function SignupScreen({ navigation, route }: Props) {
       Alert.alert('필수 약관 및 개인정보 수집·이용에 동의해주세요.');
       return;
     }
-    // 소셜 로그인은 provider가 신규/기존을 직접 구분해주지 않는다 — 브리지
-    // 백엔드는 프로필만 돌려줄 뿐 계정 관리를 하지 않으므로, "회원가입" 버튼을
-    // 눌렀어도 이미 같은 소셜 계정(provider + providerId)이 이 기기에 저장돼
-    // 있으면 데이터를 지우지 않고 로그인으로 안내한다.
+
+    // ---- 소셜 회원가입: 기존 로컬 흐름 그대로 유지 ----
+    // 소셜 브릿지는 아직 Phase 2 토큰을 발급하지 않고 프로필만 돌려주므로,
+    // 이메일 인증 연동과 분리해 로컬 Account 저장 방식을 그대로 둔다.
     if (socialProfile) {
       const existing = await getAccount();
       const alreadyRegistered =
@@ -235,31 +241,47 @@ export default function SignupScreen({ navigation, route }: Props) {
         navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         return;
       }
+      await clearAllData();
+      await saveAccount({
+        email: socialProfile.email,
+        password: undefined,
+        name: name.trim(),
+        createdAt: new Date().toISOString(),
+        provider: socialProfile.provider,
+        providerId: socialProfile.providerId,
+      });
+      Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
+        { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
+      ]);
+      return;
     }
 
-    const signupEmail = socialProfile ? socialProfile.email : getFinalEmail();
-    await clearAllData();
-    await saveAccount({
-      email: signupEmail,
-      password: socialProfile ? undefined : password,
-      name: name.trim(),
-      createdAt: new Date().toISOString(),
-      provider: socialProfile?.provider,
-      providerId: socialProfile?.providerId,
-    });
-
-    if (socialProfile) {
-      // 최종 계정 생성이 끝난 지금에서만 시스템 팝업으로 완료를 알린다.
-      // 확인을 누르면 로그인 화면으로 이동한다.
+    // ---- 이메일 회원가입: Phase 2 백엔드(/api/v1/auth/register) ----
+    const signupEmail = getFinalEmail();
+    setSubmitting(true);
+    try {
+      // 성공 시 토큰이 SecureStore/메모리에 저장되고 인증 상태로 전환된다(자동 로그인).
+      await register({ email: signupEmail, password, name: name.trim() });
+      // 새 계정 → 이 기기에 남은 이전 로컬 데이터를 정리하고 온보딩부터 시작.
+      // refresh 토큰은 SecureStore에 있어 AsyncStorage를 지우는 clearAllData의 영향을 받지 않는다.
+      await clearAllData();
       Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
-        {
-          text: '확인',
-          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
-        },
+        { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'OnboardingIntro' }] }) },
       ]);
-    } else {
-      Alert.alert('회원가입 완료', '가입하신 이메일과 비밀번호로 로그인해주세요.');
-      navigation.reset({ index: 0, routes: [{ name: 'Login', params: { prefillEmail: signupEmail } }] });
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        Alert.alert('이미 가입된 이메일이에요', authErrorMessage(e, '이미 가입된 이메일이에요.'), [
+          {
+            text: '확인',
+            onPress: () =>
+              navigation.reset({ index: 0, routes: [{ name: 'Login', params: { prefillEmail: signupEmail } }] }),
+          },
+        ]);
+      } else {
+        Alert.alert('회원가입 실패', authErrorMessage(e));
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -510,12 +532,15 @@ export default function SignupScreen({ navigation, route }: Props) {
             </Pressable>
 
             <Pressable
-              style={styles.primaryButton}
+              style={[styles.primaryButton, submitting && styles.socialButtonBusy]}
               onPress={handleSignup}
+              disabled={submitting}
               accessibilityRole="button"
               accessibilityLabel="회원가입 완료"
             >
-              <Text style={styles.primaryButtonText}>회원가입 완료</Text>
+              <Text style={styles.primaryButtonText}>
+                {submitting ? '가입하는 중...' : '회원가입 완료'}
+              </Text>
             </Pressable>
             <Pressable
               style={styles.footer}

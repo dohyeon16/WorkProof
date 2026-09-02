@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../../../app/navigation/types';
 import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../../../core/data/storage';
+import { useAuth } from '../../auth/state/AuthContext';
 import { isAppLockAvailable, authenticateAppLock } from '../../security/services/appLock';
 import { createBackup, restoreBackup } from '../../../core/backup/backup';
 import { Account } from '../../../core/domain/models/types';
@@ -35,10 +36,16 @@ const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; action: (nav:
 
 export default function MoreScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  // 백엔드 이메일 세션이 있으면 그 사용자를, 없으면(소셜/로컬) 기존 로컬 Account를 표시한다.
+  const { isAuthenticated, user: authUser, logout } = useAuth();
   const [account, setAccount] = useState<Account | null>(null);
   const [busy, setBusy] = useState<null | 'backup' | 'restore'>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [appLock, setAppLock] = useState(false);
   const [lockAvailable, setLockAvailable] = useState(false);
+
+  const displayName = isAuthenticated ? authUser?.name ?? '사용자' : account?.name ?? '사용자';
+  const displayEmail = isAuthenticated ? authUser?.email ?? '' : account?.email ?? '';
 
   useFocusEffect(
     useCallback(() => {
@@ -128,8 +135,18 @@ export default function MoreScreen({ navigation }: Props) {
         text: '로그아웃',
         style: 'destructive',
         onPress: async () => {
-          await setLoggedIn(false);
-          navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
+          if (loggingOut) return; // 중복 로그아웃 방지
+          setLoggingOut(true);
+          try {
+            if (isAuthenticated) {
+              // 서버 refresh 폐기 + 로컬 세션 정리(네트워크 장애가 있어도 로컬은 반드시 정리됨).
+              await logout();
+            } else {
+              await setLoggedIn(false);
+            }
+          } finally {
+            navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
+          }
         },
       },
     ]);
@@ -161,10 +178,25 @@ export default function MoreScreen({ navigation }: Props) {
           <Ionicons name="person" size={24} color={colors.primaryDark} />
         </View>
         <View>
-          <Text style={styles.name}>{account?.name ?? '사용자'}</Text>
-          <Text style={styles.email}>{account?.email ?? ''}</Text>
+          <Text style={styles.name}>{displayName}</Text>
+          <Text style={styles.email}>{displayEmail}</Text>
         </View>
       </View>
+
+      {isAuthenticated && (
+        <Pressable
+          style={styles.row}
+          onPress={() => navigation.navigate('Account')}
+          accessibilityRole="button"
+          accessibilityLabel="회원정보"
+        >
+          <View style={styles.rowIconWrap}>
+            <Ionicons name="person-outline" size={18} color={colors.primaryDark} />
+          </View>
+          <Text style={styles.rowText}>회원정보</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+        </Pressable>
+      )}
 
       {MENU.map((m) => (
         <Pressable

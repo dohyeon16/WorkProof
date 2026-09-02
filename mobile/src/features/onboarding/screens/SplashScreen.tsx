@@ -1,18 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { isLoggedIn, isOnboardingDone } from '../../../core/data/storage';
+import { useAuth } from '../../auth/state/AuthContext';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = RootScreenProps<'Splash'>;
 
 export default function SplashScreen({ navigation }: Props) {
+  // 백엔드 이메일 세션 복원(AuthProvider가 시작 시 SecureStore refresh로 시도).
+  const { status, isAuthenticated } = useAuth();
+  const decidedRef = useRef(false);
+
   useEffect(() => {
+    // 세션 복원이 끝날 때까지(initializing) 스플래시를 유지한다.
+    if (status === 'initializing' || decidedRef.current) return;
+    decidedRef.current = true;
     const timer = setTimeout(async () => {
-      const loggedIn = await isLoggedIn();
+      // 1) 백엔드 이메일 세션. 2) 없으면 기존 소셜/로컬 세션(플래그) 폴백.
+      const loggedIn = isAuthenticated || (await isLoggedIn());
       if (!loggedIn) {
         navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         return;
@@ -22,9 +31,9 @@ export default function SplashScreen({ navigation }: Props) {
         index: 0,
         routes: [{ name: onboardingDone ? 'Main' : 'OnboardingIntro' }],
       });
-    }, 900);
+    }, 600);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [status, isAuthenticated, navigation]);
 
   const insets = useSafeAreaInsets();
   return (

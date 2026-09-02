@@ -47,6 +47,9 @@ const config: ExpoConfig = {
     'expo-document-picker',
     'expo-font',
     'expo-web-browser',
+    // refresh 토큰을 iOS Keychain / Android Keystore에 저장하기 위한 SecureStore.
+    // 이메일 인증(Phase 2.5) 세션 저장에 사용한다 — src/features/auth/services/tokenStore.ts.
+    'expo-secure-store',
     [
       'expo-location',
       {
