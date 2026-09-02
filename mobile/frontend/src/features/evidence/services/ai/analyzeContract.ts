@@ -1,11 +1,11 @@
-import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
-import { isUnsupportedOcrMimeType } from '../ocr/ocrError';
+import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../../../../ocr/visionOcr';
+import { isUnsupportedOcrMimeType } from '../../../../ocr/ocrError';
 import { summarizeContractText } from './geminiSummary';
 import { resolveReadableUri } from '../../../../shared/utils/fileStore';
 import { SessionExpiredError } from '../../../auth/state/session';
 import type { AiRemote } from './aiProxyApi';
 import type { EvidenceKind } from '../../../../core/domain/models/types';
-import type { OcrResult } from '../ocr/types';
+import type { OcrResult } from '../../../../ocr/types';
 
 /**
  * 첨부 파일(이미지/PDF) 하나를 OCR → AI 요약까지 처리하는 공용 파이프라인.

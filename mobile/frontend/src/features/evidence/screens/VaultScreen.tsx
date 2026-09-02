@@ -25,7 +25,7 @@ import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../../../shared/utils/webOpen';
 import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/ai/analyzeContract';
 import { useAiAnalysis } from '../services/ai/useAiAnalysis';
-import { FILE_UNREADABLE_MESSAGE } from '../services/ocr/visionOcr';
+import { FILE_UNREADABLE_MESSAGE } from '../../../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
 
 type Props = MainTabScreenProps<'Vault'>;

@@ -4,7 +4,7 @@
 //
 // 원칙: 키/원문은 절대 담지 않는다. 서버가 준 사용자 노출용 detail(친화 한국어)이
 // 있으면 그대로 쓰고, 없으면 상태별 기본 문구로 폴백한다.
-import type { ApiError } from '../../../../core/api/errors';
+import type { ApiError } from '../core/api/errors';
 import type { OcrResult } from './types';
 
 /** OCR 인식 결과가 비었을 때(빈 텍스트)의 기본 사용자 문구. */

@@ -7,7 +7,7 @@
 //  - status 'extracted': OCR+구조화 성공 → 사용자 확인 화면으로
 import { resolveReadableUri } from '../../../shared/utils/fileStore';
 import { SessionExpiredError } from '../../auth/state/session';
-import { extractTextFromDocument } from '../../evidence/services/ocr/visionOcr';
+import { extractTextFromDocument } from '../../../ocr/visionOcr';
 import { maskFileName } from '../../evidence/services/ai/analyzeContract';
 import type { AiRemote } from '../../evidence/services/ai/aiProxyApi';
 import type { PayslipAmounts } from '../../../core/domain/models/types';

@@ -4,10 +4,10 @@
 //
 // 인증(401→refresh→1회 재시도, 실패 시 SessionExpiredError)은 remote(runAuthorized)가
 // 담당한다. 키/오류 원문은 로그로 남기지 않고 사용자에겐 짧은 한국어 문구만 노출한다.
-import { readFileBase64 } from '../../../../shared/utils/fileStore';
-import { ApiError } from '../../../../core/api/errors';
-import { SessionExpiredError } from '../../../auth/state/session';
-import type { AiRemote } from '../ai/aiProxyApi';
+import { readFileBase64 } from '../shared/utils/fileStore';
+import { ApiError } from '../core/api/errors';
+import { SessionExpiredError } from '../features/auth/state/session';
+import type { AiRemote } from '../features/evidence/services/ai/aiProxyApi';
 import { mapOcrApiError } from './ocrError';
 import type { OcrResult } from './types';
 

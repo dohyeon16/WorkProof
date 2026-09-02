@@ -15,7 +15,7 @@ import { createSession, SessionExpiredError } from '../src/features/auth/state/s
 import type { AuthSession, RefreshTokenStore, SessionApi } from '../src/features/auth/types';
 import { createAiRemote, type AiRemote } from '../src/features/evidence/services/ai/aiProxyApi';
 import { summarizeContractText } from '../src/features/evidence/services/ai/geminiSummary';
-import { mapOcrApiError, OCR_EMPTY_MESSAGE, isUnsupportedOcrMimeType } from '../src/features/evidence/services/ocr/ocrError';
+import { mapOcrApiError, OCR_EMPTY_MESSAGE, isUnsupportedOcrMimeType } from '../src/ocr/ocrError';
 import {
   AI_LOGIN_GATE,
   requiresLoginForNewAnalysis,
