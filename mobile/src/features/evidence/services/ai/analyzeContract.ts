@@ -1,6 +1,8 @@
 import { extractTextFromDocument, FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { summarizeContractText } from './geminiSummary';
 import { resolveReadableUri } from '../../../../shared/utils/fileStore';
+import { SessionExpiredError } from '../../../auth/state/session';
+import type { AiRemote } from './aiProxyApi';
 import type { EvidenceKind } from '../../../../core/domain/models/types';
 
 /**
@@ -17,6 +19,7 @@ import type { EvidenceKind } from '../../../../core/domain/models/types';
 // 진단용 오류 코드(사용자에겐 짧은 한국어만, 로그에는 이 코드로 구분).
 export type AnalyzeErrorCode =
   | 'FILE_NOT_READY'
+  | 'AUTH_REQUIRED'
   | 'OCR_NOT_CONFIGURED'
   | 'OCR_FAILED'
   | 'OCR_EMPTY'
@@ -82,7 +85,10 @@ function log(event: string, input: AnalyzeEvidenceInput, extra?: Record<string, 
   });
 }
 
-export async function analyzeEvidenceFile(input: AnalyzeEvidenceInput): Promise<AnalyzeEvidenceResult> {
+export async function analyzeEvidenceFile(
+  remote: AiRemote,
+  input: AnalyzeEvidenceInput
+): Promise<AnalyzeEvidenceResult> {
   const { name, mimeType, size } = input;
   log('start', input);
 
@@ -94,8 +100,19 @@ export async function analyzeEvidenceFile(input: AnalyzeEvidenceInput): Promise<
   }
 
   // 2) OCR 실행 (visionOcr 로그에도 마스킹된 파일명만 전달)
+  // 인증 만료로 refresh 까지 실패하면 SessionExpiredError → 로그인 필요 상태로 매핑한다
+  // (호출부가 로그인 게이팅으로 안내). provider 요청은 이미 일어나지 않았다.
   log('ocr_start', input);
-  const ocr = await extractTextFromDocument(readableUri, mimeType, { name: maskFileName(name), size });
+  let ocr: Awaited<ReturnType<typeof extractTextFromDocument>>;
+  try {
+    ocr = await extractTextFromDocument(remote, readableUri, mimeType, { name: maskFileName(name), size });
+  } catch (e) {
+    if (e instanceof SessionExpiredError) {
+      log('auth_required', input, { stage: 'ocr' });
+      return { status: 'error', errorCode: 'AUTH_REQUIRED' };
+    }
+    throw e;
+  }
   if (ocr.status === 'not_configured') {
     log('ocr_not_configured', input);
     return { status: 'error', errorCode: 'OCR_NOT_CONFIGURED' };
@@ -116,9 +133,19 @@ export async function analyzeEvidenceFile(input: AnalyzeEvidenceInput): Promise<
   const analyzedAt = new Date().toISOString();
   log('ocr_success', input, { textLength: extractedText.length });
 
-  // 4) 로컬 변수의 텍스트를 그대로 Gemini에 전달 (내부에서 재시도 포함)
+  // 4) 로컬 변수의 텍스트를 그대로 서버 프록시(요약)에 전달.
+  // OCR 은 성공했으므로 여기서 SessionExpiredError 가 나면 텍스트는 보존해 돌려준다.
   log('gemini_start', input);
-  const summary = await summarizeContractText(extractedText);
+  let summary: Awaited<ReturnType<typeof summarizeContractText>>;
+  try {
+    summary = await summarizeContractText(remote, extractedText);
+  } catch (e) {
+    if (e instanceof SessionExpiredError) {
+      log('auth_required', input, { stage: 'summary' });
+      return { status: 'ocr_only', ocrText: extractedText, analyzedAt, errorCode: 'AUTH_REQUIRED' };
+    }
+    throw e;
+  }
   if (summary.status === 'not_configured') {
     log('gemini_not_configured', input);
     return { status: 'ocr_only', ocrText: extractedText, analyzedAt, errorCode: 'SUMMARY_NOT_CONFIGURED' };

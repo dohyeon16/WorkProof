@@ -32,6 +32,7 @@ import {
 import { cancelPaydayReminder, schedulePaydayReminder } from '../../../core/notifications/notifications';
 import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../../../core/domain/payroll/payCalc';
 import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../../evidence/services/ai/analyzeContract';
+import { useAiAnalysis } from '../../evidence/services/ai/useAiAnalysis';
 import { FILE_UNREADABLE_MESSAGE } from '../../evidence/services/ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
 import type { EvidenceKind, IncomeDeductionType } from '../../../core/domain/models/types';
@@ -52,6 +53,8 @@ const DEDUCTION_OPTIONS: { value: IncomeDeductionType; label: string }[] = [
 export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const editingId = route.params?.id;
   const fromOnboarding = route.params?.fromOnboarding ?? false;
+  // AI 분석 접근층(프록시 remote + 비로그인 게이트). 새 분석 시작 전에만 인증을 요구한다.
+  const ai = useAiAnalysis();
   const [name, setName] = useState('');
   const [hourlyWage, setHourlyWage] = useState('');
   const [payDay, setPayDay] = useState('10');
@@ -156,12 +159,14 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   // 분석 결과에 대한 사용자 안내는 요청당 최대 1회만 띄운다(재시도는 내부에서 조용히 처리됨).
   const showAnalysisResultAlert = (result: AnalyzeEvidenceResult) => {
     if (result.status === 'success') return; // 성공: 팝업 없이 요약을 화면에 표시
+    // 진행 중 인증 만료 → 로그인 게이트(인식된 텍스트가 있으면 이미 위에서 보존됨).
+    if (result.errorCode === 'AUTH_REQUIRED') {
+      ai.promptLogin();
+      return;
+    }
     if (result.status === 'ocr_only') {
       if (result.errorCode === 'SUMMARY_NOT_CONFIGURED') {
-        Alert.alert(
-          'AI 요약 준비 중',
-          '아직 Gemini API 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
-        );
+        Alert.alert('AI 요약 준비 중', 'AI 요약 기능이 아직 준비 중이에요. 인식된 텍스트는 저장했어요.');
       } else {
         Alert.alert('AI 요약 실패', '인식된 계약서 텍스트는 저장했어요. AI 요약은 잠시 후 다시 시도해주세요.');
       }
@@ -169,10 +174,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     }
     // status === 'error' — OCR까지 실패
     if (result.errorCode === 'OCR_NOT_CONFIGURED') {
-      Alert.alert(
-        'OCR 준비 중',
-        '아직 Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
-      );
+      Alert.alert('OCR 준비 중', '문서 인식 기능이 아직 준비 중이에요. 잠시 후 다시 시도해주세요.');
     } else if (result.errorCode === 'FILE_NOT_READY') {
       Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
     } else {
@@ -182,6 +184,8 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
   // 공용 분석 파이프라인 호출. requestId로 세대를 관리해 최신 요청 결과만 화면에 반영한다.
   const startAnalysis = async (uri: string, name: string, mimeType: string, size?: number | null) => {
+    // 새 OCR/AI provider 요청은 로그인 필요 — 비로그인이면 요청을 시작하지 않고 게이트만 띄운다.
+    if (!ai.ensureCanAnalyze()) return;
     const requestId = ++analysisRequestIdRef.current;
     analysisInFlightRef.current = true;
     if (mountedRef.current) {
@@ -192,7 +196,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
     let result: AnalyzeEvidenceResult;
     try {
-      result = await analyzeEvidenceFile({
+      result = await analyzeEvidenceFile(ai.remote, {
         uri,
         name,
         mimeType,

@@ -180,39 +180,33 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
   4. tunnel 주소가 바뀌면(재실행 시 랜덤 생성되는 경우) 이 플랫폼 등록도 새
      주소로 다시 해줘야 합니다.
 
-## 3-2. 근로계약서 사본 OCR (Google Cloud Vision)
+## 3-2. 근로계약서 OCR / AI 요약 (backend 프록시)
 
-근무지 등록 화면에서 근로계약서 사본(사진 또는 PDF)을 첨부하면, 첨부와 동시에
-[Google Cloud Vision API](https://cloud.google.com/vision/docs/ocr)로 글자를
-추출합니다(`src/ocr/visionOcr.ts`). 이미지는 `images:annotate`, PDF는
-`files:annotate`(동기 요청 기준 최대 5페이지)를 사용합니다.
+> **Phase 4C-2 변경**: 예전에는 앱이 `EXPO_PUBLIC_*` 키로 Google Vision/Gemini 를
+> **직접** 호출해 키가 앱 번들에 노출됐습니다. 이제는 앱에 provider 키가 없고,
+> 앱은 **backend 프록시**(`POST /api/v1/ai/ocr`, `POST /api/v1/ai/summarize`,
+> **인증 필수**)만 호출합니다. 실제 Vision/Gemini 키는 **backend 환경변수**
+> (`GOOGLE_VISION_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`)에만 둡니다 —
+> `backend/.env.example` 참고. 앱 클라이언트(`src/features/evidence/services/ocr/visionOcr.ts`,
+> `.../ai/geminiSummary.ts`)는 파일을 base64 로 읽어 프록시에 보내기만 합니다.
 
-1. [Google Cloud Console](https://console.cloud.google.com)에서 프로젝트 생성(또는 기존 프로젝트 사용)
-2. "API 및 서비스" → **Cloud Vision API** 사용 설정
-3. "사용자 인증 정보" → API 키 만들기. 키를 **Cloud Vision API로 제한**해두는 걸 권장(다른 API에 잘못 쓰이는 것 방지)
-4. 발급된 키를 `EXPO_PUBLIC_GOOGLE_VISION_API_KEY`에 입력
-5. 월 1,000건까지 무료이며, 첨부한 계약서 이미지는 Google 서버로 전송되어 처리됩니다(개인정보 포함 문서이니 참고)
+**provider 키 발급/설정**은 backend 쪽에서 합니다:
+1. [Google Cloud Console](https://console.cloud.google.com)에서 **Cloud Vision API** 사용 설정 → API 키 발급(Vision 으로 제한 권장) → backend `GOOGLE_VISION_API_KEY`
+2. [Google AI Studio](https://aistudio.google.com/apikey)에서 Gemini API 키 발급 → backend `GEMINI_API_KEY`(모델은 `GEMINI_MODEL`)
+3. 키는 서버가 `x-goog-api-key` 헤더로만 전달하며 URL/로그에 남기지 않습니다. 첨부한 계약서는 서버를 거쳐 Google 로 전송됩니다(개인정보 포함 문서이니 참고).
 
-키가 비어있으면 첨부 자체는 되지만 "OCR 준비 중" 안내만 뜨고 텍스트 추출은
-건너뜁니다.
+**로그인 게이팅(정책)**: 새 OCR/AI 분석은 **로그인(백엔드 세션) 후에만** 가능합니다.
+비로그인 상태에서 분석 버튼을 누르면 "AI 분석은 로그인 후 사용할 수 있어요" 게이트가
+뜹니다. 단, **이미 저장된 OCR 텍스트/요약 결과의 열람은 로그인 없이도** 됩니다. 그 외
+근무지·출퇴근·급여계산 등 local-first 기능은 비로그인에서도 그대로 동작합니다.
 
-## 3-3. 근로계약서 AI 요약 (Google Gemini)
+**알려진 한계**: Google/Kakao/Naver **소셜 로그인만** 한 사용자는 아직 backend
+세션(access/refresh 토큰)이 없어, proxy 관점에서는 미인증으로 취급되어 AI 분석 시
+로그인 게이트를 만납니다. 후속 개선은 anonymous AI 허용이 아니라 **소셜 인증 →
+WorkProof backend 세션/토큰 정식 exchange** 방향으로 진행합니다.
 
-위 OCR로 텍스트 추출이 끝나면 이어서 [Gemini API](https://ai.google.dev/api/generate-content)
-(`models/gemini-2.5-flash:generateContent`)를 호출해 계약서 내용을 근무조건
-위주로 요약·정리합니다(`src/ai/geminiSummary.ts`). 백엔드가 없는 이 앱 구조상
-다른 키들과 마찬가지로 `EXPO_PUBLIC_*`로 앱 번들에 그대로 심기는 하지만,
-**무료 티어 키**라 유출되어도 금전 피해는 없고 일일 요청 한도(무료 티어 기준
-`gemini-2.5-flash` 하루 250건) 소진 정도가 최악의 시나리오입니다.
-
-1. [Google AI Studio](https://aistudio.google.com/apikey)에서 API 키 발급(Google
-   Cloud 프로젝트와 별도로 무료로 바로 만들 수 있음)
-2. 발급된 키를 `EXPO_PUBLIC_GEMINI_API_KEY`에 입력
-3. 무료 티어 한도를 넘기면 요약만 실패하고(계약서 원문 OCR 텍스트는 그대로
-   남음) 앱의 다른 기능에는 영향이 없습니다
-
-키가 비어있으면 OCR 텍스트 추출까지는 되지만 "AI 요약 준비 중" 안내만 뜨고
-요약은 건너뜁니다.
+서버에 키가 없으면(503) 앱은 "준비 중" 안내를 보여주고, 요약 실패 시에도 OCR
+텍스트는 보존됩니다.
 
 ## 3-4. Expo Go 전용 소셜 로그인 (FastAPI OAuth Bridge)
 

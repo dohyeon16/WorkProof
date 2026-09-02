@@ -24,6 +24,7 @@ import { colors, radius, shadow, spacing } from '../../../shared/theme';
 import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../../../shared/utils/webOpen';
 import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/ai/analyzeContract';
+import { useAiAnalysis } from '../services/ai/useAiAnalysis';
 import { FILE_UNREADABLE_MESSAGE } from '../services/ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
 
@@ -166,6 +167,8 @@ async function shareFile(item: EvidenceFile) {
 
 export default function VaultScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  // AI 분석 접근층(프록시 remote + 비로그인 게이트). 새 분석 시작 전에만 인증을 요구한다.
+  const ai = useAiAnalysis();
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [files, setFiles] = useState<EvidenceFile[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -310,11 +313,14 @@ export default function VaultScreen(_props: Props) {
       Alert.alert('분석할 수 없는 형식', '이미지 또는 PDF 파일만 텍스트를 인식할 수 있어요.');
       return;
     }
+    // 새 OCR/AI provider 요청은 로그인 필요 — 비로그인이면 요청을 시작하지 않고 게이트만 띄운다.
+    // (이미 저장된 분석 결과 열람은 게이팅하지 않는다.)
+    if (!ai.ensureCanAnalyze()) return;
     if (analyzingRef.current) return; // 중복 분석 방지
     analyzingRef.current = true;
     setAnalyzingName(item.name);
     try {
-      const result = await analyzeEvidenceFile({
+      const result = await analyzeEvidenceFile(ai.remote, {
         uri: item.uri,
         name: item.name,
         mimeType: resolveMimeType(item),
@@ -322,8 +328,14 @@ export default function VaultScreen(_props: Props) {
         logContext: { screen: 'Vault' },
       });
 
+      // OCR 단계에서 인증 만료 → 인식된 텍스트 없음 → 로그인 게이트만.
+      // (요약 단계 만료는 아래에서 OCR 텍스트를 저장한 뒤 게이트를 띄운다.)
+      if (result.status === 'error' && result.errorCode === 'AUTH_REQUIRED') {
+        ai.promptLogin();
+        return;
+      }
       if (result.errorCode === 'OCR_NOT_CONFIGURED') {
-        Alert.alert('OCR 준비 중', 'Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md를 참고해주세요.');
+        Alert.alert('OCR 준비 중', '문서 인식 기능이 아직 준비 중이에요. 잠시 후 다시 시도해주세요.');
         return;
       }
       if (result.status === 'error') {
@@ -353,8 +365,11 @@ export default function VaultScreen(_props: Props) {
       setSummaryTarget({ ...item, ...analysis });
 
       // 요청당 최대 1회만 안내(재시도는 내부에서 조용히 처리됨).
-      if (result.errorCode === 'SUMMARY_NOT_CONFIGURED') {
-        Alert.alert('AI 요약 준비 중', 'Gemini API 키가 설정되지 않아 텍스트만 추출했어요.');
+      if (result.errorCode === 'AUTH_REQUIRED') {
+        // 요약 단계에서 인증 만료 — 인식된 텍스트는 이미 저장했고, 로그인 게이트만 띄운다.
+        ai.promptLogin();
+      } else if (result.errorCode === 'SUMMARY_NOT_CONFIGURED') {
+        Alert.alert('AI 요약 준비 중', 'AI 요약 기능이 아직 준비 중이에요. 인식된 텍스트는 저장했어요.');
       } else if (result.status === 'ocr_only') {
         Alert.alert('AI 요약 실패', '인식된 계약서 텍스트는 저장했어요. AI 요약은 잠시 후 다시 시도해주세요.');
       }
