@@ -11,7 +11,7 @@ import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { getAccount, isOnboardingDone, setLoggedIn } from '../../../services/storage/storage';
 import { useAuth } from '../state/AuthContext';
-import { authErrorMessage } from '../services/authErrors';
+import { authErrorMessage, SOCIAL_BACKEND_SESSION_FAILED } from '../services/authErrors';
 import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
 import type { AuthProvider } from '../../../types/domain';
@@ -92,12 +92,22 @@ export default function LoginScreen({ navigation, route }: Props) {
     // 인증이 필요한 기능이 소셜 로그인 사용자에게도 정상 동작한다. 실패해도(네트워크
     // 등) 앱 로그인 자체는 이미 끝난 흐름이라 사용자에게 별도로 막지 않는다 —
     // 다음 로그인이나 재시도에서 다시 시도된다.
+    let backendSessionReady = true;
     if (result.bridgeSessionId) {
       try {
         await loginWithBridgeSession(result.bridgeSessionId);
       } catch (e) {
+        backendSessionReady = false;
         console.warn('[LoginScreen] bridge session 교환 실패:', e instanceof Error ? e.message : String(e));
       }
+    }
+    // 교환이 실패하면 앱 로그인만 된 반쪽 상태다. 예전에는 이것을 삼키고 "로그인 완료"만
+    // 띄워서, 사용자는 AI 분석에서만 로그인을 다시 요구받는 이유를 알 수 없었다.
+    if (!backendSessionReady) {
+      Alert.alert(SOCIAL_BACKEND_SESSION_FAILED.title, SOCIAL_BACKEND_SESSION_FAILED.message, [
+        { text: '확인', onPress: () => void goHomeAfterLogin() },
+      ]);
+      return;
     }
     // 소셜 인증 성공 → 앱 복귀 직후 앱 내부 팝업만 짧게 표시한다(Render 성공
     // 웹페이지는 정상 흐름에서 더 이상 보이지 않는다). 확인 후 홈으로 이동.

@@ -11,7 +11,7 @@ import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { clearAllData, getAccount, saveAccount } from '../../../services/storage/storage';
 import { useAuth } from '../state/AuthContext';
-import { authErrorMessage } from '../services/authErrors';
+import { authErrorMessage, SOCIAL_BACKEND_SESSION_FAILED } from '../services/authErrors';
 import { ApiError } from '../../../services/api/errors';
 import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
@@ -256,12 +256,20 @@ export default function SignupScreen({ navigation, route }: Props) {
       // 세션으로 교환해야 AI 분석 등 백엔드 인증이 필요한 기능이 소셜 가입 직후부터
       // 정상 동작한다. 폼 작성이 길어져 세션이 만료(10분)됐거나 네트워크 문제여도
       // 로컬 가입 자체는 막지 않는다 — 다음 로그인에서 새 세션으로 다시 시도된다.
+      let backendSessionReady = true;
       if (socialProfile.bridgeSessionId) {
         try {
           await loginWithBridgeSession(socialProfile.bridgeSessionId);
         } catch (e) {
+          backendSessionReady = false;
           console.warn('[SignupScreen] bridge session 교환 실패:', e instanceof Error ? e.message : String(e));
         }
+      }
+      if (!backendSessionReady) {
+        Alert.alert(SOCIAL_BACKEND_SESSION_FAILED.title, SOCIAL_BACKEND_SESSION_FAILED.message, [
+          { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
+        ]);
+        return;
       }
       Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
         { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
