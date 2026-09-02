@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mobile
+        working-directory: mobile/frontend
     env:
       CI: "true"
       # CI 전용 무해한 placeholder 값 — 실제 키/Secret 아님, 인증 API 호출 없음.
@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: mobile/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci

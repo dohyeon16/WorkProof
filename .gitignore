@@ -9,3 +9,16 @@ project_memo.txt
 screen__ex/
 ui-ux-pro-max-skill-main/
 ui-ux-pro-max-skill/
+
+# 로컬 보존 자료 — 커밋 대상 아님. 실기기 검증 기록, 포트폴리오 산출물, 스모크
+# 스크린샷, 구 로컬 워크스페이스가 여기 모여 있다(과거 _local/ 이 하던 역할).
+mobile/archive/
+
+# 환경변수(시크릿) — 저장소 전역 안전망. frontend/backend 각자의 .gitignore 에도
+# 규칙이 있지만, 새 위치에 .env 가 생겨도 절대 추적되지 않도록 root 에서도 막는다.
+# .env.example 은 실제 키가 없는 템플릿이라 예외로 둔다(각 런타임 root 에 커밋됨).
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example

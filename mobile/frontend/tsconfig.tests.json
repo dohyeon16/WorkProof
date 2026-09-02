@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "dist-tests"
+  },
+  // 테스트만 루트로 둔다. 테스트가 import 하는 src 파일은 tsc 가 따라 들어가 함께
+  // 컴파일하므로 개별 나열이 필요 없다 — 예전 목록은 feature 기반 재구성(#3) 이후
+  // 전부 존재하지 않는 경로였고, tsc 가 조용히 무시하고 있었다.
+  "include": ["tests/**/*.ts"]
+}
