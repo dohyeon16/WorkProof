@@ -1,18 +1,15 @@
 name: WorkProof Backend CI
 
 on:
+  # 경로/base 로 필터하지 않는다 — mobile-ci.yml 과 같은 이유다. 필터의 유일한 효과는
+  # CI 를 "제외"하는 것이고, 제외되면 아무 신호도 남지 않는다. main 브랜치 보호가
+  # backend-foundation·backend-auth-postgres 를 필수 체크로 요구하므로, 경로 필터가
+  # 남아 있으면 백엔드를 건드리지 않는 PR(문서 수정 등)은 그 체크가 영영 보고되지 않아
+  # merge 불가 상태로 멈춘다. 백엔드 무관 PR 에서도 돌려서 항상 신호를 남긴다.
   pull_request:
-    branches:
-      - main
-    paths:
-      - "mobile/backend/**"
-      - ".github/workflows/backend-ci.yml"
   push:
-    branches:
-      - main
-    paths:
-      - "mobile/backend/**"
-      - ".github/workflows/backend-ci.yml"
+    branches: [main]
+  # close/reopen 없이 CI 를 다시 돌릴 수 있는 경로 (mobile-ci.yml 과 동일).
   workflow_dispatch:
 
 permissions:
