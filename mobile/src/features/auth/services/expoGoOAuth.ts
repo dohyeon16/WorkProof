@@ -90,7 +90,7 @@ function deleteBridgeSession(sessionId: string): void {
   fetch(`${AUTH_API_URL}/auth/session/${sessionId}`, { method: 'DELETE' }).catch(() => {});
 }
 
-function toSocialLoginResult(profile: BridgeProfile): SocialLoginResult {
+function toSocialLoginResult(profile: BridgeProfile, sessionId: string): SocialLoginResult {
   return {
     status: 'success',
     profile: {
@@ -99,6 +99,8 @@ function toSocialLoginResult(profile: BridgeProfile): SocialLoginResult {
       email: profile.email ?? '',
       name: profile.name,
     },
+    // 호출부가 /auth/bridge/exchange 로 실제 백엔드 인증 세션을 교환할 수 있게 넘긴다.
+    bridgeSessionId: sessionId,
   };
 }
 
@@ -152,12 +154,17 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
     });
 
   // 세션 정리·브라우저 닫기를 한 번만 수행하도록 감싼 종료 헬퍼.
+  // 성공 결과는 sessionId를 그대로 호출부에 넘겨(bridgeSessionId) /auth/bridge/exchange
+  // 로 교환해야 하므로, 여기서 먼저 지우면 그 교환이 "세션을 찾을 수 없음"으로 깨진다
+  // (exchange가 서버에서 세션을 소비하므로, 그 후의 이 delete 호출은 404로 무해하게
+  // 끝난다 — deleteBridgeSession 자체가 실패를 무시하는 best-effort라 문제 없음).
+  // cancelled/error 는 교환할 게 없으니 즉시 정리해도 된다.
   let settled = false;
   const finish = (result: SocialLoginResult): SocialLoginResult => {
     if (settled) return result;
     settled = true;
     dismissAuthBrowser();
-    deleteBridgeSession(sessionId);
+    if (result.status !== 'success') deleteBridgeSession(sessionId);
     return result;
   };
   // authPromise가 매달린 채로 끝나지 않도록 미리 참조만 걸어둔다(unhandled 방지).
@@ -177,7 +184,7 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
       }
 
       if (statusRes.status === 'success') {
-        return finish(toSocialLoginResult(statusRes.profile));
+        return finish(toSocialLoginResult(statusRes.profile, sessionId));
       }
       if (statusRes.status === 'error') {
         return finish({ status: 'error', message: statusRes.message ?? '로그인에 실패했어요.' });

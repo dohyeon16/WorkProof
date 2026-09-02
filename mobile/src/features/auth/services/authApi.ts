@@ -4,6 +4,7 @@
 // 엔드포인트:
 //  POST /auth/register  {email,password,name}          -> 201 TokenPair (409 중복)
 //  POST /auth/login     {email,password,device_label?} -> 200 TokenPair (401 불일치)
+//  POST /auth/bridge/exchange {bridge_session_id,device_label?} -> 200 TokenPair (400 무효/만료)
 //  POST /auth/refresh   {refresh_token}                -> 200 TokenPair (401 무효/재사용)
 //  POST /auth/logout    {refresh_token}                -> 200 {ok} (멱등, 인증 불필요)
 //  GET  /users/me       (Bearer)                       -> 200 UserResponse
@@ -80,6 +81,14 @@ export function createSessionApi(client: ApiClient): SessionApi {
           password: input.password,
           device_label: input.deviceLabel,
         },
+      });
+      return mapSession(wire);
+    },
+
+    async exchangeBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthSession> {
+      const wire = await client.request<WireTokenPair>('/auth/bridge/exchange', {
+        method: 'POST',
+        body: { bridge_session_id: bridgeSessionId, device_label: deviceLabel },
       });
       return mapSession(wire);
     },

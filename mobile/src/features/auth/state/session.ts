@@ -39,6 +39,8 @@ export interface Session {
   initialize(): Promise<void>;
   register(input: RegisterInput): Promise<AuthUser>;
   login(input: LoginInput): Promise<AuthUser>;
+  /** 서버 검증된 OAuth 브릿지 세션(Expo Go 소셜 로그인)을 실제 백엔드 인증 세션으로 교환한다. */
+  loginWithBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthUser>;
   refreshSession(): Promise<string>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<AuthUser>;
@@ -128,6 +130,11 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
 
   async function login(input: LoginInput): Promise<AuthUser> {
     const session = await api.login(input);
+    return applySession(session);
+  }
+
+  async function loginWithBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthUser> {
+    const session = await api.exchangeBridgeSession(bridgeSessionId, deviceLabel);
     return applySession(session);
   }
 
@@ -230,6 +237,7 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
     initialize,
     register,
     login,
+    loginWithBridgeSession,
     refreshSession,
     logout,
     getCurrentUser,

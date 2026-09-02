@@ -36,6 +36,9 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<PlaceResult | null>(null);
+  // 현재 활성화된 카테고리 칩(라벨). 칩을 누르면 그 칩만 선택색으로 표시하고,
+  // 직접 상호명 검색을 시작하면 해제한다(검색 결과와 칩 표시를 일치시킨다).
+  const [activeChip, setActiveChip] = useState<string | null>(null);
   const chipScrollRef = useRef<ScrollView>(null);
   const chipScrollOffset = useRef(0);
 
@@ -100,6 +103,8 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
   const handleSearchSubmit = () => {
     const q = queryText.trim();
     if (!q) return;
+    // 직접 상호명 검색은 카테고리 칩 결과가 아니므로 칩 선택색을 해제한다.
+    setActiveChip(null);
     runSearch({ mode: 'keyword', query: q });
   };
 
@@ -200,8 +205,9 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
             {PLACE_CATEGORY_CHIPS.map((chip) => (
               <Pressable
                 key={chip.label}
-                style={styles.chip}
+                style={[styles.chip, activeChip === chip.label && styles.chipActive]}
                 onPress={() => {
+                  setActiveChip(chip.label);
                   setQueryText('');
                   runSearch(
                     chip.mode === 'category'
@@ -210,9 +216,12 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
                   );
                 }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: activeChip === chip.label }}
                 accessibilityLabel={`${chip.label} 검색`}
               >
-                <Text style={styles.chipText}>{chip.label}</Text>
+                <Text style={[styles.chipText, activeChip === chip.label && styles.chipTextActive]}>
+                  {chip.label}
+                </Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -297,7 +306,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  chipTextActive: { color: '#fff' },
   resultsWrap: { flex: 1 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg },
   emptyText: { fontSize: 13, color: colors.subtext, textAlign: 'center' },

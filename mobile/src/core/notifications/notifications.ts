@@ -211,3 +211,17 @@ export async function rescheduleMissingClockOutReminders(
     await scheduleMissingClockOutReminder(r, name, shift);
   }
 }
+
+/**
+ * 예약된 모든 로컬 알림을 취소한다(급여일·교대·미퇴근 리마인더 전부).
+ *
+ * 앱 초기화(모든 데이터 삭제) 시 호출한다. 초기화는 AsyncStorage 만 지우므로,
+ * 이걸 부르지 않으면 근무지·예정근무·진행 중 기록이 사라진 뒤에도 이미 OS 에
+ * 예약된 알림이 그대로 남아 나중에 발화한다(삭제한 데이터의 유령 알림). best-effort —
+ * 로드 불가(web/Expo Go Android)나 실패 시 조용히 넘어가고 초기화 흐름은 계속한다.
+ */
+export async function cancelAllScheduledNotifications(): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+  await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+}

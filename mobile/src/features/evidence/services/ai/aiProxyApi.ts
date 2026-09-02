@@ -36,7 +36,12 @@ interface PayslipExtractResponse {
 
 // AI 호출은 외부 provider 까지 왕복하므로 기본 타임아웃(20s)보다 넉넉히 잡는다
 // (Render 콜드스타트 + Vision/Gemini 처리). 서버측 httpx 타임아웃은 30s.
-const AI_TIMEOUT_MS = 45000;
+//
+// 45s 로는 부족했다: Render free tier 는 유휴 15분 후 슬립하고, 실측 콜드스타트가
+// 약 53s 걸렸다(2026-08-30 Preview 실측). 슬립 직후 첫 요청이 서버가 깨어나기도 전에
+// 클라이언트에서 먼저 타임아웃돼 "텍스트 추출 실패"로 잘못 보이는 게 실기기 Issue 1의
+// 원인 중 하나였다 — 정상 사진도 서버가 자고 있으면 실패로 보였다.
+const AI_TIMEOUT_MS = 75000;
 
 /**
  * ApiClient + authorized 실행기를 묶어 AiRemote 를 만든다.

@@ -5,191 +5,276 @@ import { Text } from '../../../shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getPayRecord, getWorkplace } from '../../../core/data/storage';
-import { IncomeDeductionType, PayRecord } from '../../../core/domain/models/types';
-import { formatWon, netPay } from '../../../core/domain/payroll/payCalc';
+import {
+  getAllPayslips,
+  getAttendanceByWorkplace,
+  getPayRecord,
+  getWorkplace,
+} from '../../../core/data/storage';
+import { PayRecord, PayslipRecord, Workplace } from '../../../core/domain/models/types';
+import { calcMonthlySummary, formatWon } from '../../../core/domain/payroll/payCalc';
 import { formatYearMonth } from '../../../shared/utils/date';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import {
+  buildPayComparison,
+  selectPayslipForMonth,
+  type ComparePair,
+  type PayComparison,
+} from '../services/payComparison';
 
 type Props = RootScreenProps<'PayCompare'>;
 
+/** 비교 쌍을 "텍스트 + (부호)금액"으로 표현. 색만으로 상태를 전달하지 않도록 항상 텍스트 동반. */
+function diffText(pair: ComparePair): string {
+  if (pair.status === 'incomparable') return '비교 불가';
+  if (pair.status === 'match' || pair.diff === 0) return '차이 없음';
+  const d = pair.diff ?? 0;
+  return `${d > 0 ? '+' : '-'}${formatWon(Math.abs(d))}`;
+}
+
+function diffColor(pair: ComparePair): string {
+  if (pair.status === 'incomparable') return colors.subtext;
+  if (pair.status === 'match') return colors.primaryDark;
+  return colors.danger;
+}
+
 export default function PayCompareScreen({ navigation, route }: Props) {
   const { workplaceId, yearMonth } = route.params;
-  const [payRecord, setPayRecord] = useState<PayRecord | null | undefined>(undefined);
-  const [deductionType, setDeductionType] = useState<IncomeDeductionType>('none');
+  const [loading, setLoading] = useState(true);
+  const [comparison, setComparison] = useState<PayComparison | null>(null);
+  const [hasPayRecord, setHasPayRecord] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      getPayRecord(workplaceId, yearMonth).then((p) => setPayRecord(p ?? null));
-      getWorkplace(workplaceId).then((w) => setDeductionType(w?.incomeDeductionType ?? 'none'));
+      let active = true;
+      (async () => {
+        const [workplace, payRecord, attendance, payslips] = await Promise.all([
+          getWorkplace(workplaceId),
+          getPayRecord(workplaceId, yearMonth),
+          getAttendanceByWorkplace(workplaceId),
+          getAllPayslips(),
+        ]);
+        if (!active) return;
+        const summary =
+          workplace != null ? calcMonthlySummary(attendance, workplace as Workplace, yearMonth) : null;
+        const payslip: PayslipRecord | null = selectPayslipForMonth(payslips, workplaceId, yearMonth);
+        setComparison(
+          buildPayComparison({
+            summary,
+            payslip: payslip?.amounts ?? null,
+            actualDeposit: (payRecord as PayRecord | undefined)?.actualPay ?? null,
+          })
+        );
+        setHasPayRecord(!!payRecord);
+        setLoading(false);
+      })();
+      return () => {
+        active = false;
+      };
     }, [workplaceId, yearMonth])
   );
 
   const insets = useSafeAreaInsets();
 
-  if (payRecord === undefined) return <LoadingScreen />;
-
-  if (payRecord === null) {
-    return (
-      <View style={[styles.emptyContainer, { paddingBottom: insets.bottom }]}>
-        <View style={styles.emptyIconCircle}>
-          <Ionicons name="cash-outline" size={32} color={colors.primary} />
-        </View>
-        <Text style={styles.emptyText}>실제 입금액을 먼저 입력해주세요.</Text>
-        <Pressable
-          style={styles.emptyButton}
-          onPress={() => navigation.navigate('PayInput', { workplaceId, yearMonth })}
-          accessibilityRole="button"
-          accessibilityLabel="실제 입금액 입력하기"
-        >
-          <Text style={styles.emptyButtonText}>실제 입금액 입력하기</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  const diff = payRecord.diff ?? 0;
-  const pct = payRecord.expectedPay > 0 ? (diff / payRecord.expectedPay) * 100 : 0;
-  const isShort = diff < 0;
-  const isOver = diff > 0;
+  if (loading || !comparison) return <LoadingScreen />;
+  const c = comparison;
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: spacing.xl * 2 + insets.bottom }]}
     >
-      <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여</Text>
+      <Text style={styles.title}>{formatYearMonth(yearMonth)} 급여 비교</Text>
+      <Text style={styles.subtitle}>
+        앱 예상액·급여명세서·실제 입금액은 서로 다른 값이에요. 어디서 차이가 나는지 확인해보세요.
+      </Text>
 
-      <View style={styles.boxRow}>
-        <View style={styles.box}>
-          <Ionicons name="calculator-outline" size={16} color={colors.subtext} />
-          <Text style={styles.boxLabel}>예상 급여{deductionType !== 'none' ? ' (세전)' : ''}</Text>
-          <Text style={styles.boxValue}>{formatWon(payRecord.expectedPay)}</Text>
-          {deductionType !== 'none' && (
-            <Text style={styles.boxCaption}>세후 {formatWon(netPay(payRecord.expectedPay, deductionType))}</Text>
-          )}
-        </View>
-        <View style={[styles.box, styles.boxSecondary]}>
-          <Ionicons name="wallet-outline" size={16} color={colors.primaryDark} />
-          <Text style={styles.boxLabel}>실제입금액</Text>
-          <Text style={styles.boxValuePrimary}>{formatWon(payRecord.actualPay ?? 0)}</Text>
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.diffCard,
-          diff === 0 ? styles.diffNeutral : isShort ? styles.diffShort : styles.diffOver,
-        ]}
-      >
-        <Ionicons
-          name={diff === 0 ? 'checkmark-circle' : isShort ? 'arrow-down-circle' : 'arrow-up-circle'}
-          size={28}
-          color={diff === 0 ? colors.primaryDark : isShort ? colors.danger : colors.primaryDark}
+      {/* 3-way 값 카드 */}
+      <View style={styles.valueCard}>
+        <ValueRow
+          icon="calculator-outline"
+          label="예상 급여 (앱 계산)"
+          value={c.expectedGross}
+          caption={c.expectedNet !== null && c.expectedNet !== c.expectedGross ? `세후 예상 ${formatWon(c.expectedNet)}` : undefined}
         />
-        <Text style={styles.diffLabel}>차액</Text>
-        <Text style={styles.diffValue}>
-          {diff === 0 ? '0원' : `${diff < 0 ? '-' : '+'}${formatWon(Math.abs(diff))}`}
-        </Text>
-        {diff !== 0 && <Text style={styles.diffPct}>({pct.toFixed(2)}%)</Text>}
+        <View style={styles.divider} />
+        <ValueRow
+          icon="receipt-outline"
+          label="급여명세서 (사업주 기재)"
+          value={c.payslipGross}
+          caption={c.payslipNet !== null ? `실지급 ${formatWon(c.payslipNet)}` : undefined}
+          emptyLabel="명세서 미등록"
+          onEmptyPress={() => navigation.navigate('PayslipList', { workplaceId })}
+        />
+        <View style={styles.divider} />
+        <ValueRow
+          icon="wallet-outline"
+          label="실제 입금액"
+          value={c.actualDeposit}
+          emptyLabel="입금액 미입력"
+          onEmptyPress={() => navigation.navigate('PayInput', { workplaceId, yearMonth })}
+          highlight
+        />
       </View>
+
+      {/* 차이 쌍 */}
+      <View style={styles.diffCard}>
+        <DiffRow label="예상 ↔ 명세서" pair={c.expectedVsPayslipGross} />
+        <DiffRow label="명세서 ↔ 실제 입금" pair={c.payslipNetVsActual} />
+        <DiffRow label="예상 ↔ 실제 입금" pair={c.expectedNetVsActual} last />
+      </View>
+
+      {/* 정보성 안내(법적 판단 아님) */}
+      {c.notices.length > 0 && (
+        <View style={styles.noticeCard}>
+          {c.notices.map((n) => (
+            <View key={n.code} style={styles.noticeRow}>
+              <Ionicons name="information-circle-outline" size={15} color={colors.primaryDark} />
+              <Text style={styles.noticeText}>{n.message}</Text>
+            </View>
+          ))}
+          <Text style={styles.disclaimer}>* 정보 제공용이며 법적 판단이 아니에요.</Text>
+        </View>
+      )}
 
       <Pressable
-        style={styles.detailButton}
-        onPress={() => navigation.navigate('ChecklistDetail', { workplaceId, yearMonth })}
+        style={styles.primaryButton}
+        onPress={() => navigation.navigate('PayComparisonDetail', { workplaceId, yearMonth })}
         accessibilityRole="button"
-        accessibilityLabel="상세 항목 확인하기"
+        accessibilityLabel="항목별 차이 보기"
       >
         <Ionicons name="list-outline" size={16} color={colors.onPrimary} />
-        <Text style={styles.detailButtonText}>상세 항목 확인하기</Text>
+        <Text style={styles.primaryButtonText}>항목별 차이 보기</Text>
       </Pressable>
 
-      <Pressable
-        style={styles.editButton}
-        onPress={() => navigation.navigate('PayInput', { workplaceId, yearMonth })}
-        accessibilityRole="button"
-        accessibilityLabel="입금액 수정하기"
-      >
-        <Text style={styles.editButtonText}>입금액 수정하기</Text>
-      </Pressable>
+      {/* 기존 예상↔실입금 급여 차액 체크리스트(실제 입금액 있을 때만 의미 있음) */}
+      {hasPayRecord && (
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('ChecklistDetail', { workplaceId, yearMonth })}
+          accessibilityRole="button"
+          accessibilityLabel="예상과 실제 입금 차액 상세"
+        >
+          <Text style={styles.secondaryButtonText}>예상 ↔ 실입금 차액 상세 (체크리스트)</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.linkRow}>
+        <Pressable onPress={() => navigation.navigate('PayslipList', { workplaceId })} accessibilityRole="button" accessibilityLabel="급여명세서 관리">
+          <Text style={styles.link}>급여명세서 관리</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('PayInput', { workplaceId, yearMonth })} accessibilityRole="button" accessibilityLabel="입금액 입력/수정">
+          <Text style={styles.link}>입금액 입력/수정</Text>
+        </Pressable>
+      </View>
     </ScrollView>
+  );
+}
+
+function ValueRow({
+  icon,
+  label,
+  value,
+  caption,
+  emptyLabel,
+  onEmptyPress,
+  highlight,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: number | null;
+  caption?: string;
+  emptyLabel?: string;
+  onEmptyPress?: () => void;
+  highlight?: boolean;
+}) {
+  return (
+    <View style={styles.valueRow}>
+      <Ionicons name={icon} size={18} color={highlight ? colors.primaryDark : colors.subtext} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.valueLabel}>{label}</Text>
+        {caption ? <Text style={styles.valueCaption}>{caption}</Text> : null}
+      </View>
+      {value !== null ? (
+        <Text style={[styles.valueAmount, highlight && { color: colors.primaryDark }]}>{formatWon(value)}</Text>
+      ) : onEmptyPress ? (
+        <Pressable onPress={onEmptyPress} accessibilityRole="button" accessibilityLabel={emptyLabel}>
+          <Text style={styles.valueEmpty}>{emptyLabel} ›</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.valueEmpty}>미등록</Text>
+      )}
+    </View>
+  );
+}
+
+function DiffRow({ label, pair, last }: { label: string; pair: ComparePair; last?: boolean }) {
+  return (
+    <View style={[styles.diffRow, !last && styles.diffRowBorder]}>
+      <Text style={styles.diffLabel}>{label}</Text>
+      <Text style={[styles.diffValue, { color: diffColor(pair) }]}>{diffText(pair)}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
-  boxRow: { flexDirection: 'row', gap: spacing.sm },
-  box: {
-    flex: 1,
+  title: { fontSize: 18, fontWeight: '800', color: colors.text },
+  subtitle: { fontSize: 12, color: colors.subtext, marginTop: spacing.xs, marginBottom: spacing.md, lineHeight: 18 },
+  valueCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
-    gap: 4,
     ...shadow.card,
   },
-  boxSecondary: { backgroundColor: colors.primaryLight, borderColor: colors.primaryLight },
-  boxLabel: { fontSize: 12, color: colors.subtext },
-  boxValue: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
-  boxCaption: { fontSize: 11, color: colors.subtext, marginTop: 2 },
-  boxValuePrimary: { fontSize: 18, fontWeight: '800', color: colors.primaryDark, marginTop: spacing.xs },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  valueLabel: { fontSize: 12, color: colors.subtext },
+  valueCaption: { fontSize: 11, color: colors.subtext, marginTop: 2 },
+  valueAmount: { fontSize: 17, fontWeight: '800', color: colors.text },
+  valueEmpty: { fontSize: 13, color: colors.primaryDark, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: colors.border },
   diffCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
+    paddingHorizontal: spacing.md,
     marginTop: spacing.md,
-    gap: 2,
-    ...shadow.raised,
+    ...shadow.card,
   },
-  diffNeutral: { backgroundColor: colors.successLight },
-  diffShort: { backgroundColor: colors.dangerLight },
-  diffOver: { backgroundColor: colors.primaryLight },
-  diffLabel: { fontSize: 13, color: colors.subtext, marginTop: spacing.xs },
-  diffValue: { fontSize: 26, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
-  diffPct: { fontSize: 13, color: colors.subtext, marginTop: 2 },
-  detailButton: {
+  diffRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm + 2 },
+  diffRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  diffLabel: { fontSize: 13, color: colors.text },
+  diffValue: { fontSize: 14, fontWeight: '800' },
+  noticeCard: { backgroundColor: colors.primaryLight, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, gap: 6 },
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  noticeText: { flex: 1, fontSize: 12, color: colors.primaryDark, lineHeight: 17 },
+  disclaimer: { fontSize: 11, color: colors.subtext, marginTop: 2 },
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    // 라이트/다크 모두 대비가 보장되는 브랜드 primary + onPrimary 조합.
-    // (이전엔 backgroundColor: colors.text + 흰 글자라 다크에서 밝은 배경+흰 글자로 안 보였음)
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm + 6,
     marginTop: spacing.lg,
   },
-  detailButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 15 },
-  editButton: { marginTop: spacing.md, alignItems: 'center' },
-  editButtonText: { color: colors.subtext, fontSize: 13 },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
+  primaryButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 15 },
+  secondaryButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-  emptyText: { fontSize: 14, color: colors.subtext, textAlign: 'center' },
-  emptyButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 4,
-    paddingHorizontal: spacing.lg,
-    ...shadow.card,
+    paddingVertical: spacing.sm + 6,
+    marginTop: spacing.sm,
   },
-  emptyButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  secondaryButtonText: { color: colors.primaryDark, fontWeight: '700', fontSize: 14 },
+  linkRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginTop: spacing.md },
+  link: { fontSize: 13, color: colors.subtext, textDecorationLine: 'underline' },
 });

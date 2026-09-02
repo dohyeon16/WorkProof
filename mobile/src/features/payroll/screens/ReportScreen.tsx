@@ -84,12 +84,16 @@ export default function ReportScreen({ navigation, route }: Props) {
           return;
         }
         if (intent === 'save') {
+          // 웹은 expo-print로 실제 PDF를 만들 수 없어(위 주석 참고) HTML을 그대로 저장한다.
+          // kind/mimeType을 정확히 남겨야 증빙 목록의 AI 분석 가능 여부 판단(isAnalyzable)이
+          // 이 파일을 실제 PDF로 오인하지 않는다 — OCR 대상이 아닌 자체 생성 리포트다.
           await addEvidenceFile({
             id: makeId(),
             workplaceId,
             name: `WorkProof_${yearMonth}_${docLabel}.html`,
             uri: toHtmlDataUri(html),
-            kind: 'pdf',
+            kind: 'file',
+            mimeType: 'text/html',
             size: null,
             addedAt: new Date().toISOString(),
           });
@@ -120,6 +124,7 @@ export default function ReportScreen({ navigation, route }: Props) {
           name: fileName,
           uri: destination.uri,
           kind: 'pdf',
+          mimeType: 'application/pdf',
           size: destination.size ?? null,
           addedAt: new Date().toISOString(),
         });

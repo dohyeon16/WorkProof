@@ -63,7 +63,7 @@ function Stepper({ step }: { step: number }) {
 
 export default function SignupScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { register } = useAuth();
+  const { register, loginWithBridgeSession } = useAuth();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -93,6 +93,7 @@ export default function SignupScreen({ navigation, route }: Props) {
     name: string;
     provider: AuthProvider;
     providerId: string;
+    bridgeSessionId?: string;
   } | null>(null);
   // 소셜 인증 성공 직후 Step 3 상단에 잠깐 뜨는 "인증 완료" 안내(토스트 성격).
   // 아직 최종 회원가입은 아니므로 시스템 팝업 대신 화면 내 안내로만 표시하고,
@@ -148,6 +149,7 @@ export default function SignupScreen({ navigation, route }: Props) {
       name: result.profile.name,
       provider: result.profile.provider,
       providerId: result.profile.providerId,
+      bridgeSessionId: result.bridgeSessionId,
     });
     // provider가 이름을 주지 않았으면(빈 문자열) 비워두고 직접 입력하게 둔다.
     setName(result.profile.name ?? '');
@@ -250,6 +252,17 @@ export default function SignupScreen({ navigation, route }: Props) {
         provider: socialProfile.provider,
         providerId: socialProfile.providerId,
       });
+      // Expo Go 경로는 서버가 검증한 bridge session_id를 받는다 — 실제 백엔드 인증
+      // 세션으로 교환해야 AI 분석 등 백엔드 인증이 필요한 기능이 소셜 가입 직후부터
+      // 정상 동작한다. 폼 작성이 길어져 세션이 만료(10분)됐거나 네트워크 문제여도
+      // 로컬 가입 자체는 막지 않는다 — 다음 로그인에서 새 세션으로 다시 시도된다.
+      if (socialProfile.bridgeSessionId) {
+        try {
+          await loginWithBridgeSession(socialProfile.bridgeSessionId);
+        } catch (e) {
+          console.warn('[SignupScreen] bridge session 교환 실패:', e instanceof Error ? e.message : String(e));
+        }
+      }
       Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
         { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
       ]);

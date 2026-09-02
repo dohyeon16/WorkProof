@@ -15,7 +15,7 @@ import { createSession, SessionExpiredError } from '../src/features/auth/state/s
 import type { AuthSession, RefreshTokenStore, SessionApi } from '../src/features/auth/types';
 import { createAiRemote, type AiRemote } from '../src/features/evidence/services/ai/aiProxyApi';
 import { summarizeContractText } from '../src/features/evidence/services/ai/geminiSummary';
-import { mapOcrApiError, OCR_EMPTY_MESSAGE } from '../src/features/evidence/services/ocr/ocrError';
+import { mapOcrApiError, OCR_EMPTY_MESSAGE, isUnsupportedOcrMimeType } from '../src/features/evidence/services/ocr/ocrError';
 import {
   AI_LOGIN_GATE,
   requiresLoginForNewAnalysis,
@@ -169,21 +169,60 @@ test('요약 중 SessionExpiredError 는 그대로 전파(상위가 로그인 �
 });
 
 // ========== C. OCR 오류 매핑(mapOcrApiError) ==========
-test('OCR ApiError 매핑: 503→not_configured / 422→empty / 415→request_failed / network / timeout', () => {
-  assert.deepEqual(mapOcrApiError(new ApiError('http', 'x', 503)), { status: 'not_configured' });
+// 회귀 배경: 실기기 Issue 1 — OCR 단계에서 429/네트워크/타임아웃/5xx 가 모두 하나의
+// 코드로 뭉뚱그려져 화면에 "사진 상태를 확인해주세요"로만 보였다(서버/네트워크 문제인데도
+// 사진 문제로 오인). 아래는 각 HTTP 상태가 서로 다른 코드로 갈리는지 확정하는 회귀 가드다.
+test('OCR ApiError 매핑: 401→request_failed(그대로 실패, 인증은 상위 runAuthorized 담당)', () => {
+  const e401 = mapOcrApiError(new ApiError('http', '인증 실패', 401));
+  assert.equal(e401.status === 'error' && e401.code, 'request_failed');
+});
 
+test('OCR ApiError 매핑: 422→empty(사진 화질 문제로 안내)', () => {
   const e422 = mapOcrApiError(new ApiError('http', 'x', 422));
   assert.equal(e422.status === 'error' && e422.code, 'empty');
   assert.equal(e422.status === 'error' && e422.message, OCR_EMPTY_MESSAGE);
+});
 
+test('OCR ApiError 매핑: 415→request_failed(서버 안내 문구 사용)', () => {
   const e415 = mapOcrApiError(new ApiError('http', 'msg', 415, '이미지 또는 PDF만 처리할 수 있어요.'));
   assert.equal(e415.status === 'error' && e415.code, 'request_failed');
   assert.equal(e415.status === 'error' && e415.message, '이미지 또는 PDF만 처리할 수 있어요.');
+});
 
+test('OCR ApiError 매핑: 429→rate_limit(사진 문제 아님 — 재시도 안내)', () => {
+  const e429 = mapOcrApiError(new ApiError('http', 'x', 429));
+  assert.equal(e429.status === 'error' && e429.code, 'rate_limit');
+});
+
+test('OCR ApiError 매핑: 500/502/504→server_error, network kind→network, timeout kind→server_error', () => {
+  for (const status of [500, 502, 504]) {
+    const e = mapOcrApiError(new ApiError('http', 'x', status));
+    assert.equal(e.status === 'error' && e.code, 'server_error', `status=${status}`);
+  }
   const eNet = mapOcrApiError(new ApiError('network', 'x'));
   assert.equal(eNet.status === 'error' && eNet.code, 'network');
   const eTimeout = mapOcrApiError(new ApiError('timeout', 'x'));
-  assert.equal(eTimeout.status === 'error' && eTimeout.code, 'request_failed');
+  assert.equal(eTimeout.status === 'error' && eTimeout.code, 'server_error');
+});
+
+test('OCR ApiError 매핑: 503→not_configured', () => {
+  assert.deepEqual(mapOcrApiError(new ApiError('http', 'x', 503)), { status: 'not_configured' });
+});
+
+// ========== C2. HEIC/HEIF 사전 차단(isUnsupportedOcrMimeType) ==========
+// 회귀 배경: iPhone 사진 보관함 기본 형식(HEIC)은 Google Vision 이 디코드하지 못해
+// 업스트림 오류로 이어지고, 이 역시 "사진 상태 확인" 문구로만 보여 원인을 오인하게 했다.
+test('HEIC/HEIF는 지원하지 않는 형식으로 판정한다(대소문자 무관)', () => {
+  assert.equal(isUnsupportedOcrMimeType('image/heic'), true);
+  assert.equal(isUnsupportedOcrMimeType('image/HEIC'), true);
+  assert.equal(isUnsupportedOcrMimeType('image/heif'), true);
+});
+
+test('JPEG/PNG/WEBP/PDF는 지원 형식으로 판정한다(HEIC 오탐 없음)', () => {
+  assert.equal(isUnsupportedOcrMimeType('image/jpeg'), false);
+  assert.equal(isUnsupportedOcrMimeType('image/png'), false);
+  assert.equal(isUnsupportedOcrMimeType('image/webp'), false);
+  assert.equal(isUnsupportedOcrMimeType('application/pdf'), false);
 });
 
 // ========== D. 접근 정책(aiAccess) ==========
@@ -254,6 +293,9 @@ test('만료 access → refresh 성공 → 1회 재시도로 성공', async () =
     async login() {
       return sessionResp('login');
     },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
+    },
     async refresh() {
       refreshCalls.push(1);
       return sessionResp('r1'); // 새 access-r1
@@ -293,6 +335,9 @@ test('refresh 실패 → SessionExpiredError + unauthenticated(무한 retry 없�
     async login() {
       return sessionResp('login');
     },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
+    },
     async refresh() {
       throw new ApiError('http', '인증 실패', 401); // isUnauthorized
     },
@@ -326,6 +371,9 @@ test('social/local-only(백엔드 refresh 토큰 없음) → provider 0회 + Ses
     },
     async login() {
       return sessionResp('login');
+    },
+    async exchangeBridgeSession() {
+      return sessionResp('bridge');
     },
     async refresh() {
       return sessionResp('r');

@@ -2,8 +2,12 @@
 // 실제 세션 로직은 session.ts(순수)에 있고, 여기서는 실 클라이언트/SecureStore와
 // 연결한 싱글턴 세션을 만들어 React 상태로 노출한다.
 //
-// 기존 소셜 로그인(로컬 Account + isLoggedIn 플래그)은 이 컨텍스트와 별개로
-// 그대로 동작한다 — 소셜 브릿지는 아직 Phase 2 토큰을 발급하지 않기 때문이다.
+// 소셜 로그인(로컬 Account + isLoggedIn 플래그)은 앱 전반의 로그인 여부 판단에
+// 계속 그대로 쓰인다 — 다만 AI 프록시(useAiAnalysis)는 이 컨텍스트의 isAuthenticated
+// 하나만 본다. Expo Go 소셜 로그인(Google/Kakao/Naver)은 loginWithBridgeSession으로
+// 서버가 검증한 OAuth 브릿지 세션을 실제 백엔드 인증 세션으로 교환해, 로그인 방법과
+// 무관하게 이 컨텍스트가 authenticated가 되도록 한다(실기기 회귀: 소셜 로그인 후에도
+// AI 기능이 "로그인 필요"로 잘못 보이던 문제).
 import {
   createContext,
   useContext,
@@ -34,6 +38,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   register(input: Omit<RegisterInput, 'deviceLabel'>): Promise<AuthUser>;
   login(email: string, password: string): Promise<AuthUser>;
+  /** Expo Go 소셜 로그인(Google/Kakao/Naver) 성공 후 받은 bridge session_id를 백엔드 인증 세션으로 교환한다. */
+  loginWithBridgeSession(bridgeSessionId: string): Promise<AuthUser>;
   logout(): Promise<void>;
   refreshUser(): Promise<AuthUser>;
   updateProfile(input: UpdateProfileInput): Promise<AuthUser>;
@@ -60,6 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register: (input) => session.register({ ...input }),
       login: (email, password) =>
         session.login({ email, password, deviceLabel: DEVICE_LABEL }),
+      loginWithBridgeSession: (bridgeSessionId) =>
+        session.loginWithBridgeSession(bridgeSessionId, DEVICE_LABEL),
       logout: () => session.logout(),
       refreshUser: () => session.getCurrentUser(),
       updateProfile: (input) => session.updateCurrentUser(input),
