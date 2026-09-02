@@ -75,9 +75,8 @@ export interface PayRecord {
 
 export type EvidenceKind = 'image' | 'pdf' | 'file';
 
-// 분석으로 종류가 확인된 증빙 문서. 지금은 근로계약서만 다루지만, 급여명세서 등으로
-// 넓힐 수 있도록 유니온으로 열어둔다. 파일명이 아니라 이 값으로 계약서 여부를 판단한다.
-export type EvidenceDocumentType = 'employment_contract';
+// 분석으로 종류가 확인된 증빙 문서. 파일명이 아니라 이 값으로 문서 종류를 판단한다.
+export type EvidenceDocumentType = 'employment_contract' | 'payslip';
 
 export interface EvidenceFile {
   id: string;
@@ -92,6 +91,62 @@ export interface EvidenceFile {
   aiSummary?: string; // 위 텍스트를 AI로 요약·정리한 내용(선택)
   documentType?: EvidenceDocumentType; // 분석으로 확인된 문서 종류(일반 증빙은 비어 있음)
   analyzedAt?: string; // 마지막으로 OCR·요약 분석을 실행한 시각(ISO, 선택)
+}
+
+// ---------- 급여명세서(Payslip) ----------
+// 사업주가 발급한 급여명세서를 OCR→구조화해 보관한다. 앱 계산값(expectedPay)이나
+// 실제 계좌 입금액(PayRecord.actualPay)과는 다른 '사업주가 명세서에 기재한 값'이다 —
+// 세 값을 섞지 않는다(4C-4 비교에서 나란히 대조).
+
+/** 급여명세서 구조화 출처. 'ai'=OCR+AI 추출 기반, 'manual'=사용자가 처음부터 수동 입력. */
+export type PayslipExtractionSource = 'ai' | 'manual';
+
+/**
+ * 급여명세서 금액(원, 정수). 값 규칙:
+ *  - number: 명세서에서 확인된 금액(0 은 '명시적 0원')
+ *  - null: 명세서에서 확인되지 않음(미상) — 임의로 0 으로 확정하지 않는다
+ * 키는 backend `/ai/extract-payslip` 프롬프트의 키와 일치한다.
+ */
+export interface PayslipAmounts {
+  // 지급 항목
+  basePay: number | null; // 기본급
+  weeklyAllowance: number | null; // 주휴수당
+  overtimePay: number | null; // 연장근로수당
+  nightPay: number | null; // 야간근로수당
+  holidayPay: number | null; // 휴일근로수당
+  otherAllowance: number | null; // 기타 수당
+  grossPay: number | null; // 지급 총액(세전)
+  // 공제 항목
+  incomeTax: number | null; // 소득세
+  localIncomeTax: number | null; // 지방소득세
+  nationalPension: number | null; // 국민연금
+  healthInsurance: number | null; // 건강보험
+  longTermCareInsurance: number | null; // 장기요양보험
+  employmentInsurance: number | null; // 고용보험
+  otherDeduction: number | null; // 기타 공제
+  totalDeduction: number | null; // 공제 총액
+  // 결과
+  netPay: number | null; // 실지급액(사업주 기재)
+}
+
+export interface PayslipRecord {
+  id: string;
+  workplaceId: string;
+  yearMonth: string; // YYYY-MM (명세서 귀속 월)
+  payDate?: string | null; // YYYY-MM-DD 지급일(선택, 미상 null)
+  // 사용자가 확인/수정해 확정한 값(저장/표시/비교의 기준).
+  amounts: PayslipAmounts;
+  // AI 메타데이터
+  extractionSource: PayslipExtractionSource;
+  rawOcrText?: string; // OCR 원문(선택; 재확인/수동 보정용). 민감정보라 서버로 보내지 않는다.
+  // AI가 원래 추출한 값(사용자 수정 전). 확정값(amounts)과 구분하기 위해 보존한다.
+  // extractionSource==='manual' 이거나 구조화 실패 시 null.
+  aiExtractedAmounts?: PayslipAmounts | null;
+  reviewedByUser: boolean; // 사용자가 확인 화면을 거쳐 확정했는지
+  reviewedAt?: string; // 확정 시각(ISO)
+  evidenceFileId?: string; // 원본 파일(EvidenceFile) 참조(선택)
+  createdAt: string;
+  updatedAt: string;
 }
 
 // 근무 기록 변경 이력(로컬 전용 · append-only). "법적 증거"가 아니라 사용자가 자기

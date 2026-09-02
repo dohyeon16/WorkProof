@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceChange, AttendanceChangeSource, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from '../domain/models/types';
+import { Account, AttendanceChange, AttendanceChangeSource, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, PayslipRecord, ScheduledShift, Workplace } from '../domain/models/types';
 import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
 import { restoreBackupData, type KeyValueStore } from '../backup/restoreData';
 import { buildAttendanceChange } from '../../features/attendance/audit/auditTrail';
@@ -59,6 +59,11 @@ export async function deleteWorkplace(id: string): Promise<void> {
   await writeList(
     KEYS.scheduledShifts,
     shifts.filter((s) => s.workplaceId !== id)
+  );
+  const payslips = await getAllPayslips();
+  await writeList(
+    KEYS.payslips,
+    payslips.filter((p) => p.workplaceId !== id)
   );
 }
 
@@ -177,6 +182,41 @@ export async function savePayRecord(record: PayRecord): Promise<void> {
     list.push(record);
   }
   await writeList(KEYS.pay, list);
+}
+
+// ---------- Payslips (급여명세서, 로컬 전용) ----------
+
+export async function getAllPayslips(): Promise<PayslipRecord[]> {
+  return readList<PayslipRecord>(KEYS.payslips);
+}
+
+/** 특정 근무지의 급여명세서(귀속월 최신순). */
+export async function getPayslipsByWorkplace(workplaceId: string): Promise<PayslipRecord[]> {
+  const list = await getAllPayslips();
+  return list
+    .filter((p) => p.workplaceId === workplaceId)
+    .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+}
+
+export async function getPayslip(id: string): Promise<PayslipRecord | undefined> {
+  const list = await getAllPayslips();
+  return list.find((p) => p.id === id);
+}
+
+export async function savePayslip(record: PayslipRecord): Promise<void> {
+  const list = await getAllPayslips();
+  const idx = list.findIndex((p) => p.id === record.id);
+  if (idx >= 0) list[idx] = record;
+  else list.push(record);
+  await writeList(KEYS.payslips, list);
+}
+
+export async function deletePayslip(id: string): Promise<void> {
+  const list = await getAllPayslips();
+  await writeList(
+    KEYS.payslips,
+    list.filter((p) => p.id !== id)
+  );
 }
 
 // ---------- Scheduled shifts (근무 예정) ----------

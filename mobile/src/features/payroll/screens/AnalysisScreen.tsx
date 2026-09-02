@@ -136,6 +136,22 @@ export default function AnalysisScreen({ navigation }: Props) {
         <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
       </Pressable>
 
+      <Pressable
+        style={styles.allWorkplacesCard}
+        onPress={() => navigation.navigate('PayslipList', { workplaceId: workplace.id })}
+        accessibilityRole="button"
+        accessibilityLabel="급여명세서 관리"
+      >
+        <View style={styles.allWorkplacesIconWrap}>
+          <Ionicons name="receipt-outline" size={18} color={colors.primaryDark} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.allWorkplacesTitle}>급여명세서</Text>
+          <Text style={styles.allWorkplacesSub}>명세서를 등록하면 AI가 항목을 추출해요</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+      </Pressable>
+
       <View style={styles.chartCard}>
         <View style={styles.chartHeader}>
           <Text style={styles.chartTitle}>월별 근무시간</Text>
