@@ -9,3 +9,7 @@ project_memo.txt
 screen__ex/
 ui-ux-pro-max-skill-main/
 ui-ux-pro-max-skill/
+
+# 로컬 보존 자료 — 커밋 대상 아님. 실기기 검증 기록, 포트폴리오 산출물, 스모크
+# 스크린샷, 구 로컬 워크스페이스가 여기 모여 있다(과거 _local/ 이 하던 역할).
+mobile/archive/
