@@ -14,7 +14,7 @@
 ## 실행 방법
 
 ```bash
-cd mobile
+cd mobile/frontend
 npm install
 npx expo start
 ```

@@ -5,8 +5,9 @@
 (`AsyncStorage`)에 저장되는 **local-first** 구조다.
 
 ```
-mobile/   React Native(Expo) 앱 — 실제 기능이 전부 여기 있음
-backend/  FastAPI 서버 — Expo Go에서 소셜 로그인을 쓸 때만 필요한 OAuth 중계
+mobile/frontend/  React Native(Expo) 앱 — 화면·로컬 저장·OCR/AI 호출
+mobile/backend/   FastAPI 서버 — OAuth 중계 + Vision/Gemini 프록시
+mobile/docs/      설계·설정 문서
 ```
 
 ## 1. 기술 스택
@@ -23,11 +24,11 @@ backend/  FastAPI 서버 — Expo Go에서 소셜 로그인을 쓸 때만 필요
 | OCR/AI | Google Cloud Vision(OCR) + Gemini(요약/구조화) — 서버 프록시 경유 |
 | 알림 | `expo-notifications` |
 | 생체인증/앱 잠금 | `expo-local-authentication` |
-| 백엔드(선택) | FastAPI (`backend/`) — Expo Go 전용 OAuth 세션 중계 |
+| 백엔드(선택) | FastAPI (`mobile/backend/`) — Expo Go 전용 OAuth 세션 중계 |
 
 ## 2. 데이터 저장 구조 (local-first)
 
-모든 도메인 데이터는 `mobile/src/storage.ts`를 통해 `AsyncStorage`에 저장된다.
+모든 도메인 데이터는 `mobile/frontend/src/core/data/storage.ts`를 통해 `AsyncStorage`에 저장된다.
 백엔드 DB가 아니라 **기기 자체가 유일한 저장소**다. 주요 엔티티(`src/types.ts`):
 
 - **Workplace** — 근무지(시급/주휴수당 여부/5인 이상 여부/공제 유형/근로계약서 사본/GPS 위치)
@@ -42,7 +43,7 @@ backend/  FastAPI 서버 — Expo Go에서 소셜 로그인을 쓸 때만 필요
 - **로컬 계정**: 이메일/비밀번호로 자체 가입·로그인, 비밀번호 재설정 지원.
 - **소셜 로그인 (Google/Kakao/Naver)**:
   - **Web / Dev Build(네이티브)**: 각 provider SDK로 직접 로그인 (`mobile/docs/OAUTH_SETUP.md` 참고).
-  - **Expo Go(iOS/Android)**: 네이티브 SDK·커스텀 URL 스킴을 쓸 수 없어 `backend/`의
+  - **Expo Go(iOS/Android)**: 네이티브 SDK·커스텀 URL 스킴을 쓸 수 없어 `mobile/backend/`의
     FastAPI Auth Bridge가 대신 처리한다.
     1. 앱 → `POST /auth/session/{provider}` → `login_url` 수신
     2. 인앱 브라우저로 `login_url` 오픈 → 사용자가 실제 provider 로그인
@@ -136,7 +137,7 @@ RootStack
 └─ LegalDocument (약관/개인정보처리방침)
 ```
 
-## 11. 백엔드(`backend/`)와의 관계
+## 11. 백엔드(`mobile/backend/`)와의 관계
 
 - 오직 **Expo Go에서의 소셜 로그인 중계**와 **AI(Vision/Gemini) API 프록시** 두 가지만
   서버를 거친다. 그 외 모든 도메인 데이터(근무지, 출퇴근, 급여 등)는 서버로 전송되지 않고

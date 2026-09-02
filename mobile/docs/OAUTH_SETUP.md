@@ -187,7 +187,7 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
 > 앱은 **backend 프록시**(`POST /api/v1/ai/ocr`, `POST /api/v1/ai/summarize`,
 > **인증 필수**)만 호출합니다. 실제 Vision/Gemini 키는 **backend 환경변수**
 > (`GOOGLE_VISION_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`)에만 둡니다 —
-> `backend/.env.example` 참고. 앱 클라이언트(`src/features/evidence/services/ocr/visionOcr.ts`,
+> `mobile/backend/.env.example` 참고. 앱 클라이언트(`src/ocr/visionOcr.ts`,
 > `.../ai/geminiSummary.ts`)는 파일을 base64 로 읽어 프록시에 보내기만 합니다.
 
 **provider 키 발급/설정**은 backend 쪽에서 합니다:
@@ -220,7 +220,7 @@ WorkProof backend 세션/토큰 정식 exchange** 방향으로 진행합니다.
   `@react-native-seoul/naver-login`은 네이티브 빌드에만 링크되어 있어서 Expo Go에서
   호출하면 즉시 에러가 납니다.
 
-그래서 **Expo Go에서만** 별도의 흐름을 씁니다: 저장소 루트의 `backend/`(FastAPI)가
+그래서 **Expo Go에서만** 별도의 흐름을 씁니다: `mobile/backend/`(FastAPI)가
 OAuth authorization code 교환을 서버 사이드에서 대신 처리하고, 앱은
 `src/auth/expoGoOAuth.ts`로 로그인 페이지를 인앱 브라우저로 띄운 뒤 결과를
 polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐름을 전혀
@@ -240,7 +240,7 @@ polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐�
 
 1. `mobile/backend/README.md`를 따라 FastAPI 서버를 Render 등에 배포하고, 그 서버
    전용 환경변수(`GOOGLE_CLIENT_SECRET`, `KAKAO_CLIENT_SECRET`,
-   `NAVER_CLIENT_SECRET` 등)를 채웁니다. **이 값들은 `mobile/.env`나
+   `NAVER_CLIENT_SECRET` 등)를 채웁니다. **이 값들은 `mobile/frontend/.env`나
    `EXPO_PUBLIC_*`에 절대 넣지 않습니다** — 앱 번들에 노출되면 안 되는 진짜
    시크릿이기 때문입니다. (기존에 `EXPO_PUBLIC_NAVER_CLIENT_SECRET`이 iOS/Android
    네이티브 빌드용으로 앱 바이너리에 포함되는 것과는 별개입니다 — 그건 3절의
@@ -249,7 +249,7 @@ polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐�
 2. 배포된 서버의 base URL(예: `https://workproof-auth.onrender.com`)을 각
    provider 콘솔에 `{base URL}/auth/{provider}/callback` 형식으로 등록합니다
    (`mobile/backend/README.md`의 "각 콘솔에 등록할 Callback URL" 참고).
-3. `mobile/.env`에 `EXPO_PUBLIC_AUTH_API_URL=<base URL>`을 채웁니다.
+3. `mobile/frontend/.env`에 `EXPO_PUBLIC_AUTH_API_URL=<base URL>`을 채웁니다.
 4. `npm run start`로 실행하고 iPhone Expo Go 앱으로 QR을 스캔합니다. 로그인/
    회원가입 화면에서 소셜 로그인 버튼을 누르면 인앱 브라우저가 열리고, 실제
    계정으로 로그인하면 앱이 자동으로 로그인을 이어서 처리합니다.
@@ -257,13 +257,13 @@ polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐�
 **⚠️ Preview/Production은 서로 다른 provider credential을 쓸 수 있다 (2026-08 확인된 함정):**
 
 - Preview(`workproof-backend-preview`)와 Production(`workproof-auth`)은 각각 독립된 Render 서비스라, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` 등 provider env를 **따로** 설정해야 한다. 특히 Google은 이 프로젝트에서 Preview 전용 별도 OAuth Web client(`WorkProof Preview Web`)를 만들어 썼다 — Production의 client_id/secret과 절대 섞으면 안 된다(pair가 다르면 세션 생성(`/auth/session/google`)은 200이 나와도 콜백 단계 token exchange에서 실패한다).
-- Kakao는 코드상(`backend/app/services/oauth_bridge.py`) `client_secret`이 optional처럼 보이지만(빈 값이면 파라미터 생략), **Kakao Developers 콘솔에서 "Client Secret" 기능이 활성화된 앱은 실제로 필수**다 — 빠지면 `kauth.kakao.com/oauth/token`이 401로 거부한다(KOE010류). Kakao Developers → 카카오 로그인 → 보안(Security)에서 기존 발급된 값을 확인해 `KAKAO_CLIENT_SECRET`에 넣어야 한다.
+- Kakao는 코드상(`mobile/backend/app/services/oauth_bridge.py`) `client_secret`이 optional처럼 보이지만(빈 값이면 파라미터 생략), **Kakao Developers 콘솔에서 "Client Secret" 기능이 활성화된 앱은 실제로 필수**다 — 빠지면 `kauth.kakao.com/oauth/token`이 401로 거부한다(KOE010류). Kakao Developers → 카카오 로그인 → 보안(Security)에서 기존 발급된 값을 확인해 `KAKAO_CLIENT_SECRET`에 넣어야 한다.
 - Naver는 콘솔이 서비스 환경(PC 웹/Mobile 웹)별로 Callback URL을 등록하는 구조라, Kakao처럼 "추가"만 하면 되는지 먼저 확인이 필요하다. 이 프로젝트에서는 PC 웹/Mobile 웹 두 환경 모두에 Preview callback URL을 추가해서 해결했다(기존 Production 등록은 유지).
 - 세 provider 전부 `/auth/session/{provider}`가 200을 반환해도 그것만으로 "동작한다"고 판정하면 안 된다 — 실제 판정은 provider 콘솔 로그인 화면을 거쳐 `/auth/{provider}/callback`까지 왕복한 뒤에만 유효하다(세션 생성은 `client_id` 존재 여부만 확인하고, secret/redirect 등록 문제는 콜백 단계에서만 드러난다).
 
 ## 4. 동작 방식 (참고)
 
-> **2026-08 갱신**: 아래 §4는 백엔드가 생기기 전의 원래 구조를 설명합니다. 지금은 `backend/`(FastAPI + Postgres/Neon)가 실제로 계정을 서버에 영구 저장하고(`users`/`oauth_accounts` 테이블), 소셜 로그인도 `POST /auth/session/{provider}` → provider 콜백 → `/api/v1/auth/social` 교환을 거쳐 앱 자체 JWT(access/refresh)를 발급받는 방식으로 바뀌었습니다. 로컬 전용 동작은 **비로그인 상태**에서만 유효합니다. 아래 §4의 "완전 로컬" 서술과 §3-4의 "10분 임시 보관 후 삭제"는 이 백엔드 도입 이전 설명이니 참고용으로만 보세요.
+> **2026-08 갱신**: 아래 §4는 백엔드가 생기기 전의 원래 구조를 설명합니다. 지금은 `mobile/backend/`(FastAPI + Postgres/Neon)가 실제로 계정을 서버에 영구 저장하고(`users`/`oauth_accounts` 테이블), 소셜 로그인도 `POST /auth/session/{provider}` → provider 콜백 → `/api/v1/auth/social` 교환을 거쳐 앱 자체 JWT(access/refresh)를 발급받는 방식으로 바뀌었습니다. 로컬 전용 동작은 **비로그인 상태**에서만 유효합니다. 아래 §4의 "완전 로컬" 서술과 §3-4의 "10분 임시 보관 후 삭제"는 이 백엔드 도입 이전 설명이니 참고용으로만 보세요.
 
 이 앱은 백엔드 서버가 없는 완전 로컬 저장 구조입니다(`src/storage.ts`, AsyncStorage 기반). 소셜 로그인도 같은 방식을 따릅니다:
 

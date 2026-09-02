@@ -1,6 +1,6 @@
 # WorkProof Auth Bridge (Expo Go 전용)
 
-`mobile/`을 Expo Go(무료 Apple Developer 계정, 커스텀 URL 스킴/네이티브 SDK 없이)로
+`mobile/frontend/`를 Expo Go(무료 Apple Developer 계정, 커스텀 URL 스킴/네이티브 SDK 없이)로
 실행할 때만 쓰는 FastAPI 서버입니다. Expo Go는 `workproof://` 커스텀 스킴과
 Kakao/Naver 네이티브 모듈을 쓸 수 없어서, 이 서버가 대신 OAuth authorization
 code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로 결과를 받아갑니다.
@@ -26,7 +26,7 @@ code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로 
 ## 로컬 실행
 
 ```bash
-cd backend
+cd mobile/backend
 python -m venv .venv
 .venv/Scripts/activate   # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
@@ -41,7 +41,7 @@ uvicorn main:app --reload --port 8000
 ## Render 배포
 
 1. Render 대시보드 → **New** → **Web Service** → 이 저장소 연결
-2. **Root Directory**: `backend` (반드시 지정 — 지정하지 않으면 Render가
+2. **Root Directory**: `mobile/backend` (반드시 지정 — 지정하지 않으면 Render가
    저장소 루트에서 `requirements.txt`/`main.py`를 찾다가 실패합니다)
 3. **Build Command**: `pip install -r requirements.txt`
 4. **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
@@ -52,7 +52,7 @@ uvicorn main:app --reload --port 8000
    - `FRONTEND_ALLOWED_ORIGIN`
    - `SESSION_SIGNING_SECRET`
 6. 배포 후 발급되는 주소(예: `https://workproof-auth.onrender.com`)를
-   `mobile/.env`의 `EXPO_PUBLIC_AUTH_API_URL`에 입력합니다.
+   `mobile/frontend/.env`의 `EXPO_PUBLIC_AUTH_API_URL`에 입력합니다.
 
 Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 — 첫 요청(세션 생성)이
 평소보다 느릴 수 있습니다(콜드 스타트).
@@ -79,8 +79,8 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 ## Expo Go 테스트 순서
 
 1. 위 Render 배포를 완료하고 각 콘솔에 callback URL을 등록합니다.
-2. `mobile/.env`에 `EXPO_PUBLIC_AUTH_API_URL=<BASE_URL>`을 채웁니다.
-3. `mobile`에서 `npm run start` (또는 `npm run web:tunnel`과 동일하게 터널이
+2. `mobile/frontend/.env`에 `EXPO_PUBLIC_AUTH_API_URL=<BASE_URL>`을 채웁니다.
+3. `mobile/frontend`에서 `npm run start` (또는 `npm run web:tunnel`과 동일하게 터널이
    필요하면 `expo start --tunnel`)로 실행하고, iPhone Expo Go 앱으로 QR을
    스캔합니다.
 4. 로그인/회원가입 화면에서 소셜 로그인 버튼을 누르면 인앱 브라우저가
@@ -93,7 +93,7 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 연동되지 않았습니다**. **Preview 환경 검증(Neon Preview DB `0003_work_data`,
 live verification 55/55 PASS)에 이어 Production 배포도 완료했습니다**(Neon Production DB
 `0003_work_data`, commit `e6bb6a0`, live smoke verification PASS).
-스키마는 모바일 로컬 저장 모델(`mobile/src/.../types.ts`)의 실제 필드를 기준으로 정했습니다.
+스키마는 모바일 로컬 저장 모델(`mobile/frontend/src/core/domain/models/types.ts`)의 실제 필드를 기준으로 정했습니다.
 
 ### 리소스와 엔드포인트
 
