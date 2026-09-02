@@ -11,6 +11,7 @@
 //  PATCH/users/me       {name?} (Bearer)               -> 200 UserResponse
 //  DELETE /users/me     (Bearer)                       -> 204 No Content
 import type { ApiClient } from '../../../services/api/client';
+import { AUTH_TIMEOUT_MS } from '../../../services/api/config';
 import type {
   AuthSession,
   AuthUser,
@@ -64,6 +65,7 @@ export function createSessionApi(client: ApiClient): SessionApi {
     async register(input: RegisterInput): Promise<AuthSession> {
       const wire = await client.request<WireTokenPair>('/auth/register', {
         method: 'POST',
+        timeoutMs: AUTH_TIMEOUT_MS,
         body: {
           email: input.email,
           password: input.password,
@@ -76,6 +78,7 @@ export function createSessionApi(client: ApiClient): SessionApi {
     async login(input: LoginInput): Promise<AuthSession> {
       const wire = await client.request<WireTokenPair>('/auth/login', {
         method: 'POST',
+        timeoutMs: AUTH_TIMEOUT_MS,
         body: {
           email: input.email,
           password: input.password,
@@ -88,6 +91,7 @@ export function createSessionApi(client: ApiClient): SessionApi {
     async exchangeBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthSession> {
       const wire = await client.request<WireTokenPair>('/auth/bridge/exchange', {
         method: 'POST',
+        timeoutMs: AUTH_TIMEOUT_MS,
         body: { bridge_session_id: bridgeSessionId, device_label: deviceLabel },
       });
       return mapSession(wire);
@@ -97,6 +101,7 @@ export function createSessionApi(client: ApiClient): SessionApi {
       // 자동 재시도/interceptor 없음 — session 계층이 single-flight로 직접 호출한다.
       const wire = await client.request<WireTokenPair>('/auth/refresh', {
         method: 'POST',
+        timeoutMs: AUTH_TIMEOUT_MS,
         body: { refresh_token: refreshToken },
       });
       return mapSession(wire);
