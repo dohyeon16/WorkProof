@@ -23,8 +23,8 @@ import { EvidenceFile, EvidenceKind, Workplace } from '../../../core/domain/mode
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 import { LoadingScreen } from '../../../shared/components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../../../shared/utils/webOpen';
-import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/ai/analyzeContract';
-import { useAiAnalysis } from '../services/ai/useAiAnalysis';
+import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/analyzeContract';
+import { useAiAnalysis } from '../../../ai_summary/useAiAnalysis';
 import { FILE_UNREADABLE_MESSAGE } from '../../../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
 

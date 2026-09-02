@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 import { ApiError } from '../src/core/api/errors';
 import { SessionExpiredError } from '../src/features/auth/state/session';
-import type { AiRemote } from '../src/features/evidence/services/ai/aiProxyApi';
+import type { AiRemote } from '../src/core/api/aiProxyApi';
 import {
   emptyPayslipAmounts,
   normalizeAmount,

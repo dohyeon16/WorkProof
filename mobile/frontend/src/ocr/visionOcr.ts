@@ -7,7 +7,7 @@
 import { readFileBase64 } from '../shared/utils/fileStore';
 import { ApiError } from '../core/api/errors';
 import { SessionExpiredError } from '../features/auth/state/session';
-import type { AiRemote } from '../features/evidence/services/ai/aiProxyApi';
+import type { AiRemote } from '../core/api/aiProxyApi';
 import { mapOcrApiError } from './ocrError';
 import type { OcrResult } from './types';
 

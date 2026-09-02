@@ -4,9 +4,9 @@
 // 타임아웃/업스트림 재시도는 각각 runAuthorized / 서버가 담당하므로 여기선 하지 않는다.
 //
 // 키/오류 원문은 로그로만 남기고 사용자에겐 짧은 한국어 문구만 노출한다.
-import { ApiError } from '../../../../core/api/errors';
-import { SessionExpiredError } from '../../../auth/state/session';
-import type { AiRemote } from './aiProxyApi';
+import { ApiError } from '../core/api/errors';
+import { SessionExpiredError } from '../features/auth/state/session';
+import type { AiRemote } from '../core/api/aiProxyApi';
 
 // 요약 실패 원인 분류(상위 analyzeEvidenceFile 이 사용자 문구/후처리를 정하는 데 쓴다).
 export type SummaryErrorCode =

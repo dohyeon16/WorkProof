@@ -6,7 +6,7 @@
 // 보여주고 수동 입력으로 이어가게 하기 위해 'failed'(코드 포함)만 돌려준다.
 import { ApiError } from '../../../core/api/errors';
 import { SessionExpiredError } from '../../auth/state/session';
-import type { AiRemote } from '../../evidence/services/ai/aiProxyApi';
+import type { AiRemote } from '../../../core/api/aiProxyApi';
 import type { PayslipAmounts } from '../../../core/domain/models/types';
 import { parsePayslipRaw, type PayslipWarning } from './payslipExtraction';
 

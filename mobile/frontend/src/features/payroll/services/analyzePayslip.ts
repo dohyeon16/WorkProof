@@ -8,8 +8,8 @@
 import { resolveReadableUri } from '../../../shared/utils/fileStore';
 import { SessionExpiredError } from '../../auth/state/session';
 import { extractTextFromDocument } from '../../../ocr/visionOcr';
-import { maskFileName } from '../../evidence/services/ai/analyzeContract';
-import type { AiRemote } from '../../evidence/services/ai/aiProxyApi';
+import { maskFileName } from '../../evidence/services/analyzeContract';
+import type { AiRemote } from '../../../core/api/aiProxyApi';
 import type { PayslipAmounts } from '../../../core/domain/models/types';
 import type { PayslipWarning } from './payslipExtraction';
 import { structurePayslipText, type PayslipExtractErrorCode } from './payslipStructuring';

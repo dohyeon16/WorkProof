@@ -31,8 +31,8 @@ import {
 } from '../../../core/data/storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../../../core/notifications/notifications';
 import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../../../core/domain/payroll/payCalc';
-import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../../evidence/services/ai/analyzeContract';
-import { useAiAnalysis } from '../../evidence/services/ai/useAiAnalysis';
+import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../../evidence/services/analyzeContract';
+import { useAiAnalysis } from '../../../ai_summary/useAiAnalysis';
 import { FILE_UNREADABLE_MESSAGE } from '../../../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
 import type { EvidenceKind, IncomeDeductionType } from '../../../core/domain/models/types';

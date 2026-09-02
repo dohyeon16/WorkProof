@@ -20,7 +20,7 @@ import { formatWon } from '../../../core/domain/payroll/payCalc';
 import { currentYearMonth, formatYearMonth } from '../../../shared/utils/date';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 import { persistPickedFile } from '../../../shared/utils/fileStore';
-import { useAiAnalysis } from '../../evidence/services/ai/useAiAnalysis';
+import { useAiAnalysis } from '../../../ai_summary/useAiAnalysis';
 import { analyzePayslipFile } from '../services/analyzePayslip';
 
 type Props = RootScreenProps<'PayslipList'>;

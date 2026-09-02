@@ -8,11 +8,11 @@
 import { useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Alert } from '../../../../shared/components/alert';
-import { createApiClient } from '../../../../core/api/client';
-import { useAuth } from '../../../auth/state/AuthContext';
-import type { RootStackParamList } from '../../../../app/navigation/types';
-import { createAiRemote, type AiRemote } from './aiProxyApi';
+import { Alert } from '../shared/components/alert';
+import { createApiClient } from '../core/api/client';
+import { useAuth } from '../features/auth/state/AuthContext';
+import type { RootStackParamList } from '../app/navigation/types';
+import { createAiRemote, type AiRemote } from '../core/api/aiProxyApi';
 import { AI_LOGIN_GATE, requiresLoginForNewAnalysis } from './aiAccess';
 
 // 공유 ApiClient — AuthContext/SyncContext 와 동일하게 모듈 스코프에서 1회 생성한다.

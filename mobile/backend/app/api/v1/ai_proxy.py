@@ -18,7 +18,7 @@ from app.schemas.ai import (
     SummarizeRequest,
     SummarizeResponse,
 )
-from app.services import ai_proxy
+from app.services import ai_summary
 from app.services.ocr import ocr_extract
 from app.services.provider_common import (
     AiEmptyResult,
@@ -84,7 +84,7 @@ def summarize(
     client: httpx.Client = Depends(get_http_client),
 ) -> SummarizeResponse:
     try:
-        return SummarizeResponse(summary=ai_proxy.summarize_text(client, body.text))
+        return SummarizeResponse(summary=ai_summary.summarize_text(client, body.text))
     except _AI_ERRORS as e:
         raise _to_http_error(e)
 
@@ -96,6 +96,6 @@ def extract_payslip(
     client: httpx.Client = Depends(get_http_client),
 ) -> PayslipExtractResponse:
     try:
-        return PayslipExtractResponse(raw=ai_proxy.extract_payslip(client, body.ocr_text))
+        return PayslipExtractResponse(raw=ai_summary.extract_payslip(client, body.ocr_text))
     except _AI_ERRORS as e:
         raise _to_http_error(e)

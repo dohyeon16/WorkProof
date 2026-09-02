@@ -1,13 +1,14 @@
-"""Gemini 요약/구조화 서비스 — OCR 텍스트를 받아 해석한다.
+"""Gemini 호출 — 이미 추출된 텍스트를 요약하거나 급여명세서로 구조화한다.
 
-OCR(Vision) 은 app.services.ocr 로 분리돼 있다. 이 모듈은 이미지·파일을 다루지 않고,
-이미 추출된 텍스트만 입력으로 받는다.
+OCR(Vision, app.services.ocr)과는 별개의 책임이다. 이 모듈은 이미지·PDF·MIME 을
+다루지 않는다. 입력은 항상 텍스트이며, 그 텍스트가 어디서 왔는지 알지 못한다.
 """
 from __future__ import annotations
 
 import httpx
 
 from app.core.config import settings
+from app.services.ai_summary.prompts import PAYSLIP_SYSTEM_PROMPT, SUMMARY_SYSTEM_PROMPT
 from app.services.provider_common import (
     AiEmptyResult,
     AiUpstreamError,
@@ -17,27 +18,6 @@ from app.services.provider_common import (
 
 # Gemini 입력 상한(무료 티어 고려). 너무 길면 앞부분만.
 MAX_INPUT_CHARS = 12000
-
-SUMMARY_SYSTEM_PROMPT = (
-    "당신은 한국 아르바이트 근로계약서·급여명세서를 분석해주는 도우미입니다. "
-    "OCR로 추출된 텍스트가 주어지면, 실제로 확인되는 항목만 골라 '- 항목: 내용' 형식의 "
-    "불릿 목록으로 정리하세요. 확인되지 않는 항목은 빼고, 없는 내용을 추측하지 마세요. "
-    "목록 앞에 2~3문장 요약을 먼저 쓰고, 전체 한국어 존댓말로 작성하세요."
-)
-
-# 급여명세서 구조화용 시스템 프롬프트. 아래 키만 가진 JSON 객체 하나만 출력하도록 강제하고,
-# 값은 원 단위 정수(쉼표·통화기호·공백 없이) 또는 확인 불가 시 null 로 채우게 한다. 개인식별
-# 정보(이름/주민번호/계좌번호)와 그 외 키는 넣지 않도록 지시한다 — 추측 금지.
-PAYSLIP_SYSTEM_PROMPT = (
-    "당신은 한국 급여명세서를 구조화하는 도우미입니다. OCR로 추출된 텍스트가 주어지면 "
-    "아래 키만 가진 JSON 객체 하나만 출력하세요. 값은 원 단위 정수(쉼표·통화기호·공백 없이) "
-    "이며, 명세서에서 확인되지 않는 값은 null 로 두세요. 없는 값을 추측하지 마세요. "
-    "지급 항목: basePay, weeklyAllowance, overtimePay, nightPay, holidayPay, otherAllowance, grossPay. "
-    "공제 항목: incomeTax, localIncomeTax, nationalPension, healthInsurance, longTermCareInsurance, "
-    "employmentInsurance, otherDeduction, totalDeduction. 결과: netPay. "
-    "그 외 키는 절대 넣지 말고, 이름·주민번호·계좌번호 등 개인식별정보도 포함하지 마세요."
-)
-
 
 def summarize_text(client: httpx.Client, text: str) -> str:
     """Gemini generateContent 로 요약한다."""
