@@ -16,6 +16,7 @@ import { ApiError } from '../../../services/api/errors';
 import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
 import type { AuthProvider } from '../../../types/domain';
+import { socialErrorMessage } from '../services/social/socialAuthErrors';
 
 type Props = RootScreenProps<'Signup'>;
 
@@ -141,7 +142,7 @@ export default function SignupScreen({ navigation, route }: Props) {
       return;
     }
     if (result.status === 'error') {
-      Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 실패`, result.message);
+      Alert.alert(`${SOCIAL_LABEL[provider]} 회원가입 실패`, socialErrorMessage(provider, result.code));
       return;
     }
     setSocialProfile({

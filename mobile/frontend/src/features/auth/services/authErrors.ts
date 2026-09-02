@@ -6,9 +6,16 @@ import { SessionExpiredError } from '../state/session';
 const DEFAULT_FALLBACK = '문제가 발생했어요. 잠시 후 다시 시도해주세요.';
 
 export function authErrorMessage(err: unknown, fallback: string = DEFAULT_FALLBACK): string {
+  // 우리가 만든 오류만 문구를 그대로 쓴다 — ApiError.message 는 서버 detail(우리 한국어
+  // 문구) 또는 상태별 폴백이고, SessionExpiredError 도 우리 문구다.
   if (err instanceof ApiError) return err.message;
   if (err instanceof SessionExpiredError) return err.message;
-  if (err instanceof Error && err.message) return err.message;
+  // 그 밖의 Error 는 출처를 알 수 없다(fetch/TypeError/SDK/OAuth 라이브러리 등).
+  // 예전에는 err.message 를 그대로 보여줘서 provider/HTTP 원문이 사용자에게 노출됐다.
+  // 진단은 로그로 남기고, 화면에는 폴백 문구만 보여준다.
+  if (err instanceof Error && err.message) {
+    console.warn(`[auth] unmapped error: name=${err.name} rawLen=${err.message.length}`);
+  }
   return fallback;
 }
 

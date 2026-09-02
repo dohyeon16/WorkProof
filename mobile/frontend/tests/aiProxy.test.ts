@@ -234,7 +234,7 @@ test('새 분석은 비로그인만 게이트, 저장 결과 열람은 인증 �
 
 test('로그인 게이트 문구/버튼 존재', () => {
   assert.ok(AI_LOGIN_GATE.message.includes('로그인'));
-  assert.equal(AI_LOGIN_GATE.confirmLabel, '로그인하고 AI 분석하기');
+  assert.equal(AI_LOGIN_GATE.confirmLabel, '로그인하고 분석하기');
   assert.equal(AI_LOGIN_GATE.cancelLabel, '나중에');
 });
 

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import NaverLogin from '@react-native-seoul/naver-login';
 import type { SocialLoginResult } from './socialLogin';
+import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // Native-build-only (Android + iOS) Naver login via the official SDK
 // wrapper. This exists separately from naverIdentityWeb.ts's browser-redirect
@@ -53,13 +54,13 @@ export async function loginWithNaverNative(): Promise<SocialLoginResult> {
       }
       return {
         status: 'error',
-        message: result.failureResponse?.message ?? '네이버 로그인에 실패했어요.',
+        code: (console.warn(describeForLog('naver', 'native-sdk', result.failureResponse?.message)), classifySocialError(result.failureResponse?.message)),
       };
     }
 
     const profile = await NaverLogin.getProfile(result.successResponse.accessToken);
     if (profile.resultcode !== '00' || !profile.response?.id) {
-      return { status: 'error', message: '사용자 정보를 가져오지 못했어요.' };
+      return { status: 'error', code: 'UNKNOWN' };
     }
     return {
       status: 'success',
@@ -71,6 +72,6 @@ export async function loginWithNaverNative(): Promise<SocialLoginResult> {
       },
     };
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return { status: 'error', code: (console.warn(describeForLog('naver', 'naver-native', err)), classifySocialError(err)) };
   }
 }

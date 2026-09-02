@@ -22,6 +22,7 @@ import httpx
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from app.core.config import settings
+from app.core.logging import get_logger
 
 # 세션 만료 10분 — state 서명 max_age와 폴링 세션 만료 둘 다 이 값을 쓴다.
 SESSION_TTL_SECONDS = 10 * 60
@@ -42,13 +43,25 @@ class StateError(Exception):
     """OAuth state 서명/만료 검증 실패. 라우트가 잡아 400 결과 페이지로 변환한다."""
 
 
+class ProviderExchangeError(Exception):
+    """provider 토큰 교환/프로필 조회 실패.
+
+    provider 응답 원문(RFC 문구·WWW-Authenticate·client 자격증명 힌트)을 절대 담지
+    않는다. 사용자에게는 앱이 code 로 문구를 만들고, 진단은 서버 로그에만 남긴다.
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 PROVIDERS = {
     "google": {
         "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
         "token_url": "https://oauth2.googleapis.com/token",
         "userinfo_url": "https://www.googleapis.com/oauth2/v3/userinfo",
-        "client_id": settings.GOOGLE_CLIENT_ID,
-        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "client_id": settings.GOOGLE_CLIENT_ID.strip(),
+        "client_secret": settings.GOOGLE_CLIENT_SECRET.strip(),
         "scope": "openid profile email",
         # 브라우저에 이미 구글 세션이 있으면 계정 선택 없이 곧바로 콜백으로
         # 넘어가 로그인 화면이 "아무것도 안 뜨고" 완료된 것처럼 보인다.
@@ -59,10 +72,10 @@ PROVIDERS = {
         "authorize_url": "https://kauth.kakao.com/oauth/authorize",
         "token_url": "https://kauth.kakao.com/oauth/token",
         "userinfo_url": "https://kapi.kakao.com/v2/user/me",
-        "client_id": settings.KAKAO_REST_API_KEY,
+        "client_id": settings.KAKAO_REST_API_KEY.strip(),
         # 카카오 콘솔에서 Client Secret을 켜지 않은 앱도 많아 비어있을 수 있다 —
         # 비어있으면 토큰 교환 요청에서 그냥 생략한다.
-        "client_secret": settings.KAKAO_CLIENT_SECRET,
+        "client_secret": settings.KAKAO_CLIENT_SECRET.strip(),
         "scope": "profile_nickname",
         # 이미 세션/동의 기록이 있어도 매번 로그인 화면을 다시 띄운다.
         "extra_authorize_params": {"prompt": "login"},
@@ -71,8 +84,8 @@ PROVIDERS = {
         "authorize_url": "https://nid.naver.com/oauth2.0/authorize",
         "token_url": "https://nid.naver.com/oauth2.0/token",
         "userinfo_url": "https://openapi.naver.com/v1/nid/me",
-        "client_id": settings.NAVER_CLIENT_ID,
-        "client_secret": settings.NAVER_CLIENT_SECRET,
+        "client_id": settings.NAVER_CLIENT_ID.strip(),
+        "client_secret": settings.NAVER_CLIENT_SECRET.strip(),
         "scope": "",
         # auth_type=reauthenticate: 로그인 상태와 무관하게 항상 ID/PW 로그인을
         # 다시 요구해 계정을 직접 확인/변경할 수 있게 한다.
@@ -83,6 +96,8 @@ PROVIDERS = {
 # state 파라미터를 session_id + provider로 서명해 발급한다. 별도 매핑 테이블 없이
 # 콜백에서 서명만 검증하면 되고(만료 포함), 위조된 state로 남의 세션에 결과를
 # 채워 넣는 것도 막는다.
+logger = get_logger("workproof.oauth_bridge")
+
 serializer = URLSafeTimedSerializer(settings.SESSION_SIGNING_SECRET, salt="workproof-oauth-state")
 
 
@@ -259,15 +274,37 @@ async def exchange_and_fetch_profile(provider: str, code: str, redirect_uri: str
         token_res = await client.post(
             cfg["token_url"], data=token_data, headers={"Accept": "application/json"}
         )
-        token_res.raise_for_status()
+        if token_res.status_code >= 400:
+            # provider 가 돌려준 본문은 사용자에게도, 예외 메시지에도 넣지 않는다.
+            # 원인 구분에 필요한 provider 의 error 코드만 로그로 남긴다(값 아님).
+            try:
+                err_code = str(token_res.json().get("error", ""))[:64]
+            except Exception:
+                err_code = ""
+            logger.error(
+                "oauth token exchange failed provider=%s status=%s provider_error=%s "
+                "client_secret_sent=%s",
+                provider,
+                token_res.status_code,
+                err_code or "(none)",
+                bool(cfg["client_secret"]),
+            )
+            raise ProviderExchangeError(
+                "client_auth" if token_res.status_code in (400, 401) else "provider_unavailable"
+            )
         access_token = token_res.json().get("access_token")
         if not access_token:
-            raise RuntimeError("토큰 교환에 실패했어요.")
+            logger.error("oauth token exchange returned no access_token provider=%s", provider)
+            raise ProviderExchangeError("client_auth")
 
         user_res = await client.get(
             cfg["userinfo_url"], headers={"Authorization": f"Bearer {access_token}"}
         )
-        user_res.raise_for_status()
+        if user_res.status_code >= 400:
+            logger.error(
+                "oauth profile fetch failed provider=%s status=%s", provider, user_res.status_code
+            )
+            raise ProviderExchangeError("profile_unavailable")
         raw_profile = user_res.json()
 
     return normalize_profile(provider, raw_profile)
