@@ -9,12 +9,12 @@ import {
   NotoSansKR_500Medium,
   NotoSansKR_700Bold,
 } from '@expo-google-fonts/noto-sans-kr';
-import RootNavigator from './src/navigation/RootNavigator';
-import { AppLockGate } from './src/components/AppLockGate';
-import { AlertHost } from './src/alert';
-import { colors } from './src/theme';
-import { resumeNaverRedirectIfPending } from './src/auth/naverIdentityWeb';
-import type { RootStackParamList } from './src/navigation/types';
+import RootNavigator from './src/app/navigation/RootNavigator';
+import { AppLockGate } from './src/features/security/components/AppLockGate';
+import { AlertHost } from './src/shared/components/alert';
+import { colors } from './src/shared/theme';
+import { resumeNaverRedirectIfPending } from './src/features/auth/services/naverIdentityWeb';
+import type { RootStackParamList } from './src/app/navigation/types';
 
 function AppShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();

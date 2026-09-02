@@ -4,13 +4,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { haversineMeters, evaluateProximity } from '../src/utils/geo';
+import { haversineMeters, evaluateProximity } from '../src/features/attendance/utils/geo';
 import {
   calcMonthlySummary,
   nightOverlapMinutes,
   deductionAmount,
   netPay,
-} from '../src/payCalc';
+} from '../src/core/domain/payroll/payCalc';
 import {
   reduceAppState,
   initialAppLockState,
@@ -19,9 +19,9 @@ import {
   BACKGROUND_LOCK_GRACE_MS,
   POST_UNLOCK_GRACE_MS,
   type AppLockState,
-} from '../src/utils/appLockState';
-import { KEYS, BACKUP_KEYS, ALL_KEYS } from '../src/storageKeys';
-import type { AttendanceRecord, Workplace } from '../src/types';
+} from '../src/features/security/services/appLockState';
+import { KEYS, BACKUP_KEYS, ALL_KEYS } from '../src/core/data/storageKeys';
+import type { AttendanceRecord, Workplace } from '../src/core/domain/models/types';
 
 let seq = 0;
 function wp(over: Partial<Workplace> = {}): Workplace {
