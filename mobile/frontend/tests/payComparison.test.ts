@@ -3,14 +3,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { MonthlySummary } from '../src/core/domain/payroll/payCalc';
-import type { PayslipAmounts, PayslipRecord } from '../src/core/domain/models/types';
-import { emptyPayslipAmounts } from '../src/features/payroll/services/payslipExtraction';
+import type { MonthlySummary } from '../src/features/payroll/services/payCalc';
+import type { PayslipAmounts, PayslipRecord } from '../src/types/domain';
+import { emptyPayslipAmounts } from '../src/features/payslip/services/payslipExtraction';
 import {
   buildPayComparison,
   comparePair,
   selectPayslipForMonth,
-} from '../src/features/payroll/services/payComparison';
+} from '../src/features/pay_comparison/services/payComparison';
 
 function makeSummary(over: Partial<MonthlySummary> = {}): MonthlySummary {
   return {

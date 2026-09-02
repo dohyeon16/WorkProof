@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AppState, Platform } from 'react-native';
-import { createApiClient } from '../../core/api/client';
+import { createApiClient } from '../../services/api/client';
 import type { SyncErrorCategory } from './model';
 import { resetFailed } from './model';
 import { runSync } from './engine';
@@ -34,7 +34,7 @@ import {
   getAllAttendance,
   getScheduledShifts,
   getWorkplaces,
-} from '../../core/data/storage';
+} from '../../services/storage/storage';
 import { useAuth } from '../auth/state/AuthContext';
 
 // 앱 수명 동안 하나의 API 클라이언트(base URL 은 core/api/config).

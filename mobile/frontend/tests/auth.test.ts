@@ -3,14 +3,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ApiError, normalizeHttpError } from '../src/core/api/errors';
+import { ApiError, normalizeHttpError } from '../src/services/api/errors';
 import { createSession, SessionExpiredError } from '../src/features/auth/state/session';
 import type {
   AuthSession,
   AuthUser,
   RefreshTokenStore,
   SessionApi,
-} from '../src/features/auth/types';
+} from '../src/features/auth/auth.types';
 
 // ---------- helpers ----------
 function makeUser(over: Partial<AuthUser> = {}): AuthUser {

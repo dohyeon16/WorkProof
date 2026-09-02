@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
-import { InputAccessoryToolbar } from '../../../shared/components/InputAccessoryToolbar';
-import { useNumericInputNavigation } from '../../../shared/hooks/useNumericInputNavigation';
-import { WheelPicker } from '../../../shared/components/WheelPicker';
-import { CalendarPickerModal } from '../../../shared/components/CalendarPickerModal';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
+import { InputAccessoryToolbar } from '../../../ui/components/forms/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../../../hooks/useNumericInputNavigation';
+import { WheelPicker } from '../../../ui/components/forms/WheelPicker';
+import { CalendarPickerModal } from '../../../ui/components/forms/CalendarPickerModal';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert } from '../../../shared/components/alert';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAttendanceHistory, getAttendanceRecord, getScheduledShifts, getWorkplace, deleteAttendance, makeId, saveAttendanceWithHistory } from '../../../core/data/storage';
-import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../core/notifications/notifications';
-import type { AttendanceChange, AttendanceRecord } from '../../../core/domain/models/types';
-import { FIELD_LABELS, formatChangeValue, type AuditedField } from '../audit/auditTrail';
-import { formatTimeInput, todayDateString } from '../../../shared/utils/date';
-import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../../../core/domain/payroll/payCalc';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import { getAttendanceHistory, getAttendanceRecord, getScheduledShifts, getWorkplace, deleteAttendance, makeId, saveAttendanceWithHistory } from '../../../services/storage/storage';
+import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../services/notifications/notifications';
+import type { AttendanceChange, AttendanceRecord } from '../../../types/domain';
+import { FIELD_LABELS, formatChangeValue, type AuditedField } from '../services/auditTrail';
+import { formatTimeInput, todayDateString } from '../../../utils/date';
+import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../../payroll/services/payCalc';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = RootScreenProps<'AttendanceForm'>;
 

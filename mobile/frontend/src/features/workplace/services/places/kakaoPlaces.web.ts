@@ -1,4 +1,4 @@
-import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './types';
+import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './place.types';
 
 // 카카오 로컬 REST API는 브라우저 CORS를 지원하지 않아 직접 fetch로 부를 수
 // 없다. 대신 브라우저에서 바로 쓰도록 만들어진 카카오맵 JavaScript SDK(로그인용

@@ -20,7 +20,7 @@ from app.schemas.ai import (
 )
 from app.services import ai_summary
 from app.services.ocr import ocr_extract
-from app.services.provider_common import (
+from app.services.google_provider import (
     AiEmptyResult,
     AiNotConfigured,
     AiTimeout,

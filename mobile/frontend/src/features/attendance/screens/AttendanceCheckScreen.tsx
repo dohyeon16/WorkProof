@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
+import { Text } from '../../../ui/components/display/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAttendanceByWorkplace, getScheduledShifts, getWorkplace, makeId, saveAttendanceWithHistory } from '../../../core/data/storage';
-import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../core/notifications/notifications';
-import { AttendanceRecord, Workplace } from '../../../core/domain/models/types';
-import { formatMinutesAsHours, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
-import { formatDateWithWeekday, todayDateString, currentTimeString } from '../../../shared/utils/date';
-import { getCurrentLocation } from '../utils/currentLocation';
-import { evaluateProximity, formatDistance } from '../utils/geo';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import { getAttendanceByWorkplace, getScheduledShifts, getWorkplace, makeId, saveAttendanceWithHistory } from '../../../services/storage/storage';
+import { cancelMissingClockOutReminder, scheduleMissingClockOutReminder } from '../../../services/notifications/notifications';
+import { AttendanceRecord, Workplace } from '../../../types/domain';
+import { formatMinutesAsHours, shiftWorkedMinutes } from '../../payroll/services/payCalc';
+import { formatDateWithWeekday, todayDateString, currentTimeString } from '../../../utils/date';
+import { getCurrentLocation } from '../services/currentLocation';
+import { evaluateProximity, formatDistance } from '../services/geo';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = RootScreenProps<'AttendanceCheck'>;
 

@@ -18,7 +18,7 @@ def test_config_import_does_not_emit_secret(capfd):
 def test_database_url_absent_and_engine_is_lazy():
     # 7) DATABASE_URL이 없어도 config/db import 가능 + import 시 엔진 미생성(무접속).
     import app.core.config as config_module
-    import app.db.session as session_module
+    import app.database.session as session_module
 
     assert config_module.settings.DATABASE_URL == ""
     assert session_module._engine is None

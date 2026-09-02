@@ -16,7 +16,7 @@ from app.schemas.attendance_record import (
     AttendanceRecordResponse,
     AttendanceRecordUpdate,
 )
-from app.services import work_data
+from app.services import work_data_service
 
 router = APIRouter(prefix="/attendance-records", tags=["attendance-records"])
 
@@ -30,10 +30,10 @@ def create_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AttendanceRecordResponse:
-    record, created = work_data.create_attendance(db, current_user, req)
+    record, created = work_data_service.create_attendance(db, current_user, req)
     if not created:
         response.status_code = status.HTTP_200_OK
-    return work_data.to_attendance_response(record)
+    return work_data_service.to_attendance_response(record)
 
 
 @router.get("", response_model=list[AttendanceRecordResponse])
@@ -43,7 +43,7 @@ def list_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[AttendanceRecordResponse]:
-    records = work_data.list_attendance(
+    records = work_data_service.list_attendance(
         db,
         current_user,
         page.limit,
@@ -52,7 +52,7 @@ def list_attendance(
         date_from=filters.date_from,
         date_to=filters.date_to,
     )
-    return [work_data.to_attendance_response(r) for r in records]
+    return [work_data_service.to_attendance_response(r) for r in records]
 
 
 @router.get("/{record_id}", response_model=AttendanceRecordResponse)
@@ -61,8 +61,8 @@ def get_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AttendanceRecordResponse:
-    return work_data.to_attendance_response(
-        work_data.get_attendance(db, current_user, record_id)
+    return work_data_service.to_attendance_response(
+        work_data_service.get_attendance(db, current_user, record_id)
     )
 
 
@@ -73,8 +73,8 @@ def update_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AttendanceRecordResponse:
-    return work_data.to_attendance_response(
-        work_data.update_attendance(db, current_user, record_id, req)
+    return work_data_service.to_attendance_response(
+        work_data_service.update_attendance(db, current_user, record_id, req)
     )
 
 
@@ -84,4 +84,4 @@ def delete_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    work_data.delete_attendance(db, current_user, record_id)
+    work_data_service.delete_attendance(db, current_user, record_id)

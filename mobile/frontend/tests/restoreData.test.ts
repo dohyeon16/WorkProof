@@ -6,7 +6,7 @@ import {
   restoreBackupData,
   BackupRestoreError,
   type KeyValueStore,
-} from '../src/core/backup/restoreData';
+} from '../src/services/backup/restoreData';
 
 // 실패 주입 가능한 인메모리 KeyValueStore. set/remove 호출 순번을 지정해 던질 수 있다.
 class FakeStore implements KeyValueStore {

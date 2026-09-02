@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { TextInput } from '../../../shared/components/TextInput';
+import { Text } from '../../../ui/components/display/Text';
+import { TextInput } from '../../../ui/components/forms/TextInput';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { Alert } from '../../../shared/components/alert';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 import LocationMapPicker from '../components/LocationMapPicker';
 import { searchPlaces } from '../services/places/kakaoPlaces';
 import { PLACE_CATEGORY_CHIPS } from '../services/places/placeCategories';
-import type { PlaceResult } from '../services/places/types';
+import type { PlaceResult } from '../services/places/place.types';
 
 type Props = RootScreenProps<'WorkplacePlacePicker'>;
 

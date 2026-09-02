@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, View, type AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Text } from '../../../shared/components/Text';
-import { getAppLockEnabled } from '../../../core/data/storage';
+import { Text } from '../../../ui/components/display/Text';
+import { getAppLockEnabled } from '../../../services/storage/storage';
 import { authenticateAppLock } from '../services/appLock';
 import {
   initialAppLockState,
@@ -11,7 +11,7 @@ import {
   reduceAppState,
   type AppLockState,
 } from '../services/appLockState';
-import { colors, radius, spacing } from '../../../shared/theme';
+import { colors, radius, spacing } from '../../../ui/design_system';
 
 /**
  * 앱 잠금이 켜져 있으면, 앱을 열거나 (충분히 오래) 백그라운드에서 돌아올 때 생체/기기 인증을 요구한다.

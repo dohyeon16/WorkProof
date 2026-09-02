@@ -7,10 +7,10 @@
 //  - 예정 근무와 실제 기록을 잇는 명시적 FK 가 없으므로(공통 필드는 workplaceId+date),
 //    "날짜 단위 실제 우선" 이라는 단순·안전한 정책을 쓴다.
 //  - 임계값은 정보성 안내용 힌트일 뿐, 주휴·연장 '발생 확정'이 아니다(문구는 호출부에서 처리).
-import type { AttendanceRecord, ScheduledShift, Workplace } from '../../core/domain/models/types';
-import type { AppNotification } from '../../core/notifications/deriveNotifications';
-import { parseLocalDate, formatLocalDate } from '../../shared/utils/date';
-import { formatMinutesAsHours, shiftDurationMinutes, shiftWorkedMinutes } from '../../core/domain/payroll/payCalc';
+import type { AttendanceRecord, ScheduledShift, Workplace } from '../../types/domain';
+import type { AppNotification } from '../../services/notifications/deriveNotifications';
+import { parseLocalDate, formatLocalDate } from '../../utils/date';
+import { formatMinutesAsHours, shiftDurationMinutes, shiftWorkedMinutes } from '../payroll/services/payCalc';
 
 // 정보성 안내 임계(분). 법정 확정 기준이 아니라 "확인해보라"는 힌트 경계.
 export const WEEKLY_ALLOWANCE_MIN = 15 * 60; // 주휴수당 요건 확인 안내

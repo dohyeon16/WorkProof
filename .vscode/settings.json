@@ -1,0 +1,22 @@
+{
+  // Explorer 에는 소스만 보이게 한다. 아래는 전부 재생성 가능한 산출물/캐시라
+  // 숨기기만 하고 삭제하지 않는다(.venv 는 실제 백엔드 개발환경이다).
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/dist": true,
+    "**/dist-tests": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.venv": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/dist": true,
+    "**/dist-tests": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.venv": true
+  }
+}

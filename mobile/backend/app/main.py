@@ -14,12 +14,12 @@ from app.core.logging import configure_logging
 from app.api.v1 import ai_proxy as v1_ai
 from app.api.v1 import attendance_records as v1_attendance
 from app.api.v1 import auth as v1_auth
-from app.api.v1 import bridge as legacy_bridge
+from app.api.v1 import oauth_bridge as legacy_bridge
 from app.api.v1 import health as v1_health
 from app.api.v1 import users as v1_users
 from app.api.v1 import work_schedules as v1_work_schedules
 from app.api.v1 import workplaces as v1_workplaces
-from app.services import work_data
+from app.services import work_data_service
 
 configure_logging()
 
@@ -51,25 +51,25 @@ app.include_router(v1_ai.router, prefix="/api/v1")
 
 
 # work-data 도메인 예외 → HTTP 상태 매핑(라우터를 얇게 유지).
-@app.exception_handler(work_data.NotFoundError)
-def _handle_not_found(request: Request, exc: work_data.NotFoundError) -> JSONResponse:
+@app.exception_handler(work_data_service.NotFoundError)
+def _handle_not_found(request: Request, exc: work_data_service.NotFoundError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)}
     )
 
 
-@app.exception_handler(work_data.ClientIdConflictError)
+@app.exception_handler(work_data_service.ClientIdConflictError)
 def _handle_client_conflict(
-    request: Request, exc: work_data.ClientIdConflictError
+    request: Request, exc: work_data_service.ClientIdConflictError
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)}
     )
 
 
-@app.exception_handler(work_data.InvalidWorkplaceError)
+@app.exception_handler(work_data_service.InvalidWorkplaceError)
 def _handle_invalid_workplace(
-    request: Request, exc: work_data.InvalidWorkplaceError
+    request: Request, exc: work_data_service.InvalidWorkplaceError
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": str(exc)}

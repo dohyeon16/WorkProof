@@ -2,9 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ApiError } from '../src/core/api/errors';
+import { ApiError } from '../src/services/api/errors';
 import { SessionExpiredError } from '../src/features/auth/state/session';
-import type { AiRemote } from '../src/core/api/aiProxyApi';
+import type { AiRemote } from '../src/services/api/aiProxyApi';
 import {
   emptyPayslipAmounts,
   normalizeAmount,
@@ -12,8 +12,8 @@ import {
   reconcileTotals,
   stripCodeFence,
   PAYSLIP_ALL_FIELDS,
-} from '../src/features/payroll/services/payslipExtraction';
-import { structurePayslipText } from '../src/features/payroll/services/payslipStructuring';
+} from '../src/features/payslip/services/payslipExtraction';
+import { structurePayslipText } from '../src/features/payslip/services/payslipStructuring';
 
 // ---------- normalizeAmount ----------
 test('normalizeAmount: 정수/0/음수/비유한', () => {

@@ -8,7 +8,7 @@ from __future__ import annotations
 import httpx
 
 from app.core.config import settings
-from app.services.provider_common import (
+from app.services.google_provider import (
     AiEmptyResult,
     AiUnsupportedMime,
     AiUpstreamError,

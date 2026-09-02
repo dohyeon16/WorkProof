@@ -32,20 +32,30 @@ OCR 은 이미지를 다루고 문서를 해석하지 않는다. AI Summary 는 
 
 ```
 mobile/frontend/src/
-├─ ocr/              visionOcr · ocrError · readAsBase64(.web) · types
-├─ ai_summary/       geminiSummary · useAiAnalysis · aiAccess
-├─ core/api/         client · errors · config · aiProxyApi  ← 두 영역이 함께 쓰는 전송 계층
-├─ features/         화면과 feature 로직 (evidence/services/analyzeContract.ts = 오케스트레이터)
-├─ shared/           재사용 컴포넌트 · 유틸 · 테마
-└─ app/              네비게이션
+├─ app/navigation/       RootNavigator · MainTabs
+├─ features/             화면 + 그 화면의 로직 (auth · workplace · work_schedule · attendance ·
+│                        payroll · payslip · pay_comparison · evidence · settings · sync ...)
+├─ ui/                   components/(forms·feedback·display) · design_system/(토큰 3계층)
+├─ services/
+│  ├─ ocr/               visionOcr · ocrError · readAsBase64(.web) · ocr.types
+│  ├─ ai_summary/        geminiSummary · useAiAnalysis · aiAccess
+│  ├─ api/               client · errors · config · aiProxyApi  ← 두 영역이 함께 쓰는 전송 계층
+│  ├─ storage/ files/ backup/ notifications/
+├─ hooks/ types/ utils/
+
+오케스트레이터(두 영역을 잇는 곳):
+  features/evidence/services/analyzeContract.ts   (근로계약서)
+  features/payslip/services/analyzePayslip.ts     (급여명세서)
 
 mobile/backend/app/services/
-├─ ocr/              vision.py (Vision 호출)
-├─ ai_summary/       gemini.py (호출) · prompts.py (시스템 프롬프트)
-└─ provider_common.py  예외 5종 · require_key · post_json  ← 두 영역이 함께 쓰는 공용 계층
+├─ ocr/                  vision.py (Vision 호출)
+├─ ai_summary/           gemini.py (호출) · prompts.py (시스템 프롬프트)
+├─ auth/                 auth_service · token_service · social_verify · oauth_bridge
+├─ work_data_service.py  근무지 · 근무예정 · 출퇴근 기록 처리
+└─ google_provider.py    예외 5종 · require_key · post_json  ← 두 영역이 함께 쓰는 공용 계층
 ```
 
-`aiProxyApi`(프론트) 와 `provider_common`(백엔드) 이 각 런타임에서 같은 역할을 한다:
+`aiProxyApi`(프론트) 와 `google_provider`(백엔드) 가 각 런타임에서 같은 역할을 한다:
 두 영역이 공유하는 것을 한쪽에 두면 다른 쪽이 그쪽에 의존하게 되므로, 공용 위치로 뺐다.
 
 ## 데이터 흐름
@@ -55,20 +65,20 @@ Frontend                              Backend                         Provider
 ─────────────────────────────────────────────────────────────────────────────────
 VaultScreen / WorkplaceFormScreen
   └ features/evidence/services/analyzeContract.ts
-      ├→ ocr/visionOcr ───────────→ POST /api/v1/ai/ocr ──────────→ Vision
+      ├→ services/ocr/visionOcr ──────→ POST /api/v1/ai/ocr ──────────→ Vision
       │                               services/ocr/vision.py
-      └→ ai_summary/geminiSummary ─→ POST /api/v1/ai/summarize ───→ Gemini
+      └→ services/ai_summary/gemini ──→ POST /api/v1/ai/summarize ───→ Gemini
                                       services/ai_summary/gemini.py
 
 PayslipListScreen
-  └ features/payroll/services/analyzePayslip.ts
-      ├→ ocr/visionOcr ───────────→ POST /api/v1/ai/ocr ──────────→ Vision
+  └ features/payslip/services/analyzePayslip.ts
+      ├→ services/ocr/visionOcr ──────→ POST /api/v1/ai/ocr ──────────→ Vision
       └→ payslipStructuring ──────→ POST /api/v1/ai/extract-payslip → Gemini
             └→ payslipExtraction.parsePayslipRaw()   ← 파싱·검증은 클라이언트
 ```
 
-급여명세서 파싱(`features/payroll/services/payslipExtraction.ts`)은 OCR 도 AI 도 아니다 —
-모델이 낸 JSON 원문을 정규화·합계 대조하는 **급여 도메인 로직**이라 payroll feature 에 있다.
+급여명세서 파싱(`features/payslip/services/payslipExtraction.ts`)은 OCR 도 AI 도 아니다 —
+모델이 낸 JSON 원문을 정규화·합계 대조하는 **급여 도메인 로직**이라 payslip feature 에 있다.
 
 ## 시크릿
 

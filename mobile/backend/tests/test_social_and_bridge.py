@@ -6,8 +6,8 @@ from sqlalchemy import select
 
 from app.models.oauth_account import OAuthAccount
 from app.models.user import User
-from app.services import oauth_bridge, social_verify
-from app.services.social_verify import VerifiedSocialIdentity
+from app.services.auth import oauth_bridge, social_verify
+from app.services.auth.social_verify import VerifiedSocialIdentity
 
 
 # --------------------------- 기존 OAuth 라우트 계약 보존 ---------------------------

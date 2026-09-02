@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
-import { EmailDomainField, EMAIL_DOMAINS, buildEmail } from '../../../shared/components/EmailDomainField';
-import { Checkbox } from '../../../shared/components/Checkbox';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
+import { EmailDomainField, EMAIL_DOMAINS, buildEmail } from '../../../ui/components/forms/EmailDomainField';
+import { Checkbox } from '../../../ui/components/forms/Checkbox';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleLogo } from '../../../shared/components/GoogleLogo';
-import { Alert } from '../../../shared/components/alert';
+import { GoogleLogo } from '../../../ui/components/display/GoogleLogo';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { clearAllData, getAccount, saveAccount } from '../../../core/data/storage';
+import { clearAllData, getAccount, saveAccount } from '../../../services/storage/storage';
 import { useAuth } from '../state/AuthContext';
 import { authErrorMessage } from '../services/authErrors';
-import { ApiError } from '../../../core/api/errors';
-import { colors, fonts, radius, shadow, spacing } from '../../../shared/theme';
-import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/socialLogin';
-import type { AuthProvider } from '../../../core/domain/models/types';
+import { ApiError } from '../../../services/api/errors';
+import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
+import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
+import type { AuthProvider } from '../../../types/domain';
 
 type Props = RootScreenProps<'Signup'>;
 

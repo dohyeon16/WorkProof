@@ -2,12 +2,12 @@
 //  - client_id 멱등: 같은 client_id 활성 재생성 → 기존 반환(중복 row 없음), 삭제분 → 409.
 //  - soft-delete: delete 는 목록에서 감춘다. update/delete 대상 없으면 404.
 //  - 응답은 서버 관리 필드 + client_id + created_at/updated_at.
-import { ApiError } from '../../src/core/api/errors';
+import { ApiError } from '../../src/services/api/errors';
 import type {
   AttendanceRecord,
   ScheduledShift,
   Workplace,
-} from '../../src/core/domain/models/types';
+} from '../../src/types/domain';
 import type { SyncPersistence, WorkDataRemote } from '../../src/features/sync/engine';
 import type { WireWorkplace } from '../../src/features/sync/mappers';
 import { emptySyncState, type SyncState } from '../../src/features/sync/model';

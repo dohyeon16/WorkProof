@@ -13,9 +13,9 @@ import RootNavigator from './src/app/navigation/RootNavigator';
 import { AuthProvider } from './src/features/auth/state/AuthContext';
 import { SyncProvider } from './src/features/sync/SyncContext';
 import { AppLockGate } from './src/features/security/components/AppLockGate';
-import { AlertHost } from './src/shared/components/alert';
-import { colors } from './src/shared/theme';
-import { resumeNaverRedirectIfPending } from './src/features/auth/services/naverIdentityWeb';
+import { AlertHost } from './src/ui/components/feedback/Alert';
+import { colors } from './src/ui/design_system';
+import { resumeNaverRedirectIfPending } from './src/features/auth/services/social/naverIdentityWeb';
 import type { RootStackParamList } from './src/app/navigation/types';
 
 function AppShell({ children }: { children: ReactNode }) {

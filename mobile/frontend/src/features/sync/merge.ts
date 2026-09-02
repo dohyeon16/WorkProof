@@ -10,7 +10,7 @@ import type {
   AttendanceRecord,
   ScheduledShift,
   Workplace,
-} from '../../core/domain/models/types';
+} from '../../types/domain';
 import {
   applyServerAttendance,
   applyServerSchedule,

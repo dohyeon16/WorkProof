@@ -7,7 +7,7 @@ import {
   datesOfWeek,
   deriveWorktimeNotices,
 } from '../src/features/insights/weeklyWorktime';
-import type { AttendanceRecord, ScheduledShift, Workplace } from '../src/core/domain/models/types';
+import type { AttendanceRecord, ScheduledShift, Workplace } from '../src/types/domain';
 
 const at = (d: string, t: string) => new Date(`${d}T${t}:00`).getTime();
 function rec(over: Partial<AttendanceRecord>): AttendanceRecord {

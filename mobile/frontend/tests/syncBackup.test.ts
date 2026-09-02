@@ -7,7 +7,7 @@ import {
   BACKUP_EXCLUDED_KEYS,
   BACKUP_KEYS,
   KEYS,
-} from '../src/core/data/storageKeys';
+} from '../src/services/storage/storageKeys';
 
 test('sync metadata 는 백업에서 제외된다(다른 계정/기기 충돌 방지)', () => {
   assert.equal(BACKUP_EXCLUDED_KEYS.includes(KEYS.syncState), true);

@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
-import { Alert } from '../../../shared/components/alert';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,15 +18,15 @@ import {
   makeId,
   renameEvidenceFile,
   updateEvidenceAnalysis,
-} from '../../../core/data/storage';
-import { EvidenceFile, EvidenceKind, Workplace } from '../../../core/domain/models/types';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
-import { openStoredUriInNewTab, shareStoredUri } from '../../../shared/utils/webOpen';
+} from '../../../services/storage/storage';
+import { EvidenceFile, EvidenceKind, Workplace } from '../../../types/domain';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
+import { openStoredUriInNewTab, shareStoredUri } from '../../../utils/webOpen';
 import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/analyzeContract';
-import { useAiAnalysis } from '../../../ai_summary/useAiAnalysis';
-import { FILE_UNREADABLE_MESSAGE } from '../../../ocr/visionOcr';
-import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
+import { useAiAnalysis } from '../../../services/ai_summary/useAiAnalysis';
+import { FILE_UNREADABLE_MESSAGE } from '../../../services/ocr/visionOcr';
+import { persistPickedFile, resolveReadableUri } from '../../../services/files/fileStore';
 
 type Props = MainTabScreenProps<'Vault'>;
 

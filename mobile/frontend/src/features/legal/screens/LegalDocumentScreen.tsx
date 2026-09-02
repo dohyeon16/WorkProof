@@ -1,10 +1,10 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
+import { Text } from '../../../ui/components/display/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { LEGAL_DOCUMENTS } from '../content/legalContent';
-import { colors, radius, spacing } from '../../../shared/theme';
+import { LEGAL_DOCUMENTS } from '../legalContent';
+import { colors, radius, spacing } from '../../../ui/design_system';
 
 type Props = RootScreenProps<'LegalDocument'>;
 

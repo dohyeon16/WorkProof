@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { Alert } from '../../../shared/components/alert';
+import { Text } from '../../../ui/components/display/Text';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAllAttendance, getScheduledShifts, getWorkplaces } from '../../../core/data/storage';
-import { rescheduleAllPaydayReminders, rescheduleMissingClockOutReminders } from '../../../core/notifications/notifications';
-import { isExpoGo } from '../../../shared/utils/expoGo';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { getAllAttendance, getScheduledShifts, getWorkplaces } from '../../../services/storage/storage';
+import { rescheduleAllPaydayReminders, rescheduleMissingClockOutReminders } from '../../../services/notifications/notifications';
+import { isExpoGo } from '../../../utils/expoGo';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 
 type Props = RootScreenProps<'NotifPermission'>;
 

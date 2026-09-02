@@ -17,11 +17,11 @@ import {
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
-import { createApiClient } from '../../../core/api/client';
+import { createApiClient } from '../../../services/api/client';
 import { createSessionApi } from '../services/authApi';
 import { refreshTokenStore } from '../services/tokenStore';
 import { createSession, type AuthStateSnapshot } from './session';
-import type { AuthUser, LoginInput, RegisterInput, UpdateProfileInput } from '../types';
+import type { AuthUser, LoginInput, RegisterInput, UpdateProfileInput } from '../auth.types';
 
 // 앱 수명 동안 유지되는 단일 세션. 클라이언트/스토어는 모듈 로드 시 한 번만 만든다.
 const session = createSession({

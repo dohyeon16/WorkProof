@@ -5,8 +5,8 @@ import {
   diffAttendance,
   buildAttendanceChange,
   formatChangeValue,
-} from '../src/features/attendance/audit/auditTrail';
-import type { AttendanceRecord } from '../src/core/domain/models/types';
+} from '../src/features/attendance/services/auditTrail';
+import type { AttendanceRecord } from '../src/types/domain';
 
 function rec(over: Partial<AttendanceRecord> = {}): AttendanceRecord {
   return {

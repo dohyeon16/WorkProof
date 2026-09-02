@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert } from '../../../shared/components/alert';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { getAccount, saveAccount } from '../../../core/data/storage';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { getAccount, saveAccount } from '../../../services/storage/storage';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 
 type Props = RootScreenProps<'ResetPassword'>;
 

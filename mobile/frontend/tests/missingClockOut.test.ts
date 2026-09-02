@@ -6,8 +6,8 @@ import {
   inProgressRecords,
   GRACE_AFTER_END_MIN,
   DEFAULT_AFTER_CLOCKIN_HOURS,
-} from '../src/features/attendance/missingClockOut/schedule';
-import type { AttendanceRecord, ScheduledShift } from '../src/core/domain/models/types';
+} from '../src/features/attendance/services/missingClockOutSchedule';
+import type { AttendanceRecord, ScheduledShift } from '../src/types/domain';
 
 function rec(over: Partial<AttendanceRecord> = {}): AttendanceRecord {
   return { id: 'a1', workplaceId: 'w1', date: '2026-08-06', clockIn: '09:00', clockOut: '', breakMinutes: 0, ...over };

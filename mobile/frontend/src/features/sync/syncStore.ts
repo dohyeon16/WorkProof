@@ -1,7 +1,7 @@
 // 동기화 metadata 저장 + 로컬 레코드 접근을 실제 AsyncStorage/storage.ts 로 잇는 어댑터.
 // (엔진은 순수하고 I/O 를 주입받으므로, 이 파일이 유일한 저장소 결합 지점이다.)
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KEYS } from '../../core/data/storageKeys';
+import { KEYS } from '../../services/storage/storageKeys';
 import {
   getAllAttendance,
   getScheduledShifts,
@@ -9,7 +9,7 @@ import {
   saveAttendance,
   saveScheduledShift,
   saveWorkplace,
-} from '../../core/data/storage';
+} from '../../services/storage/storage';
 import { emptySyncState, type SyncState } from './model';
 import type { SyncPersistence } from './engine';
 

@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { deriveNotifications, type NotificationsInput } from '../src/core/notifications/deriveNotifications';
-import type { AttendanceRecord, PayRecord, Workplace } from '../src/core/domain/models/types';
+import { deriveNotifications, type NotificationsInput } from '../src/services/notifications/deriveNotifications';
+import type { AttendanceRecord, PayRecord, Workplace } from '../src/types/domain';
 
 function wp(over: Partial<Workplace> = {}): Workplace {
   return {

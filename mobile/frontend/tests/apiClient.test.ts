@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createApiClient, type FetchLike } from '../src/core/api/client';
-import { ApiError } from '../src/core/api/errors';
+import { createApiClient, type FetchLike } from '../src/services/api/client';
+import { ApiError } from '../src/services/api/errors';
 
 interface FakeResponse {
   ok: boolean;

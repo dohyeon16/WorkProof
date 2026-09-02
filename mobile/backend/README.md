@@ -9,6 +9,49 @@ code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로 
   방식(웹 OAuth, 네이티브 SDK) 그대로 동작합니다 — `mobile/docs/OAUTH_SETUP.md` 참고.
 - **iOS/Android Expo Go**: 이 서버가 필요합니다.
 
+## app/ 구성 — 폴더 이름이 곧 역할이다
+
+FastAPI 표준 레이어 구조다. "무슨 기능인가"는 각 레이어 안의 **파일 이름**이 말해준다 —
+`workplaces` 를 찾으려면 api·schemas·models 세 곳의 같은 이름 파일을 보면 된다.
+
+```
+app/
+├─ main.py            앱 팩토리 · CORS · 예외 핸들러 · 라우터 등록
+│
+├─ api/v1/            ← HTTP 엔드포인트 (파일 하나 = 기능 하나)
+│  ├─ auth.py             회원가입 · 로그인 · 토큰 재발급 · 소셜 로그인
+│  ├─ oauth_bridge.py     Expo Go 전용 OAuth 브릿지 (접두사 없는 레거시 경로)
+│  ├─ users.py            내 정보 조회·수정 · 근무 데이터 초기화
+│  ├─ workplaces.py       근무지 CRUD
+│  ├─ work_schedules.py   근무 예정 CRUD
+│  ├─ attendance_records.py 출퇴근 기록 CRUD
+│  ├─ ai_proxy.py         OCR · AI 요약 프록시 (/api/v1/ai/*)
+│  ├─ health.py           상태 확인
+│  └─ work_data_deps.py   근무 데이터 목록 공통 의존성(페이지네이션·날짜/근무지 필터)
+│
+├─ services/          ← 비즈니스 로직 (라우터는 얇게 유지)
+│  ├─ auth/               auth_service · token_service · social_verify · oauth_bridge
+│  ├─ ocr/                vision.py — 이미지·PDF → 텍스트 (Google Vision)
+│  ├─ ai_summary/         gemini.py(호출) · prompts.py — 텍스트 → 요약·급여명세서 JSON
+│  ├─ work_data_service.py 근무지·근무예정·출퇴근 기록 처리(소유권·멱등성·GPS 재계산)
+│  └─ google_provider.py  OCR·AI 가 함께 쓰는 Google 호출 공용 계층(예외·키·POST)
+│
+├─ schemas/           요청/응답 Pydantic 모델 = API 계약
+│                     auth · user · workplace · work_schedule · attendance_record · ai
+├─ models/            SQLAlchemy ORM 테이블
+│                     user · oauth_account · refresh_token · workplace · work_schedule · attendance_record
+├─ repositories/      DB 쿼리와 소유권 필터 캡슐화
+│                     users · oauth_accounts · refresh_tokens · work_data
+├─ database/          엔진·세션(session.py) · ORM 베이스(base.py)
+└─ core/              config(설정) · security(해시·JWT) · deps(의존성) · logging · geo(좌표 거리)
+```
+
+그 밖에: `alembic/` 마이그레이션, `tests/` pytest, `main.py`(= `uvicorn main:app` 진입점,
+`app/main.py` 재export), `conftest.py`(테스트 DB/의존성 오버라이드).
+
+OCR(`services/ocr`)과 AI 요약(`services/ai_summary`)은 서로를 import 하지 않는다.
+공통 규칙만 `services/google_provider.py` 에 있고, 둘을 잇는 것은 `api/v1/ai_proxy.py` 다.
+
 ## 동작 방식
 
 1. 앱이 `POST /auth/session/{provider}`로 세션을 만들고 `login_url`을 받습니다.
@@ -93,7 +136,7 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 연동되지 않았습니다**. **Preview 환경 검증(Neon Preview DB `0003_work_data`,
 live verification 55/55 PASS)에 이어 Production 배포도 완료했습니다**(Neon Production DB
 `0003_work_data`, commit `e6bb6a0`, live smoke verification PASS).
-스키마는 모바일 로컬 저장 모델(`mobile/frontend/src/core/domain/models/types.ts`)의 실제 필드를 기준으로 정했습니다.
+스키마는 모바일 로컬 저장 모델(`mobile/frontend/src/types/domain.ts`)의 실제 필드를 기준으로 정했습니다.
 
 ### 리소스와 엔드포인트
 

@@ -15,7 +15,7 @@ import type {
   IncomeDeductionType,
   ScheduledShift,
   Workplace,
-} from '../../core/domain/models/types';
+} from '../../types/domain';
 import type { ResourceType } from './model';
 
 // ---------------------------------------------------------------------------

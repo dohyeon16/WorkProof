@@ -4,7 +4,7 @@
 //
 // 보안: 토큰/바디를 로그로 남기지 않는다(client.ts 가 이미 redaction). Base URL 은
 // core/api/config 가 결정 — 기본값은 Preview, 운영 빌드는 EXPO_PUBLIC_API_BASE_URL.
-import type { ApiClient } from '../../core/api/client';
+import type { ApiClient } from '../../services/api/client';
 import type { WorkDataRemote } from './engine';
 import type { WireAttendance, WireSchedule, WireWorkplace } from './mappers';
 

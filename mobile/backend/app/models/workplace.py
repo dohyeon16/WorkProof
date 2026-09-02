@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.database.base import Base
 from app.models.mixins import OwnedRecordMixin
 
 # 세후 실수령액 추정용 공제 유형(모바일 IncomeDeductionType 과 동일 값).

@@ -28,7 +28,7 @@ mobile/docs/      설계·설정 문서
 
 ## 2. 데이터 저장 구조 (local-first)
 
-모든 도메인 데이터는 `mobile/frontend/src/core/data/storage.ts`를 통해 `AsyncStorage`에 저장된다.
+모든 도메인 데이터는 `mobile/frontend/src/services/storage/storage.ts`를 통해 `AsyncStorage`에 저장된다.
 백엔드 DB가 아니라 **기기 자체가 유일한 저장소**다. 주요 엔티티(`src/types.ts`):
 
 - **Workplace** — 근무지(시급/주휴수당 여부/5인 이상 여부/공제 유형/근로계약서 사본/GPS 위치)

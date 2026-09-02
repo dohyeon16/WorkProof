@@ -29,7 +29,7 @@ async def health_db():
     try:
         from sqlalchemy import text
 
-        from app.db.session import get_sessionmaker
+        from app.database.session import get_sessionmaker
 
         session_factory = get_sessionmaker()
         with session_factory() as db:

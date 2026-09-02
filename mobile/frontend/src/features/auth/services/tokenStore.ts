@@ -9,7 +9,7 @@
 //    웹은 이 앱에서 개발 프리뷰 용도이며, 실제 배포 타깃은 네이티브다.
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import type { RefreshTokenStore } from '../types';
+import type { RefreshTokenStore } from '../auth.types';
 
 const REFRESH_TOKEN_KEY = 'workproof.auth.refreshToken';
 

@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app.core import deps  # noqa: E402
-from app.db.base import Base  # noqa: E402
+from app.database.base import Base  # noqa: E402
 import app.models  # noqa: E402,F401  (모든 모델 등록 → metadata 완성)
 from main import app as fastapi_app  # noqa: E402
 

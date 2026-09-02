@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdateRequest
-from app.services import auth_service, work_data
+from app.services import work_data_service
+from app.services.auth import auth_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -36,7 +37,7 @@ def reset_my_work_data(
     회원탈퇴(DELETE /me)와 구분된다: 여기서는 user/oauth/refresh 를 남겨 재로그인이
     가능하고, 다음 동기화(pull)에 과거 데이터가 다시 내려오지 않도록 물리 삭제한다.
     """
-    work_data.reset_work_data(db, current_user)
+    work_data_service.reset_work_data(db, current_user)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

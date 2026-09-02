@@ -9,7 +9,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.ai_summary.prompts import PAYSLIP_SYSTEM_PROMPT, SUMMARY_SYSTEM_PROMPT
-from app.services.provider_common import (
+from app.services.google_provider import (
     AiEmptyResult,
     AiUpstreamError,
     post_json,

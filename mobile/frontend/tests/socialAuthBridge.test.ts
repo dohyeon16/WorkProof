@@ -15,8 +15,8 @@ function readSrc(relPath: string): string {
   return readFileSync(join(process.cwd(), relPath), 'utf8');
 }
 
-const expoGoOAuthSrc = readSrc('src/features/auth/services/expoGoOAuth.ts');
-const socialLoginSrc = readSrc('src/features/auth/services/socialLogin.ts');
+const expoGoOAuthSrc = readSrc('src/features/auth/services/social/expoGoOAuth.ts');
+const socialLoginSrc = readSrc('src/features/auth/services/social/socialLogin.ts');
 const loginScreenSrc = readSrc('src/features/auth/screens/LoginScreen.tsx');
 const signupScreenSrc = readSrc('src/features/auth/screens/SignupScreen.tsx');
 const authApiSrc = readSrc('src/features/auth/services/authApi.ts');

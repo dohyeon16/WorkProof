@@ -19,17 +19,17 @@ import WorkplaceRegisteredScreen from '../../features/workplace/screens/Workplac
 import WorkplaceSwitchScreen from '../../features/workplace/screens/WorkplaceSwitchScreen';
 import AttendanceCheckScreen from '../../features/attendance/screens/AttendanceCheckScreen';
 import AttendanceFormScreen from '../../features/attendance/screens/AttendanceFormScreen';
-import ScheduleFormScreen from '../../features/schedule/screens/ScheduleFormScreen';
+import ScheduleFormScreen from '../../features/work_schedule/screens/ScheduleFormScreen';
 import PayInputScreen from '../../features/payroll/screens/PayInputScreen';
-import PayCompareScreen from '../../features/payroll/screens/PayCompareScreen';
-import PayComparisonDetailScreen from '../../features/payroll/screens/PayComparisonDetailScreen';
-import PayslipListScreen from '../../features/payroll/screens/PayslipListScreen';
-import PayslipReviewScreen from '../../features/payroll/screens/PayslipReviewScreen';
+import PayCompareScreen from '../../features/pay_comparison/screens/PayCompareScreen';
+import PayComparisonDetailScreen from '../../features/pay_comparison/screens/PayComparisonDetailScreen';
+import PayslipListScreen from '../../features/payslip/screens/PayslipListScreen';
+import PayslipReviewScreen from '../../features/payslip/screens/PayslipReviewScreen';
 import ChecklistDetailScreen from '../../features/payroll/screens/ChecklistDetailScreen';
 import ReportScreen from '../../features/payroll/screens/ReportScreen';
 import ShareCompleteScreen from '../../features/evidence/screens/ShareCompleteScreen';
 import LegalDocumentScreen from '../../features/legal/screens/LegalDocumentScreen';
-import { colors } from '../../shared/theme';
+import { colors } from '../../ui/design_system';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

@@ -9,18 +9,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ApiError } from '../src/core/api/errors';
-import { createApiClient, type FetchLike, type ApiClient } from '../src/core/api/client';
+import { ApiError } from '../src/services/api/errors';
+import { createApiClient, type FetchLike, type ApiClient } from '../src/services/api/client';
 import { createSession, SessionExpiredError } from '../src/features/auth/state/session';
-import type { AuthSession, RefreshTokenStore, SessionApi } from '../src/features/auth/types';
-import { createAiRemote, type AiRemote } from '../src/core/api/aiProxyApi';
-import { summarizeContractText } from '../src/ai_summary/geminiSummary';
-import { mapOcrApiError, OCR_EMPTY_MESSAGE, isUnsupportedOcrMimeType } from '../src/ocr/ocrError';
+import type { AuthSession, RefreshTokenStore, SessionApi } from '../src/features/auth/auth.types';
+import { createAiRemote, type AiRemote } from '../src/services/api/aiProxyApi';
+import { summarizeContractText } from '../src/services/ai_summary/geminiSummary';
+import { mapOcrApiError, OCR_EMPTY_MESSAGE, isUnsupportedOcrMimeType } from '../src/services/ocr/ocrError';
 import {
   AI_LOGIN_GATE,
   requiresLoginForNewAnalysis,
   VIEW_SAVED_ANALYSIS_REQUIRES_LOGIN,
-} from '../src/ai_summary/aiAccess';
+} from '../src/services/ai_summary/aiAccess';
 
 // ---------- 공통 fake ----------
 interface Recorded {

@@ -16,7 +16,7 @@ from app.schemas.auth import (
     SocialAuthRequest,
     TokenPairResponse,
 )
-from app.services import auth_service, social_verify, token_service
+from app.services.auth import auth_service, social_verify, token_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

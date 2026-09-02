@@ -1,8 +1,8 @@
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SocialLoginResult } from '../../features/auth/services/socialLogin';
-import type { PayslipAmounts, PayslipExtractionSource } from '../../core/domain/models/types';
+import type { SocialLoginResult } from '../../features/auth/services/social/socialLogin';
+import type { PayslipAmounts, PayslipExtractionSource } from '../../types/domain';
 
 // 네이버는 전체 페이지 리다이렉트로 로그인/회원가입을 처리한다. 리다이렉트 후
 // 앱이 재부팅되면 이 값을 통해 어느 화면에서, 로그인/회원가입 중 무엇을 하다가

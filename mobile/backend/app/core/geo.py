@@ -1,7 +1,7 @@
 """좌표 거리(하버사인) — 순수 함수. 서버가 근무지 좌표와 출퇴근 좌표로 거리를
 직접 재계산한다(클라이언트가 보낸 거리를 신뢰하지 않는다).
 
-모바일(src/features/attendance/utils/geo.ts)과 동일한 상수를 쓴다:
+모바일(src/features/attendance/services/geo.ts)과 동일한 상수를 쓴다:
 - 지구 반지름 6_371_000 m 구 근사
 - 반경 인증 기준 VERIFY_RADIUS_M = 200 m
 거리 단위는 미터, 정수 반올림은 half-up(모바일 Math.round과 일치).

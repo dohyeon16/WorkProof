@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
+import { Text } from '../../../ui/components/display/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { isLoggedIn, isOnboardingDone } from '../../../core/data/storage';
+import { isLoggedIn, isOnboardingDone } from '../../../services/storage/storage';
 import { useAuth } from '../../auth/state/AuthContext';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 
 type Props = RootScreenProps<'Splash'>;
 

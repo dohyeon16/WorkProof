@@ -12,7 +12,7 @@ from app.schemas.work_schedule import (
     WorkScheduleResponse,
     WorkScheduleUpdate,
 )
-from app.services import work_data
+from app.services import work_data_service
 
 router = APIRouter(prefix="/work-schedules", tags=["work-schedules"])
 
@@ -26,7 +26,7 @@ def create_schedule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> WorkScheduleResponse:
-    schedule, created = work_data.create_schedule(db, current_user, req)
+    schedule, created = work_data_service.create_schedule(db, current_user, req)
     if not created:
         response.status_code = status.HTTP_200_OK
     return schedule
@@ -39,7 +39,7 @@ def list_schedules(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WorkScheduleResponse]:
-    return work_data.list_schedules(
+    return work_data_service.list_schedules(
         db,
         current_user,
         page.limit,
@@ -56,7 +56,7 @@ def get_schedule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> WorkScheduleResponse:
-    return work_data.get_schedule(db, current_user, schedule_id)
+    return work_data_service.get_schedule(db, current_user, schedule_id)
 
 
 @router.patch("/{schedule_id}", response_model=WorkScheduleResponse)
@@ -66,7 +66,7 @@ def update_schedule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> WorkScheduleResponse:
-    return work_data.update_schedule(db, current_user, schedule_id, req)
+    return work_data_service.update_schedule(db, current_user, schedule_id, req)
 
 
 @router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -75,4 +75,4 @@ def delete_schedule(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    work_data.delete_schedule(db, current_user, schedule_id)
+    work_data_service.delete_schedule(db, current_user, schedule_id)

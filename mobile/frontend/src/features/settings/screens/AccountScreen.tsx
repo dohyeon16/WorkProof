@@ -6,14 +6,14 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
-import { Alert } from '../../../shared/components/alert';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import { useAuth } from '../../auth/state/AuthContext';
 import { authErrorMessage } from '../../auth/services/authErrors';
-import { clearAllData } from '../../../core/data/storage';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { clearAllData } from '../../../services/storage/storage';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 
 type Props = RootScreenProps<'Account'>;
 

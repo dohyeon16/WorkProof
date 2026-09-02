@@ -10,7 +10,7 @@
 //  GET  /users/me       (Bearer)                       -> 200 UserResponse
 //  PATCH/users/me       {name?} (Bearer)               -> 200 UserResponse
 //  DELETE /users/me     (Bearer)                       -> 204 No Content
-import type { ApiClient } from '../../../core/api/client';
+import type { ApiClient } from '../../../services/api/client';
 import type {
   AuthSession,
   AuthUser,
@@ -18,7 +18,7 @@ import type {
   RegisterInput,
   SessionApi,
   UpdateProfileInput,
-} from '../types';
+} from '../auth.types';
 
 // --- 서버 wire 형식(snake_case) ---
 interface WireUser {

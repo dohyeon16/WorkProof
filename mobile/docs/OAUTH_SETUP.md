@@ -187,7 +187,7 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
 > 앱은 **backend 프록시**(`POST /api/v1/ai/ocr`, `POST /api/v1/ai/summarize`,
 > **인증 필수**)만 호출합니다. 실제 Vision/Gemini 키는 **backend 환경변수**
 > (`GOOGLE_VISION_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`)에만 둡니다 —
-> `mobile/backend/.env.example` 참고. 앱 클라이언트(`src/ocr/visionOcr.ts`,
+> `mobile/backend/.env.example` 참고. 앱 클라이언트(`src/services/ocr/visionOcr.ts`,
 > `.../ai/geminiSummary.ts`)는 파일을 base64 로 읽어 프록시에 보내기만 합니다.
 
 **provider 키 발급/설정**은 backend 쪽에서 합니다:

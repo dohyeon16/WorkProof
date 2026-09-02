@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KEYS, ALL_KEYS, BACKUP_KEYS, BACKUP_EXCLUDED_KEYS } from '../src/core/data/storageKeys';
+import { KEYS, ALL_KEYS, BACKUP_KEYS, BACKUP_EXCLUDED_KEYS } from '../src/services/storage/storageKeys';
 
 // Phase 4A hardening: 변경 이력(attendanceHistory) 저장 정책 회귀 방지.
 test('attendanceHistory 는 전체 초기화(clearAllData) 대상이다(회원탈퇴·초기화 시 삭제)', () => {

@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { Alert } from '../../../shared/components/alert';
+import { Text } from '../../../ui/components/display/Text';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -15,15 +15,15 @@ import {
   getPayRecord,
   getWorkplace,
   makeId,
-} from '../../../core/data/storage';
-import { AttendanceRecord, EvidenceFile, PayRecord, Workplace } from '../../../core/domain/models/types';
-import { calcMonthlySummary, formatMinutesAsHours, formatWon } from '../../../core/domain/payroll/payCalc';
+} from '../../../services/storage/storage';
+import { AttendanceRecord, EvidenceFile, PayRecord, Workplace } from '../../../types/domain';
+import { calcMonthlySummary, formatMinutesAsHours, formatWon } from '../services/payCalc';
 import { buildComplaintHtml, buildReportHtml } from '../services/report';
-import { formatYearMonth } from '../../../shared/utils/date';
-import { openHtmlInNewTab, toHtmlDataUri } from '../../../shared/utils/webOpen';
+import { formatYearMonth } from '../../../utils/date';
+import { openHtmlInNewTab, toHtmlDataUri } from '../../../utils/webOpen';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = RootScreenProps<'Report'>;
 

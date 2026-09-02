@@ -1,23 +1,23 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { Alert } from '../../../shared/components/alert';
+import { Text } from '../../../ui/components/display/Text';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../../../app/navigation/types';
-import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../../../core/data/storage';
+import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../../../services/storage/storage';
 import { useAuth } from '../../auth/state/AuthContext';
 import { useSync } from '../../sync/SyncContext';
 import { isAppLockAvailable, authenticateAppLock } from '../../security/services/appLock';
-import { createBackup, restoreBackup } from '../../../core/backup/backup';
-import { cancelAllScheduledNotifications } from '../../../core/notifications/notifications';
-import { createApiClient } from '../../../core/api/client';
+import { createBackup, restoreBackup } from '../../../services/backup/backup';
+import { cancelAllScheduledNotifications } from '../../../services/notifications/notifications';
+import { createApiClient } from '../../../services/api/client';
 
 // 앱 초기화 시 서버 업무 데이터를 지우는 엔드포인트(회원탈퇴가 아님 — 계정은 유지).
 const apiClient = createApiClient();
-import { Account } from '../../../core/domain/models/types';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
+import { Account } from '../../../types/domain';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
 
 type Props = MainTabScreenProps<'More'>;
 

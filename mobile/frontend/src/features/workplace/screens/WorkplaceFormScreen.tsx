@@ -11,14 +11,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
-import { FieldInput } from '../../../shared/components/FieldInput';
-import { InputAccessoryToolbar } from '../../../shared/components/InputAccessoryToolbar';
-import { useNumericInputNavigation } from '../../../shared/hooks/useNumericInputNavigation';
+import { Text } from '../../../ui/components/display/Text';
+import { FieldInput } from '../../../ui/components/forms/FieldInput';
+import { InputAccessoryToolbar } from '../../../ui/components/forms/InputAccessoryToolbar';
+import { useNumericInputNavigation } from '../../../hooks/useNumericInputNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Alert } from '../../../shared/components/alert';
+import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
 import {
   deleteWorkplace,
@@ -28,16 +28,16 @@ import {
   saveContractEvidence,
   saveWorkplace,
   setActiveWorkplaceId,
-} from '../../../core/data/storage';
-import { cancelPaydayReminder, schedulePaydayReminder } from '../../../core/notifications/notifications';
-import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../../../core/domain/payroll/payCalc';
+} from '../../../services/storage/storage';
+import { cancelPaydayReminder, schedulePaydayReminder } from '../../../services/notifications/notifications';
+import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../../payroll/services/payCalc';
 import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../../evidence/services/analyzeContract';
-import { useAiAnalysis } from '../../../ai_summary/useAiAnalysis';
-import { FILE_UNREADABLE_MESSAGE } from '../../../ocr/visionOcr';
-import { persistPickedFile, resolveReadableUri } from '../../../shared/utils/fileStore';
-import type { EvidenceKind, IncomeDeductionType } from '../../../core/domain/models/types';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import { useAiAnalysis } from '../../../services/ai_summary/useAiAnalysis';
+import { FILE_UNREADABLE_MESSAGE } from '../../../services/ocr/visionOcr';
+import { persistPickedFile, resolveReadableUri } from '../../../services/files/fileStore';
+import type { EvidenceKind, IncomeDeductionType } from '../../../types/domain';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = RootScreenProps<'WorkplaceForm'>;
 

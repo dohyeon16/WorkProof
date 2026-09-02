@@ -7,7 +7,7 @@
 //  - 401 재시도: 인증 요청이 401이면 refresh 후 한 번만 재시도. 재시도도 401이면 세션 정리.
 //  - refresh가 401(무효/재사용/폐기)이면 즉시 로컬 세션을 비우고 unauthenticated 전환.
 //  - 네트워크/타임아웃 오류는 세션을 지우지 않고 그대로 전파(로그인 유지).
-import { ApiError } from '../../../core/api/errors';
+import { ApiError } from '../../../services/api/errors';
 import type {
   AuthSession,
   AuthUser,
@@ -16,7 +16,7 @@ import type {
   RegisterInput,
   SessionApi,
   UpdateProfileInput,
-} from '../types';
+} from '../auth.types';
 
 export type AuthStatus = 'initializing' | 'authenticated' | 'unauthenticated';
 

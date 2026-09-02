@@ -1,6 +1,6 @@
 // 인증 오류를 사용자에게 보여줄 한국어 문구로 바꾼다. ApiError/SessionExpiredError의
 // message는 이미 사용자 노출용 안전 문자열(서버 detail 또는 상태별 폴백)이다.
-import { ApiError } from '../../../core/api/errors';
+import { ApiError } from '../../../services/api/errors';
 import { SessionExpiredError } from '../state/session';
 
 const DEFAULT_FALLBACK = '문제가 발생했어요. 잠시 후 다시 시도해주세요.';

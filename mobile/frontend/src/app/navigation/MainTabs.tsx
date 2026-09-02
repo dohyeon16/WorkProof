@@ -8,7 +8,7 @@ import RecordsCalendarScreen from '../../features/attendance/screens/RecordsCale
 import AnalysisScreen from '../../features/payroll/screens/AnalysisScreen';
 import VaultScreen from '../../features/evidence/screens/VaultScreen';
 import MoreScreen from '../../features/settings/screens/MoreScreen';
-import { colors, fonts } from '../../shared/theme';
+import { colors, fonts } from '../../ui/design_system';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 

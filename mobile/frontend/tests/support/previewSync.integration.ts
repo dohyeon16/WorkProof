@@ -6,13 +6,13 @@
 //  - 토큰/비밀번호/전체 이메일을 출력하지 않는다(마스킹).
 //  - 전용 임시 계정으로 진행하고, 끝에 work-data 0 + 계정 삭제로 정리한다.
 import assert from 'node:assert/strict';
-import { createApiClient } from '../../src/core/api/client';
-import { ApiError } from '../../src/core/api/errors';
+import { createApiClient } from '../../src/services/api/client';
+import { ApiError } from '../../src/services/api/errors';
 import type {
   AttendanceRecord,
   ScheduledShift,
   Workplace,
-} from '../../src/core/domain/models/types';
+} from '../../src/types/domain';
 import { runSync } from '../../src/features/sync/engine';
 import { createWorkDataRemote } from '../../src/features/sync/workDataApi';
 import { InMemoryPersistence } from './syncHarness';

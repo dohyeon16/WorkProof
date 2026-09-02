@@ -2,7 +2,7 @@
 
 - WorkProof: 아르바이트 근무 기록과 예상 급여를 관리하는 React Native(Expo) 앱
 - 코드는 `mobile/` 아래 두 런타임으로 나뉜다 — `mobile/frontend/`(Expo 앱, 도메인 데이터는 `AsyncStorage` 로컬 저장), `mobile/backend/`(FastAPI: OAuth 중계 + Vision/Gemini 프록시)
-- OCR과 AI 요약은 각 런타임 안에서 별도 영역이다 — `frontend/src/ocr`·`frontend/src/ai_summary`, `backend/app/services/ocr`·`backend/app/services/ai_summary`. 섞지 말 것
+- OCR과 AI 요약은 각 런타임 안에서 별도 영역이다 — `frontend/src/services/ocr`·`frontend/src/services/ai_summary`, `backend/app/services/ocr`·`backend/app/services/ai_summary`. 섞지 말 것
 - 문서는 `mobile/docs/`, 커밋 대상이 아닌 로컬 보존 자료는 `mobile/archive/`
 - 패키지 매니저는 npm만 사용 (`mobile/frontend/package-lock.json` 기준)
 - `mobile/frontend/AGENTS.md` 참고: Expo 버전이 자주 바뀌므로, 코드 작성 전 해당 버전 공식 문서를 확인할 것

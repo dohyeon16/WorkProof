@@ -13,12 +13,12 @@
 //  - 네트워크/타임아웃 → offline 로 간주, 남은 push 중단(과도한 재시도 방지), backoff 예약.
 //  - 409/422 → 영구 실패(failed) — 무한 재시도 금지, 로컬 데이터는 삭제하지 않음.
 //  - 404 → delete 는 성공 취급(이미 삭제), create/update 는 serverId 를 비우고 재생성 예약.
-import { ApiError } from '../../core/api/errors';
+import { ApiError } from '../../services/api/errors';
 import type {
   AttendanceRecord,
   ScheduledShift,
   Workplace,
-} from '../../core/domain/models/types';
+} from '../../types/domain';
 import {
   attendanceCreateBody,
   attendanceManagedBody,

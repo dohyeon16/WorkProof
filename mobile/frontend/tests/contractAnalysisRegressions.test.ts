@@ -17,7 +17,7 @@ function readSrc(relPath: string): string {
 const analyzeContractSrc = readSrc('src/features/evidence/services/analyzeContract.ts');
 const workplaceFormSrc = readSrc('src/features/workplace/screens/WorkplaceFormScreen.tsx');
 const vaultScreenSrc = readSrc('src/features/evidence/screens/VaultScreen.tsx');
-const aiProxyApiSrc = readSrc('src/core/api/aiProxyApi.ts');
+const aiProxyApiSrc = readSrc('src/services/api/aiProxyApi.ts');
 const reportScreenSrc = readSrc('src/features/payroll/screens/ReportScreen.tsx');
 
 test('analyzeEvidenceFile: HEIC/HEIF 는 파일 읽기/서버 호출 전에 OCR_UNSUPPORTED_FORMAT 으로 즉시 반환한다', () => {

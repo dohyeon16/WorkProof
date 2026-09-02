@@ -1,4 +1,4 @@
-import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './types';
+import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './place.types';
 
 // 네이티브(iOS/Android)는 브라우저가 아니라 CORS 제약이 없으므로, 카카오 로그인에
 // 쓰는 것과 같은 REST API 키로 카카오 로컬 API를 직접 호출한다. 웹에서는 이 키로

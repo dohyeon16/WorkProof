@@ -10,7 +10,7 @@ from app.models.attendance_record import AttendanceRecord
 from app.models.user import User
 from app.models.work_schedule import WorkSchedule
 from app.models.workplace import Workplace
-from app.services import work_data
+from app.services import work_data_service
 
 
 def _register(client, email):
@@ -166,7 +166,7 @@ def test_reset_rolls_back_on_midway_failure(db, monkeypatch):
     monkeypatch.setattr(db, "execute", flaky_execute)
 
     with pytest.raises(RuntimeError):
-        work_data.reset_work_data(db, user)
+        work_data_service.reset_work_data(db, user)
 
     monkeypatch.undo()
     # 롤백되어 세 종류 모두 그대로 남아 있어야 한다(부분 삭제 없음).

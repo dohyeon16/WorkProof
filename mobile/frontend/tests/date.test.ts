@@ -11,7 +11,7 @@ import {
   todayDateString,
   currentYearMonth,
   shiftYearMonth,
-} from '../src/shared/utils/date';
+} from '../src/utils/date';
 
 // KST 00:00~08:59 경계: 로컬 시:분이 무엇이든 그날의 로컬 날짜를 그대로 반환해야 한다
 // (toISOString(UTC) 구현이면 이 구간에서 전날로 밀린다).

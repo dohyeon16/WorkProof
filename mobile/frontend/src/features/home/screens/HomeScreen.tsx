@@ -1,18 +1,18 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../../../shared/components/Text';
+import { Text } from '../../../ui/components/display/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../../../app/navigation/types';
-import { getAttendanceByMonth, getAttendanceByWorkplace, getPayRecord, getActiveOrFirstWorkplace, getScheduledShifts, getUpcomingShifts } from '../../../core/data/storage';
+import { getAttendanceByMonth, getAttendanceByWorkplace, getPayRecord, getActiveOrFirstWorkplace, getScheduledShifts, getUpcomingShifts } from '../../../services/storage/storage';
 import { computeWeeklyWorktime, weeklyInsight, weekMondayOf, type WeeklyWorktime } from '../../insights/weeklyWorktime';
-import { getUnreadCount } from '../../../core/notifications/notificationsFeed';
-import { AttendanceRecord, PayRecord, ScheduledShift, Workplace } from '../../../core/domain/models/types';
-import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../../../core/domain/payroll/payCalc';
-import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../../../shared/utils/date';
-import { colors, radius, shadow, spacing } from '../../../shared/theme';
-import { LoadingScreen } from '../../../shared/components/LoadingScreen';
+import { getUnreadCount } from '../../../services/notifications/notificationsFeed';
+import { AttendanceRecord, PayRecord, ScheduledShift, Workplace } from '../../../types/domain';
+import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../../payroll/services/payCalc';
+import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../../../utils/date';
+import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = MainTabScreenProps<'Home'>;
 
