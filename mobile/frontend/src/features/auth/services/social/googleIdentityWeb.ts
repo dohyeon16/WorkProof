@@ -1,4 +1,5 @@
 import type { SocialLoginResult } from './socialLogin';
+import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // Google Identity Services (GIS) — web-only ID Token sign-in. No client
 // secret and no authorization-code exchange: the browser gets a signed JWT
@@ -77,12 +78,12 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
   try {
     await loadGisScript();
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return { status: 'error', code: (console.warn(describeForLog('google', 'google-web', err)), classifySocialError(err)) };
   }
 
   const google = window.google;
   if (!google?.accounts?.id) {
-    return { status: 'error', message: 'Google Identity Services를 초기화하지 못했어요.' };
+    return { status: 'error', code: 'PROVIDER_UNAVAILABLE' };
   }
 
   return new Promise<SocialLoginResult>((resolve) => {
@@ -117,13 +118,13 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
       ux_mode: 'popup',
       callback: (response: { credential?: string }) => {
         if (!response?.credential) {
-          settle({ status: 'error', message: 'Google 로그인 응답을 받지 못했어요.' });
+          settle({ status: 'error', code: 'UNKNOWN' });
           return;
         }
         try {
           const payload = decodeIdToken(response.credential);
           if (!payload.sub) {
-            settle({ status: 'error', message: '사용자 정보를 가져오지 못했어요.' });
+            settle({ status: 'error', code: 'UNKNOWN' });
             return;
           }
           settle({
@@ -141,7 +142,7 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
             },
           });
         } catch {
-          settle({ status: 'error', message: 'Google 로그인 정보를 처리하지 못했어요.' });
+          settle({ status: 'error', code: 'UNKNOWN' });
         }
       },
     });
@@ -152,7 +153,7 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
 
     const clickable = container.querySelector<HTMLElement>('div[role="button"]');
     if (!clickable) {
-      settle({ status: 'error', message: 'Google 로그인 버튼을 초기화하지 못했어요.' });
+      settle({ status: 'error', code: 'PROVIDER_UNAVAILABLE' });
       return;
     }
     clickable.click();

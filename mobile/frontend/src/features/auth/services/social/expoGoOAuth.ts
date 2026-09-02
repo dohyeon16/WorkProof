@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import type { SocialLoginResult } from './socialLogin';
+import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // Expo Go can't register the app's custom URL scheme (workproof://) or load
 // the Kakao/Naver native SDKs — so none of the flows in providers.ts,
@@ -131,7 +132,7 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
   try {
     session = await createBridgeSession(provider, returnUrl);
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return { status: 'error', code: (console.warn(describeForLog('provider', 'bridge', err)), classifySocialError(err)) };
   }
   const { session_id: sessionId, login_url: loginUrl } = session;
 
@@ -188,7 +189,8 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
         return finish(toSocialLoginResult(statusRes.profile, sessionId));
       }
       if (statusRes.status === 'error') {
-        return finish({ status: 'error', message: statusRes.message ?? '로그인에 실패했어요.' });
+        console.warn(describeForLog(provider, 'bridge-status', statusRes.message));
+        return finish({ status: 'error', code: classifySocialError(statusRes.message) });
       }
       // 세션이 아직 pending인데 브라우저가 복귀 URL이 아닌 방식으로 닫혔다면
       // (사용자가 직접 닫음) 취소로 처리한다. 복귀 URL 감지로 닫힌 경우
@@ -199,8 +201,8 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
       }
     }
   } catch (err) {
-    return finish({ status: 'error', message: err instanceof Error ? err.message : String(err) });
+    return finish({ status: 'error', code: (console.warn(describeForLog('provider', 'bridge', err)), classifySocialError(err)) });
   }
 
-  return finish({ status: 'error', message: '로그인 시간이 초과됐어요. 다시 시도해주세요.' });
+  return finish({ status: 'error', code: 'TIMEOUT' });
 }

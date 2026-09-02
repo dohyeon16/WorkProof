@@ -6,6 +6,7 @@ import { loginWithGoogleWeb } from './googleIdentityWeb';
 import { loginWithKakaoNative } from './kakaoNative';
 import { loginWithNaverNative } from './naverNative';
 import { isExpoGo, loginWithProviderExpoGo } from './expoGoOAuth';
+import { classifySocialError, describeForLog, type SocialAuthErrorCode } from './socialAuthErrors';
 import {
   startNaverRedirect,
   type NaverRedirectMode,
@@ -32,7 +33,9 @@ export type SocialLoginResult =
   // generic "API 키 미발급" message anymore, since the actual cause differs
   // per provider (missing env var vs. platform not implemented yet, etc).
   | { status: 'not_configured'; reason: string }
-  | { status: 'error'; message: string };
+  // 원문(message) 대신 분류된 code 만 싣는다 — 화면은 socialErrorMessage() 로
+  // 사용자 문장을 만들고, provider/OAuth 원문은 어디에도 표시하지 않는다.
+  | { status: 'error'; code: SocialAuthErrorCode };
 
 function notConfiguredReason(provider: 'google' | 'kakao'): string {
   if (provider === 'google' && Platform.OS === 'android') {
@@ -110,7 +113,8 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
 
     const result = await request.promptAsync(config.discovery);
     if (result.type === 'error') {
-      return { status: 'error', message: result.error?.message ?? '알 수 없는 오류' };
+      console.warn(describeForLog(provider, 'authorize', result.error));
+      return { status: 'error', code: classifySocialError(result.error) };
     }
     if (result.type !== 'success') {
       return { status: 'cancelled' };
@@ -134,11 +138,13 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
 
     const profile = config.mapProfile(rawProfile);
     if (!profile.providerId) {
-      return { status: 'error', message: '사용자 정보를 가져오지 못했어요.' };
+      console.warn(describeForLog(provider, 'profile', 'empty providerId'));
+      return { status: 'error', code: 'UNKNOWN' };
     }
     return { status: 'success', profile };
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    console.warn(describeForLog(provider, 'token-exchange', err));
+    return { status: 'error', code: classifySocialError(err) };
   }
 }
 

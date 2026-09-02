@@ -21,9 +21,9 @@ export const VIEW_SAVED_ANALYSIS_REQUIRES_LOGIN = false;
 
 /** 비로그인 사용자가 새 AI 분석을 누르면 보여줄 로그인 유도 문구/버튼. */
 export const AI_LOGIN_GATE = {
-  title: 'AI 분석은 로그인 후 사용할 수 있어요',
-  message:
-    'AI 분석은 로그인 후 사용할 수 있어요.\n로그인하면 문서 내용을 안전하게 서버를 통해 분석할 수 있습니다.',
-  confirmLabel: '로그인하고 AI 분석하기',
+  // 제목과 본문이 같은 문장을 반복하지 않는다 — 제목은 상태, 본문은 이유/이득만 말한다.
+  title: 'AI 분석은 로그인이 필요해요',
+  message: '로그인하면 첨부한 문서를 안전하게 분석할 수 있어요.',
+  confirmLabel: '로그인하고 분석하기',
   cancelLabel: '나중에',
 } as const;

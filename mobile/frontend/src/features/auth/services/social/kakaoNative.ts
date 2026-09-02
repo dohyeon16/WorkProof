@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { login, getProfile } from '@react-native-seoul/kakao-login';
 import type { SocialLoginResult } from './socialLogin';
+import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // Native-build-only (Android + iOS) Kakao login. This is deliberately
 // separate from the browser-based AuthSession/PKCE flow in socialLogin.ts
@@ -37,7 +38,7 @@ export async function loginWithKakaoNative(): Promise<SocialLoginResult> {
     await login();
     const profile = await getProfile();
     if (!profile.id) {
-      return { status: 'error', message: '사용자 정보를 가져오지 못했어요.' };
+      return { status: 'error', code: 'UNKNOWN' };
     }
     return {
       status: 'success',
@@ -57,6 +58,6 @@ export async function loginWithKakaoNative(): Promise<SocialLoginResult> {
     if (code === 'E_CANCELLED_OPERATION') {
       return { status: 'cancelled' };
     }
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return { status: 'error', code: (console.warn(describeForLog('kakao', 'kakao-native', err)), classifySocialError(err)) };
   }
 }

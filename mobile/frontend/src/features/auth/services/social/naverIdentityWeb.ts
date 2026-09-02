@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { SocialLoginResult } from './socialLogin';
+import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // 네이버 아이디로 로그인 JavaScript SDK — client secret 없이 브라우저에서 바로 로그인.
 //
@@ -119,7 +120,7 @@ function createNaverLogin(naver: NaverGlobal): NaverLoginInstance {
 function extractProfile(user: NaverUser): SocialLoginResult {
   const id = user.getId ? user.getId() : user.id;
   if (!id) {
-    return { status: 'error', message: '사용자 정보를 가져오지 못했어요.' };
+    return { status: 'error', code: 'UNKNOWN' };
   }
   const email = (user.getEmail ? user.getEmail() : user.email) ?? '';
   const name = (user.getName ? user.getName() : user.name) || user.getNickName?.() || '네이버 사용자';
@@ -197,11 +198,11 @@ export async function startNaverRedirect(
   try {
     await loadSdk();
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    return { status: 'error', code: (console.warn(describeForLog('naver', 'naver-web', err)), classifySocialError(err)) };
   }
   const naver = window.naver;
   if (!naver?.LoginWithNaverId) {
-    return { status: 'error', message: '네이버 로그인 SDK를 초기화하지 못했어요.' };
+    return { status: 'error', code: 'PROVIDER_UNAVAILABLE' };
   }
 
   writePending(mode, screen);
@@ -235,7 +236,7 @@ export async function resumeNaverRedirectIfPending(): Promise<NaverRedirectResum
     return {
       mode: pending.mode,
       screen: pending.screen,
-      result: { status: 'error', message: hashParams.error_description || '네이버 로그인에 실패했어요.' },
+      result: { status: 'error', code: classifySocialError(hashParams.error_description) },
     };
   }
 
@@ -246,7 +247,7 @@ export async function resumeNaverRedirectIfPending(): Promise<NaverRedirectResum
     return {
       mode: pending.mode,
       screen: pending.screen,
-      result: { status: 'error', message: err instanceof Error ? err.message : String(err) },
+      result: { status: 'error', code: (console.warn(describeForLog('naver', 'naver-web', err)), classifySocialError(err)) },
     };
   }
 
@@ -256,7 +257,7 @@ export async function resumeNaverRedirectIfPending(): Promise<NaverRedirectResum
     return {
       mode: pending.mode,
       screen: pending.screen,
-      result: { status: 'error', message: '네이버 로그인 SDK를 초기화하지 못했어요.' },
+      result: { status: 'error', code: 'PROVIDER_UNAVAILABLE' },
     };
   }
 
