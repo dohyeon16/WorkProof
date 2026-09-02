@@ -9,7 +9,29 @@ import type {
   Workplace,
 } from '../../src/core/domain/models/types';
 import type { SyncPersistence, WorkDataRemote } from '../../src/features/sync/engine';
+import type { WireWorkplace } from '../../src/features/sync/mappers';
 import { emptySyncState, type SyncState } from '../../src/features/sync/model';
+
+// 정책 필드까지 채운 유효한 WireWorkplace(값 무관 테스트용 — over 로 필요한 것만 덮어씀).
+export function wireWorkplace(over: Partial<WireWorkplace> = {}): WireWorkplace {
+  return {
+    id: 'srv-wp',
+    client_id: 'wp-1',
+    name: '근무지',
+    hourly_wage: 10030,
+    address: null,
+    latitude: null,
+    longitude: null,
+    pay_day: 10,
+    weekly_allowance: true,
+    five_or_more_employees: false,
+    income_deduction_type: 'none',
+    break_minutes_per_shift: 0,
+    created_at: 'c',
+    updated_at: 'u',
+    ...over,
+  };
+}
 
 export function httpError(status: number, detail = 'err'): ApiError {
   return new ApiError('http', detail, status, detail);

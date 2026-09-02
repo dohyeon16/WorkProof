@@ -53,6 +53,27 @@ test('update 병합: synced 이후 로컬 편집 → update 1건', () => {
   assert.deepEqual(operations, [{ resource: 'workplace', kind: 'update', clientId: 'wp-1' }]);
 });
 
+test('3C backfill: 3B 지문(정책 없음)으로 synced 였던 근무지는 update 로 정책을 밀어낸다', () => {
+  const wp = makeWorkplace('wp-1'); // 현재 로컬(정책 필드 포함)
+  const state = emptySyncState();
+  // Phase 3B 시절 저장된 지문: 정책 없이 기본 필드만 직렬화된 형태.
+  const legacyFingerprint = JSON.stringify([
+    wp.name,
+    Math.round(wp.hourlyWage),
+    wp.address ?? null,
+    wp.latitude ?? null,
+    wp.longitude ?? null,
+  ]);
+  state.workplace['wp-1'] = meta({
+    clientId: 'wp-1',
+    serverId: 'srv-1',
+    fingerprint: legacyFingerprint,
+  });
+  const { operations } = reconcile(snapshot({ workplace: [wp] }), state);
+  // 지문 불일치 → update 로 정책 backfill.
+  assert.deepEqual(operations, [{ resource: 'workplace', kind: 'update', clientId: 'wp-1' }]);
+});
+
 test('synced + 변경 없음 → 연산 없음', () => {
   const wp = makeWorkplace('wp-1');
   const state = emptySyncState();

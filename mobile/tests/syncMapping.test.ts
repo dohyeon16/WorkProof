@@ -18,8 +18,19 @@ import {
 } from '../src/features/sync/mappers';
 import { makeAttendance, makeSchedule, makeWorkplace } from './support/syncHarness';
 
-test('workplace: 로컬 id → client_id, 서버 관리 필드만 매핑', () => {
-  const w = makeWorkplace('wp-1', { hourlyWage: 12000, address: '서울', latitude: 37.5, longitude: 127.0 });
+test('workplace: 로컬 id → client_id, 서버 관리 필드(기본+정책) 매핑', () => {
+  const w = makeWorkplace('wp-1', {
+    hourlyWage: 12000,
+    address: '서울',
+    latitude: 37.5,
+    longitude: 127.0,
+    payDay: 25,
+    weeklyAllowance: false,
+    fiveOrMoreEmployees: true,
+    incomeDeductionType: 'withholding',
+    breakMinutesPerShift: 60,
+    contractPhotoUri: 'file:///c.jpg', // 기기 로컬 — 전송 안 함
+  });
   const body = workplaceCreateBody(w) as Record<string, unknown>;
   assert.equal(body.client_id, 'wp-1');
   assert.equal(body.name, w.name);
@@ -27,10 +38,32 @@ test('workplace: 로컬 id → client_id, 서버 관리 필드만 매핑', () =>
   assert.equal(body.address, '서울');
   assert.equal(body.latitude, 37.5);
   assert.equal(body.longitude, 127.0);
-  // 로컬 전용 필드는 전송하지 않는다.
-  assert.equal('payDay' in body, false);
-  assert.equal('weeklyAllowance' in body, false);
-  assert.equal('breakMinutesPerShift' in body, false);
+  // 급여 정책(Phase 3C) — snake_case 로 전송.
+  assert.equal(body.pay_day, 25);
+  assert.equal(body.weekly_allowance, false);
+  assert.equal(body.five_or_more_employees, true);
+  assert.equal(body.income_deduction_type, 'withholding');
+  assert.equal(body.break_minutes_per_shift, 60);
+  // 계약서 등 기기 로컬 필드는 전송하지 않는다(camel/snake 모두 부재).
+  assert.equal('contractPhotoUri' in body, false);
+  assert.equal('contract_photo_uri' in body, false);
+});
+
+test('workplace: 구버전 optional 정책 필드는 기본값으로 전송(five/income 미설정)', () => {
+  const w = makeWorkplace('wp-1');
+  delete (w as { fiveOrMoreEmployees?: boolean }).fiveOrMoreEmployees;
+  delete (w as { incomeDeductionType?: string }).incomeDeductionType;
+  const body = workplaceManagedBody(w);
+  assert.equal(body.five_or_more_employees, false);
+  assert.equal(body.income_deduction_type, 'none');
+});
+
+test('지문: 정책 필드가 바뀌면 지문이 달라져 update 가 나간다(3C backfill)', () => {
+  const base = makeWorkplace('wp-1');
+  const fp0 = workplaceFingerprint(base);
+  assert.notEqual(workplaceFingerprint({ ...base, payDay: base.payDay + 1 }), fp0);
+  assert.notEqual(workplaceFingerprint({ ...base, incomeDeductionType: 'insurance' }), fp0);
+  assert.notEqual(workplaceFingerprint({ ...base, weeklyAllowance: !base.weeklyAllowance }), fp0);
 });
 
 test('좌표는 항상 짝 — 한쪽만 있으면 둘 다 null 로 보낸다', () => {
@@ -73,17 +106,27 @@ test('attendance: 시간·휴게·좌표 짝·note 매핑', () => {
   assert.equal(body.clock_out_longitude, null);
 });
 
-test('지문: 서버 관리 필드가 바뀌면 변하고, 로컬 전용 필드는 영향 없음', () => {
+test('지문: 서버 관리 필드가 바뀌면 변하고, 계약서 등 기기 로컬 필드는 영향 없음', () => {
   const base = makeWorkplace('wp', { hourlyWage: 10000, payDay: 25 });
   const fp0 = workplaceFingerprint(base);
-  // 로컬 전용 필드만 변경 → 지문 동일(불필요한 update 방지).
-  assert.equal(workplaceFingerprint({ ...base, payDay: 10, weeklyAllowance: false }), fp0);
-  // 서버 관리 필드 변경 → 지문 변화.
+  // 계약서/OCR 등 기기 로컬 필드만 변경 → 지문 동일(불필요한 update 방지).
+  assert.equal(
+    workplaceFingerprint({ ...base, contractPhotoUri: 'file:///x.jpg', contractSummary: 's' }),
+    fp0
+  );
+  // 서버 관리 필드 변경(시급) → 지문 변화.
   assert.notEqual(workplaceFingerprint({ ...base, hourlyWage: 11000 }), fp0);
 });
 
-test('applyServerWorkplace: 기존 로컬의 전용 필드는 유지하고 서버 필드만 갱신', () => {
-  const local = makeWorkplace('wp-1', { hourlyWage: 10000, payDay: 15, weeklyAllowance: true, breakMinutesPerShift: 60 });
+test('applyServerWorkplace: 계약서 등 기기 로컬 필드는 유지, 서버 관리 필드(정책 포함)는 갱신', () => {
+  const local = makeWorkplace('wp-1', {
+    hourlyWage: 10000,
+    payDay: 15,
+    weeklyAllowance: true,
+    breakMinutesPerShift: 60,
+    contractPhotoUri: 'file:///contract.jpg',
+    contractSummary: '요약',
+  });
   const wire: WireWorkplace = {
     id: 'srv-1',
     client_id: 'wp-1',
@@ -92,6 +135,11 @@ test('applyServerWorkplace: 기존 로컬의 전용 필드는 유지하고 서�
     address: '부산',
     latitude: null,
     longitude: null,
+    pay_day: 5,
+    weekly_allowance: false,
+    five_or_more_employees: true,
+    income_deduction_type: 'withholding',
+    break_minutes_per_shift: 0,
     created_at: 'c',
     updated_at: 'u',
   };
@@ -99,13 +147,18 @@ test('applyServerWorkplace: 기존 로컬의 전용 필드는 유지하고 서�
   assert.equal(merged.name, '새 이름');
   assert.equal(merged.hourlyWage, 13000);
   assert.equal(merged.address, '부산');
-  // 로컬 전용 필드 보존.
-  assert.equal(merged.payDay, 15);
-  assert.equal(merged.weeklyAllowance, true);
-  assert.equal(merged.breakMinutesPerShift, 60);
+  // 정책 필드는 이제 서버 관리 — 서버 값으로 갱신된다.
+  assert.equal(merged.payDay, 5);
+  assert.equal(merged.weeklyAllowance, false);
+  assert.equal(merged.fiveOrMoreEmployees, true);
+  assert.equal(merged.incomeDeductionType, 'withholding');
+  assert.equal(merged.breakMinutesPerShift, 0);
+  // 계약서 등 기기 로컬 필드는 보존(서버로 오가지 않음).
+  assert.equal(merged.contractPhotoUri, 'file:///contract.jpg');
+  assert.equal(merged.contractSummary, '요약');
 });
 
-test('applyServerWorkplace: 서버 전용(로컬 없음) → 안전한 기본값으로 추가', () => {
+test('applyServerWorkplace: 서버 전용(로컬 없음) → 정책 필드도 서버 값으로 복원', () => {
   const wire: WireWorkplace = {
     id: 'srv-9',
     client_id: 'wp-remote',
@@ -114,15 +167,23 @@ test('applyServerWorkplace: 서버 전용(로컬 없음) → 안전한 기본값
     address: null,
     latitude: null,
     longitude: null,
+    pay_day: 20,
+    weekly_allowance: false,
+    five_or_more_employees: true,
+    income_deduction_type: 'insurance',
+    break_minutes_per_shift: 30,
     created_at: 'c',
     updated_at: 'u',
   };
   const added = applyServerWorkplace(undefined, wire);
   assert.equal(added.id, 'wp-remote'); // client_id 를 로컬 id 로
   assert.equal(added.hourlyWage, 9860);
-  assert.equal(typeof added.payDay, 'number');
+  // 정책 필드가 서버 값으로 복원(더 이상 하드코딩 기본값 아님).
+  assert.equal(added.payDay, 20);
   assert.equal(added.weeklyAllowance, false);
-  assert.equal(added.breakMinutesPerShift, 0);
+  assert.equal(added.fiveOrMoreEmployees, true);
+  assert.equal(added.incomeDeductionType, 'insurance');
+  assert.equal(added.breakMinutesPerShift, 30);
 });
 
 test('applyServerSchedule: 기존 로컬은 workplaceId(로컬 참조) 유지', () => {
