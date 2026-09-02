@@ -2,16 +2,41 @@
 
 ```
 WorkProof/
+├─ .claude/             Claude Code 개인 설정 — gitignore 대상, 커밋 안 됨
 ├─ .github/workflows/   mobile-ci.yml · backend-ci.yml
+├─ .vscode/settings.json  Explorer 표시 규칙(생성물 숨김 + File Nesting) — 빌드에 영향 없음
 ├─ .gitignore           저장소 전체 무시 규칙 (root 유지 필요)
 ├─ CLAUDE.md            Claude Code 가 root 에서 읽는 작업 지침
 ├─ README.md            GitHub 저장소 첫 화면
 └─ mobile/
    ├─ frontend/         React Native(Expo) 앱 — Expo/Metro 프로젝트 루트
    ├─ backend/          FastAPI 서버 — Python/Render 프로젝트 루트
-   ├─ docs/             설계·설정 문서 (실행에 필요 없는 것)
+   ├─ docs/             설계·설정 문서 (setup/ 도구 가이드, references/ PDF)
    └─ archive/          로컬 보존 자료 — gitignore 대상, 커밋 안 됨
+                        worktrees/ 는 Git worktree 라 일반 폴더처럼 옮기지 않는다
 ```
+
+## root 설정 파일은 옮기지 않는다
+
+`package.json` · `app.config.ts` · `eas.json` · `tsconfig*.json` · `main.py` ·
+`alembic.ini` · `conftest.py` · `requirements*.txt` · `.env*` 는 npm · Expo · EAS ·
+TypeScript · uvicorn/Render · Alembic · pytest 가 **각 런타임 루트에서 이름으로 찾는**
+파일이다. 보기 좋게 하려고 하위 폴더로 옮기면 도구가 깨진다.
+
+대신 `.vscode/settings.json` 의 `explorer.fileNesting` 으로 Explorer 에서만 대표 파일
+아래로 접어 보여준다(파일은 그대로 있다):
+
+| 접히는 위치 | 아래로 들어가는 파일 |
+| --- | --- |
+| `package.json` | `package-lock.json` · `tsconfig.json` · `tsconfig.tests.json` · `app.config.ts` · `eas.json` |
+| `App.tsx` | `index.ts` |
+| `README.md` | `CLAUDE.md` · `AGENTS.md` · `LICENSE` |
+| `.env` | `.env.example` |
+| `requirements.txt` | `requirements-dev.txt` |
+| `main.py` | `conftest.py` |
+
+같은 파일의 `files.exclude` 는 `node_modules` · `.expo` · `dist` · `dist-tests` ·
+`__pycache__` · `.pytest_cache` · `.venv` 를 Explorer 에서 숨긴다 — **숨김이지 삭제가 아니다.**
 
 `frontend/` 와 `backend/` 는 각각 **자기 런타임의 루트**다. Metro 의 projectRoot 는
 `mobile/frontend`, Render 의 Root Directory 는 `mobile/backend` 이며, 두 런타임은

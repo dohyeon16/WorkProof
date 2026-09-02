@@ -1,22 +1,67 @@
 {
-  // Explorer 에는 소스만 보이게 한다. 아래는 전부 재생성 가능한 산출물/캐시라
-  // 숨기기만 하고 삭제하지 않는다(.venv 는 실제 백엔드 개발환경이다).
+  // ─────────────────────────────────────────────────────────────────────
+  // 1) Explorer 에는 소스만 보이게 한다.
+  //    전부 재생성 가능한 산출물/캐시라 "숨기기"만 하고 삭제하지 않는다.
+  //    .venv 와 node_modules 는 실제 개발환경이므로 지우면 안 된다.
+  // ─────────────────────────────────────────────────────────────────────
   "files.exclude": {
     "**/node_modules": true,
     "**/.expo": true,
     "**/dist": true,
     "**/dist-tests": true,
+    "**/web-build": true,
     "**/__pycache__": true,
+    "**/*.pyc": true,
     "**/.pytest_cache": true,
-    "**/.venv": true
+    "**/.venv": true,
+    "**/*.tsbuildinfo": true
   },
   "search.exclude": {
     "**/node_modules": true,
     "**/.expo": true,
     "**/dist": true,
     "**/dist-tests": true,
+    "**/web-build": true,
     "**/__pycache__": true,
     "**/.pytest_cache": true,
-    "**/.venv": true
+    "**/.venv": true,
+    "**/package-lock.json": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/.expo/**": true,
+    "**/dist-tests/**": true,
+    "**/__pycache__/**": true
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 2) File Nesting — 도구가 위치를 강제하는 root 설정 파일들을 실제로는
+  //    그대로 두고, Explorer 에서만 대표 파일 아래로 접어 보여준다.
+  //    파일은 이동하지 않으므로 npm/Expo/EAS/tsc/pytest/alembic 동작에
+  //    아무 영향이 없다.
+  //    VS Code 의 nesting 은 1단계만 지원한다 — 자식은 다시 부모가 될 수
+  //    없으므로 tsconfig.*.json 같은 손자 패턴도 부모에 함께 나열한다.
+  // ─────────────────────────────────────────────────────────────────────
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    // frontend: 의존성 · TypeScript · Expo/EAS 설정을 package.json 아래로
+    "package.json": "package-lock.json, npm-shrinkwrap.json, tsconfig.json, tsconfig.*.json, app.config.ts, app.json, eas.json, .npmrc, .nvmrc, expo-env.d.ts",
+    // frontend: 앱 진입점 두 개(index.ts 가 App 을 등록한다)
+    "App.tsx": "index.ts",
+    // backend: 의존성 목록
+    "requirements.txt": "requirements-*.txt, requirements_*.txt, constraints.txt",
+    // backend: 실행 진입점 아래에 테스트 진입점(conftest)을 함께 — 위치는 그대로라
+    // pytest 의 conftest 탐색에 영향이 없다
+    "main.py": "conftest.py",
+    // 환경변수: 실제 .env 아래 예시 파일
+    ".env": ".env.*",
+    // .env 가 없는 곳(backend)에서는 .env.example 이 부모 역할을 한다
+    ".env.example": ".env.*.example, .env.sample",
+    // 문서/라이선스/에이전트 지침을 README 아래로
+    "README.md": "CLAUDE.md, AGENTS.md, LICENSE, LICENSE.*, CHANGELOG.md, CONTRIBUTING.md",
+    // git 메타
+    ".gitignore": ".gitattributes, .gitmodules"
   }
 }
