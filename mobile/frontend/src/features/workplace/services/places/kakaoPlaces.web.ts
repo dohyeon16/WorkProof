@@ -89,7 +89,13 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<PlaceSear
   try {
     await loadSdk();
   } catch (err) {
-    return { status: 'error', message: err instanceof Error ? err.message : String(err) };
+    // SDK/네트워크 원문을 그대로 보여주지 않는다 — 소셜 로그인에서와 같은 이유로,
+    // 사용자에게는 원인만 짧게 알리고 진단은 로그로 남긴다.
+    console.warn(
+      `[places] search failed: name=${err instanceof Error ? err.name : typeof err} ` +
+        `rawLen=${String(err instanceof Error ? err.message : err).length}`
+    );
+    return { status: 'error', message: '장소 검색에 실패했어요.\n네트워크 연결을 확인해주세요.' };
   }
 
   const kakao = window.kakao;
