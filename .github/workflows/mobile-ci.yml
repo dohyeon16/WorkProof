@@ -1,0 +1,53 @@
+name: WorkProof Mobile CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  typecheck-test-web-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: "true"
+      # CI 전용 무해한 placeholder 값 — 실제 키/Secret 아님, 인증 API 호출 없음.
+      # 웹 번들 시 EXPO_PUBLIC_* 가 undefined 가 되어 크래시하는 것을 예방하는 용도.
+      EXPO_PUBLIC_AUTH_API_URL: "https://example.invalid"
+      EXPO_PUBLIC_GEMINI_API_KEY: "ci-placeholder"
+      EXPO_PUBLIC_GOOGLE_VISION_API_KEY: "ci-placeholder"
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID: "ci-placeholder"
+      EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: "ci-placeholder"
+      EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: "ci-placeholder"
+      EXPO_PUBLIC_KAKAO_CLIENT_ID: "ci-placeholder"
+      EXPO_PUBLIC_KAKAO_CLIENT_SECRET: "ci-placeholder"
+      EXPO_PUBLIC_KAKAO_JS_KEY: "ci-placeholder"
+      EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY: "ci-placeholder"
+      EXPO_PUBLIC_NAVER_CLIENT_ID: "ci-placeholder"
+      EXPO_PUBLIC_NAVER_CLIENT_SECRET: "ci-placeholder"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+      - name: Export web bundle
+        run: npx expo export --platform web

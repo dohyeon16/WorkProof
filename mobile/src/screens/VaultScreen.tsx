@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
@@ -23,7 +23,7 @@ import { EvidenceFile, EvidenceKind, Workplace } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../utils/webOpen';
-import { analyzeContract, mimeTypeForKind } from '../ai/analyzeContract';
+import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../ai/analyzeContract';
 import { FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
 
@@ -84,19 +84,20 @@ function logPickFailure(
   }
 ) {
   const err = info.error;
+  // 개인정보/파일 데이터 노출 방지: URI 본문·앞부분·실제 경로·원본 파일명·base64는
+  // 절대 남기지 않는다. 스킴/길이/마스킹된 이름 등 진단에 필요한 최소 정보만 기록한다.
   console.warn(`[Vault] ${context} 실패`, {
     platform: Platform.OS,
     canceled: info.canceled,
     assetCount: info.assetCount,
-    name: info.name,
+    fileName: info.name ? maskFileName(info.name) : '(none)',
     mimeType: info.mimeType,
-    // 원본이 data: URI일 수도 있으므로 스킴 + 앞부분만(파일 내용 방지).
-    originalScheme: schemeOf(info.originalUri),
-    originalUriHead: info.originalUri?.slice(0, 48),
-    persistedUri: info.persistedUri, // idb://<key> 또는 file:// (내용 없음)
-    size: info.size ?? null,
+    fileSize: info.size ?? null,
+    // data:/blob:/file:/content:/idb: 등 스킴만 구분해 남긴다(경로·내용 제외).
+    uriScheme: schemeOf(info.originalUri),
+    uriLength: info.originalUri?.length ?? 0,
+    persistedScheme: schemeOf(info.persistedUri),
     error: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
   });
 }
 
@@ -172,6 +173,8 @@ export default function VaultScreen(_props: Props) {
   const [renameValue, setRenameValue] = useState('');
   const [analyzingName, setAnalyzingName] = useState<string | null>(null);
   const [summaryTarget, setSummaryTarget] = useState<EvidenceFile | null>(null);
+  // 같은 파일 분석이 동시에 두 번 실행되지 않도록 막는 락(모달로도 막히지만 이중 안전장치).
+  const analyzingRef = useRef(false);
 
   const load = useCallback(async () => {
     const w = await getActiveOrFirstWorkplace();
@@ -301,46 +304,62 @@ export default function VaultScreen(_props: Props) {
   };
 
   // 이미지/PDF 증빙을 OCR로 읽어 AI 요약까지 만들어 저장한다.
+  // 근무지 등록 화면과 동일한 공용 파이프라인(analyzeEvidenceFile)을 사용한다.
   const runAnalysis = async (item: EvidenceFile) => {
     if (!isAnalyzable(item)) {
       Alert.alert('분석할 수 없는 형식', '이미지 또는 PDF 파일만 텍스트를 인식할 수 있어요.');
       return;
     }
+    if (analyzingRef.current) return; // 중복 분석 방지
+    analyzingRef.current = true;
     setAnalyzingName(item.name);
     try {
-      const result = await analyzeContract(item.uri, resolveMimeType(item), {
+      const result = await analyzeEvidenceFile({
+        uri: item.uri,
         name: item.name,
+        mimeType: resolveMimeType(item),
         size: item.size,
+        logContext: { screen: 'Vault' },
       });
-      if (result.status === 'ocr_not_configured') {
+
+      if (result.errorCode === 'OCR_NOT_CONFIGURED') {
         Alert.alert('OCR 준비 중', 'Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md를 참고해주세요.');
         return;
       }
-      if (result.status === 'ocr_error') {
+      if (result.status === 'error') {
         // 만료된 URI 등 파일을 못 읽는 경우는 별도 안내(다시 추가 유도).
-        const isMissing = result.message === FILE_UNREADABLE_MESSAGE;
-        Alert.alert(isMissing ? '원본 파일 없음' : '텍스트 추출 실패', result.message);
+        const isMissing = result.errorCode === 'FILE_NOT_READY';
+        Alert.alert(
+          isMissing ? '원본 파일 없음' : '텍스트 추출 실패',
+          isMissing
+            ? FILE_UNREADABLE_MESSAGE
+            : '계약서 내용을 인식하지 못했어요. 사진 상태를 확인하고 다시 시도해주세요.'
+        );
         return;
       }
-      // 요약이 실패해도 추출된 텍스트는 저장해 다시 시도할 수 있게 한다.
+
+      // ocr_only 또는 success: 추출된 텍스트는 반드시 저장한다(요약 실패해도 보존).
       // 보관함에서 직접 분석한 파일은 계약서로 단정하지 않는다 — documentType은
       // 근무지 등록에서 첨부한 실제 근로계약서에만 붙인다(WorkplaceFormScreen).
-      const aiSummary = result.status === 'success' ? result.summary : undefined;
-      const analysis = {
+      if (!result.ocrText || !result.analyzedAt) return; // 방어(여기 도달 시 항상 존재)
+      const analysis: { ocrText: string; analyzedAt: string; aiSummary?: string } = {
         ocrText: result.ocrText,
-        aiSummary,
-        analyzedAt: new Date().toISOString(),
+        analyzedAt: result.analyzedAt,
       };
+      // 요약 성공 시에만 갱신 — 재분석에서 요약만 실패하면 기존 요약을 지우지 않는다.
+      if (result.aiSummary) analysis.aiSummary = result.aiSummary;
       await updateEvidenceAnalysis(item.id, analysis);
       await load();
-      const updated: EvidenceFile = { ...item, ...analysis };
-      setSummaryTarget(updated);
-      if (result.status === 'summary_not_configured') {
+      setSummaryTarget({ ...item, ...analysis });
+
+      // 요청당 최대 1회만 안내(재시도는 내부에서 조용히 처리됨).
+      if (result.errorCode === 'SUMMARY_NOT_CONFIGURED') {
         Alert.alert('AI 요약 준비 중', 'Gemini API 키가 설정되지 않아 텍스트만 추출했어요.');
-      } else if (result.status === 'summary_error') {
-        Alert.alert('AI 요약', result.message);
+      } else if (result.status === 'ocr_only') {
+        Alert.alert('AI 요약 실패', '인식된 계약서 텍스트는 저장했어요. AI 요약은 잠시 후 다시 시도해주세요.');
       }
     } finally {
+      analyzingRef.current = false;
       setAnalyzingName(null);
     }
   };

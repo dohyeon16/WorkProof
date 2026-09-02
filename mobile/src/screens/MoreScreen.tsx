@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Alert } from '../alert';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
-import { clearAllData, getAccount, setLoggedIn } from '../storage';
+import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../storage';
+import { isAppLockAvailable, authenticateAppLock } from '../utils/appLock';
 import { createBackup, restoreBackup } from '../backup';
 import { Account } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
@@ -36,12 +37,36 @@ export default function MoreScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [account, setAccount] = useState<Account | null>(null);
   const [busy, setBusy] = useState<null | 'backup' | 'restore'>(null);
+  const [appLock, setAppLock] = useState(false);
+  const [lockAvailable, setLockAvailable] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       getAccount().then(setAccount);
+      getAppLockEnabled().then(setAppLock);
+      isAppLockAvailable().then(setLockAvailable);
     }, [])
   );
+
+  const handleToggleAppLock = async (next: boolean) => {
+    if (next) {
+      if (!lockAvailable) {
+        Alert.alert(
+          '앱 잠금을 쓸 수 없어요',
+          '이 기기에 생체인증이나 화면 잠금(PIN·패턴)이 설정돼 있지 않아요. 기기 설정에서 먼저 등록해주세요.'
+        );
+        return;
+      }
+      // 켤 때는 실제로 인증이 되는지 한 번 확인한 뒤에만 활성화한다.
+      const ok = await authenticateAppLock();
+      if (!ok) return;
+      await setAppLockEnabled(true);
+      setAppLock(true);
+    } else {
+      await setAppLockEnabled(false);
+      setAppLock(false);
+    }
+  };
 
   const handleBackup = async () => {
     if (busy) return;
@@ -157,6 +182,22 @@ export default function MoreScreen({ navigation }: Props) {
         </Pressable>
       ))}
 
+      <View style={styles.row}>
+        <View style={styles.rowIconWrap}>
+          <Ionicons name="lock-closed-outline" size={18} color={colors.primaryDark} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>앱 잠금</Text>
+          <Text style={styles.rowSub}>생체인증·기기 암호로 앱을 보호해요</Text>
+        </View>
+        <Switch
+          value={appLock}
+          onValueChange={handleToggleAppLock}
+          trackColor={{ true: colors.primary, false: colors.border }}
+          thumbColor="#fff"
+        />
+      </View>
+
       <Pressable
         style={styles.row}
         onPress={handleBackup}
@@ -263,6 +304,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowText: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '600' },
+  rowTitle: { fontSize: 14, color: colors.text, fontWeight: '600' },
+  rowSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',

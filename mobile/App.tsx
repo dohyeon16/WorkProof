@@ -10,6 +10,7 @@ import {
   NotoSansKR_700Bold,
 } from '@expo-google-fonts/noto-sans-kr';
 import RootNavigator from './src/navigation/RootNavigator';
+import { AppLockGate } from './src/components/AppLockGate';
 import { AlertHost } from './src/alert';
 import { colors } from './src/theme';
 import { resumeNaverRedirectIfPending } from './src/auth/naverIdentityWeb';
@@ -69,9 +70,11 @@ export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AppShell>
-        <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
-          <RootNavigator />
-        </NavigationContainer>
+        <AppLockGate>
+          <NavigationContainer ref={navigationRef} onReady={resumeNaverRedirect}>
+            <RootNavigator />
+          </NavigationContainer>
+        </AppLockGate>
         <StatusBar style="auto" />
         <AlertHost />
       </AppShell>

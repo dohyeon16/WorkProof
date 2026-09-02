@@ -5,9 +5,9 @@ import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
-import { getAttendanceByMonth, getPayRecord, getActiveOrFirstWorkplace } from '../storage';
+import { getAttendanceByMonth, getPayRecord, getActiveOrFirstWorkplace, getUpcomingShifts } from '../storage';
 import { getUnreadCount } from '../notificationsFeed';
-import { AttendanceRecord, PayRecord, Workplace } from '../types';
+import { AttendanceRecord, PayRecord, ScheduledShift, Workplace } from '../types';
 import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../payCalc';
 import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../utils/date';
 import { colors, radius, shadow, spacing } from '../theme';
@@ -20,6 +20,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [payRecord, setPayRecord] = useState<PayRecord | undefined>(undefined);
+  const [nextShift, setNextShift] = useState<ScheduledShift | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const yearMonth = currentYearMonth();
 
@@ -30,12 +31,14 @@ export default function HomeScreen({ navigation }: Props) {
         const w = await getActiveOrFirstWorkplace();
         setWorkplace(w ?? null);
         if (!w) return;
-        const [list, pay] = await Promise.all([
+        const [list, pay, upcoming] = await Promise.all([
           getAttendanceByMonth(w.id, yearMonth),
           getPayRecord(w.id, yearMonth),
+          getUpcomingShifts(),
         ]);
         setRecords(list);
         setPayRecord(pay);
+        setNextShift(upcoming.find((s) => s.workplaceId === w.id) ?? null);
       })();
     }, [yearMonth])
   );
@@ -122,9 +125,15 @@ export default function HomeScreen({ navigation }: Props) {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>예상 급여</Text>
+                <Text style={styles.summaryLabel}>예상 급여{summary.deductionType !== 'none' ? ' (세전)' : ''}</Text>
                 <Text style={styles.summaryValuePrimary}>{formatWon(summary.expectedPay)}</Text>
               </View>
+              {summary.deductionType !== 'none' && (
+                <View style={styles.summaryNetRow}>
+                  <Text style={styles.summaryNetLabel}>세후 실수령 예상</Text>
+                  <Text style={styles.summaryNetValue}>{formatWon(summary.netExpectedPay)}</Text>
+                </View>
+              )}
               <View style={styles.summaryDivider} />
               <View style={styles.summaryFooterRow}>
                 <View style={styles.payDayChip}>
@@ -147,6 +156,34 @@ export default function HomeScreen({ navigation }: Props) {
             >
               <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
               <Text style={styles.checkInButtonText}>출퇴근 기록하기</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.scheduleRow}
+              onPress={() =>
+                navigation.navigate('Schedule', {
+                  workplaceId: workplace.id,
+                  id: nextShift?.id,
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={nextShift ? '다음 근무 예정' : '근무 예정 추가'}
+            >
+              <View style={styles.scheduleIconWrap}>
+                <Ionicons name="alarm-outline" size={16} color={colors.primaryDark} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scheduleLabel}>다음 근무 예정</Text>
+                {nextShift ? (
+                  <Text style={styles.scheduleValue}>
+                    {formatDateWithWeekday(nextShift.date)} {nextShift.startTime}
+                    {nextShift.endTime ? `~${nextShift.endTime}` : ''}
+                  </Text>
+                ) : (
+                  <Text style={styles.scheduleSub}>예정된 근무를 추가하면 출근 전에 알려드려요.</Text>
+                )}
+              </View>
+              <Ionicons name={nextShift ? 'chevron-forward' : 'add'} size={18} color={colors.subtext} />
             </Pressable>
 
             <Pressable
@@ -260,6 +297,9 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, color: colors.subtext },
   summaryValue: { fontSize: 20, fontWeight: '800', color: colors.text },
   summaryValuePrimary: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
+  summaryNetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
+  summaryNetLabel: { fontSize: 12, color: colors.subtext },
+  summaryNetValue: { fontSize: 14, fontWeight: '700', color: colors.text },
   summaryFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   payDayChip: {
     flexDirection: 'row',
@@ -285,6 +325,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   checkInButtonText: { color: colors.primaryDark, fontWeight: '700', fontSize: 14 },
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm + 4,
+    marginTop: spacing.sm,
+  },
+  scheduleIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
+  scheduleValue: { fontSize: 13, fontWeight: '700', color: colors.primaryDark, marginTop: 2 },
+  scheduleSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
   payCompareRow: {
     flexDirection: 'row',
     alignItems: 'center',

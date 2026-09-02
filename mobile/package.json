@@ -22,6 +22,7 @@
     "expo-file-system": "~19.0.23",
     "expo-font": "~14.0.12",
     "expo-image-picker": "~17.0.11",
+    "expo-local-authentication": "~17.0.8",
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.17",
     "expo-print": "~15.0.8",
@@ -50,7 +51,8 @@
     "ios": "expo start --ios --port 8081",
     "ios:go": "expo start --port 8081 --go",
     "web": "expo start --web --port 8081",
-    "web:tunnel": "expo start --web --tunnel --port 8081"
+    "web:tunnel": "expo start --web --tunnel --port 8081",
+    "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/logic.test.js"
   },
   "private": true
 }

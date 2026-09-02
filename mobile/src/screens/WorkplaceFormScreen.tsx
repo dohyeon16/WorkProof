@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -30,10 +30,11 @@ import {
   setActiveWorkplaceId,
 } from '../storage';
 import { cancelPaydayReminder, schedulePaydayReminder } from '../notifications';
-import { extractTextFromDocument } from '../ocr/visionOcr';
-import { summarizeContractText } from '../ai/geminiSummary';
+import { MINIMUM_HOURLY_WAGE, MINIMUM_WAGE_YEAR } from '../payCalc';
+import { analyzeEvidenceFile, maskFileName, type AnalyzeEvidenceResult } from '../ai/analyzeContract';
+import { FILE_UNREADABLE_MESSAGE } from '../ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../utils/fileStore';
-import type { EvidenceKind } from '../types';
+import type { EvidenceKind, IncomeDeductionType } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
@@ -41,6 +42,12 @@ type Props = RootScreenProps<'WorkplaceForm'>;
 
 // 숫자 입력 순서: 시급 → 급여일 → 기본 휴게시간(마지막 → '완료').
 const NUMERIC_FIELDS = ['wage', 'payDay', 'break'] as const;
+
+const DEDUCTION_OPTIONS: { value: IncomeDeductionType; label: string }[] = [
+  { value: 'none', label: '공제 없음' },
+  { value: 'withholding', label: '3.3% 원천징수' },
+  { value: 'insurance', label: '4대보험' },
+];
 
 export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const editingId = route.params?.id;
@@ -50,6 +57,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [payDay, setPayDay] = useState('10');
   const [weeklyAllowance, setWeeklyAllowance] = useState(true);
   const [fiveOrMoreEmployees, setFiveOrMoreEmployees] = useState(false);
+  const [incomeDeductionType, setIncomeDeductionType] = useState<IncomeDeductionType>('none');
   const [breakMinutesPerShift, setBreakMinutesPerShift] = useState('30');
   const [contractPhotoUri, setContractPhotoUri] = useState<string | undefined>(undefined);
   // 저장용 URI(웹은 idb:// 참조)는 <Image>가 못 그리므로, 미리보기용 URI를 따로 둔다.
@@ -60,9 +68,14 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
   const [contractMimeType, setContractMimeType] = useState<string | undefined>(undefined);
   const [contractAnalyzedAt, setContractAnalyzedAt] = useState<string | undefined>(undefined);
   const [contractOcrText, setContractOcrText] = useState<string | undefined>(undefined);
-  const [ocrLoading, setOcrLoading] = useState(false);
   const [contractSummary, setContractSummary] = useState<string | undefined>(undefined);
-  const [summaryLoading, setSummaryLoading] = useState(false);
+  // OCR+요약을 하나의 분석 단계로 합쳐 진행 상태를 관리한다.
+  const [analyzing, setAnalyzing] = useState(false);
+  // 분석 경쟁/중복 제어는 state가 아니라 ref로 한다(렌더 타이밍에 의존하지 않기 위함).
+  const analysisRequestIdRef = useRef(0); // 새 분석마다 증가 — 최신 요청 결과만 반영
+  const analysisInFlightRef = useRef(false); // 재시도 버튼 중복 실행 방지
+  const pickBusyRef = useRef(false); // 파일 선택기 동시 실행 방지(같은 영역 빠른 두 번 탭)
+  const mountedRef = useRef(true); // unmount 후 setState 방지
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [address, setAddress] = useState<string | undefined>(undefined);
@@ -92,6 +105,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         setPayDay(String(w.payDay));
         setWeeklyAllowance(w.weeklyAllowance);
         setFiveOrMoreEmployees(w.fiveOrMoreEmployees ?? false);
+        setIncomeDeductionType(w.incomeDeductionType ?? 'none');
         setBreakMinutesPerShift(String(w.breakMinutesPerShift));
         setContractPhotoUri(w.contractPhotoUri);
         setContractFileKind(w.contractFileKind);
@@ -131,110 +145,166 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
     });
   }, [route.params?.pickedLatitude, route.params?.pickedLongitude, route.params?.pickedAddress, route.params?.pickedName]);
 
-  const runSummary = async (text: string) => {
-    setSummaryLoading(true);
-    setContractSummary(undefined);
-    try {
-      const result = await summarizeContractText(text);
-      if (result.status === 'not_configured') {
+  // 화면이 사라진 뒤 분석 결과가 늦게 도착해도 setState하지 않도록 마운트 상태를 추적한다.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // 분석 결과에 대한 사용자 안내는 요청당 최대 1회만 띄운다(재시도는 내부에서 조용히 처리됨).
+  const showAnalysisResultAlert = (result: AnalyzeEvidenceResult) => {
+    if (result.status === 'success') return; // 성공: 팝업 없이 요약을 화면에 표시
+    if (result.status === 'ocr_only') {
+      if (result.errorCode === 'SUMMARY_NOT_CONFIGURED') {
         Alert.alert(
           'AI 요약 준비 중',
           '아직 Gemini API 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
         );
-        return;
+      } else {
+        Alert.alert('AI 요약 실패', '인식된 계약서 텍스트는 저장했어요. AI 요약은 잠시 후 다시 시도해주세요.');
       }
-      if (result.status === 'error') {
-        Alert.alert('AI 요약 실패', result.message);
-        return;
-      }
-      setContractSummary(result.summary);
-    } finally {
-      setSummaryLoading(false);
+      return;
+    }
+    // status === 'error' — OCR까지 실패
+    if (result.errorCode === 'OCR_NOT_CONFIGURED') {
+      Alert.alert(
+        'OCR 준비 중',
+        '아직 Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
+      );
+    } else if (result.errorCode === 'FILE_NOT_READY') {
+      Alert.alert('원본 파일 없음', FILE_UNREADABLE_MESSAGE);
+    } else {
+      Alert.alert('텍스트 추출 실패', '계약서 내용을 인식하지 못했어요. 사진 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
-  const runOcr = async (uri: string, mimeType: string) => {
-    setOcrLoading(true);
-    setContractOcrText(undefined);
-    setContractSummary(undefined);
-    try {
-      const result = await extractTextFromDocument(uri, mimeType);
-      if (result.status === 'not_configured') {
-        Alert.alert(
-          'OCR 준비 중',
-          '아직 Google Cloud Vision 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
-        );
-        return;
-      }
-      if (result.status === 'error') {
-        Alert.alert('텍스트 추출 실패', result.message);
-        return;
-      }
-      setContractOcrText(result.text);
-      setContractAnalyzedAt(new Date().toISOString());
-      await runSummary(result.text);
-    } finally {
-      setOcrLoading(false);
+  // 공용 분석 파이프라인 호출. requestId로 세대를 관리해 최신 요청 결과만 화면에 반영한다.
+  const startAnalysis = async (uri: string, name: string, mimeType: string, size?: number | null) => {
+    const requestId = ++analysisRequestIdRef.current;
+    analysisInFlightRef.current = true;
+    if (mountedRef.current) {
+      setAnalyzing(true);
+      setContractOcrText(undefined);
+      setContractSummary(undefined);
     }
+
+    let result: AnalyzeEvidenceResult;
+    try {
+      result = await analyzeEvidenceFile({
+        uri,
+        name,
+        mimeType,
+        size,
+        logContext: { screen: 'WorkplaceForm', requestId },
+      });
+    } catch (e) {
+      console.warn('[WorkplaceForm] 분석 예외:', e instanceof Error ? e.message : String(e));
+      result = { status: 'error', errorCode: 'OCR_FAILED' };
+    }
+
+    // 더 최신 분석이 시작됐거나(다른 파일 선택) 화면이 사라졌으면 이 결과는 버린다.
+    if (requestId !== analysisRequestIdRef.current || !mountedRef.current) {
+      console.log('[analyze] REQUEST_SUPERSEDED', { screen: 'WorkplaceForm', file: maskFileName(name), requestId });
+      return;
+    }
+    analysisInFlightRef.current = false;
+    setAnalyzing(false);
+
+    // OCR 텍스트는 요약 성공 여부와 무관하게 보존한다.
+    if (result.ocrText) {
+      setContractOcrText(result.ocrText);
+      setContractAnalyzedAt(result.analyzedAt);
+    }
+    if (result.aiSummary) setContractSummary(result.aiSummary);
+
+    showAnalysisResultAlert(result);
+  };
+
+  // 인식 텍스트 카드의 "다시 분석하기" — 진행 중이면 무시(중복 호출 방지).
+  const retryAnalysis = () => {
+    if (analysisInFlightRef.current || !contractPhotoUri) return;
+    const mime = contractMimeType ?? (contractFileKind === 'pdf' ? 'application/pdf' : 'image/jpeg');
+    void startAnalysis(contractPhotoUri, contractFileName ?? '근로계약서', mime, contractFileSize);
   };
 
   const handlePickImage = async () => {
-    // 웹은 권한 개념이 없고, 권한 요청을 await하면 파일 다이얼로그가 user-gesture를
-    // 잃어 안 열릴 수 있으므로 네이티브에서만 권한을 확인한다.
-    if (Platform.OS !== 'web') {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('사진 접근 권한이 필요해요', '설정에서 권한을 허용해주세요.');
-        return;
-      }
+    // pickBusyRef: 선택기가 열려있는 동안 같은 영역을 다시 탭해도 두 번째 선택을 막는다.
+    if (pickBusyRef.current) {
+      console.log('[analyze] DUPLICATE_REQUEST_BLOCKED', { screen: 'WorkplaceForm', reason: 'pick-image' });
+      return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      base64: Platform.OS === 'web',
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    const mimeType = asset.mimeType ?? 'image/jpeg';
-    const name = asset.fileName ?? `근로계약서_${Date.now()}.jpg`;
+    pickBusyRef.current = true;
     try {
-      // 선택기의 임시 URI를 영구 저장소(네이티브 documentDirectory / 웹 data: URI)로 옮긴다.
+      // 웹은 권한 개념이 없고, 권한 요청을 await하면 파일 다이얼로그가 user-gesture를
+      // 잃어 안 열릴 수 있으므로 네이티브에서만 권한을 확인한다.
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('사진 접근 권한이 필요해요', '설정에서 권한을 허용해주세요.');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        base64: Platform.OS === 'web',
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+      const name = asset.fileName ?? `근로계약서_${Date.now()}.jpg`;
+      const size = asset.fileSize ?? null;
+      // 선택기의 임시 URI를 영구 저장소(네이티브 documentDirectory / 웹 idb)로 옮긴다.
       const uri = await persistPickedFile({ uri: asset.uri, name, mimeType, base64: asset.base64 });
       setContractPhotoUri(uri);
       setContractDisplayUri((await resolveReadableUri(uri)) ?? undefined);
       setContractFileKind('image');
       setContractFileName(name);
-      setContractFileSize(asset.fileSize ?? null);
+      setContractFileSize(size);
       setContractMimeType(mimeType);
-      await runOcr(uri, mimeType);
+      // 분석은 기다리지 않고 시작한다 → pickBusyRef가 곧 풀려, 분석 중 다른 파일을
+      // 다시 선택하면 그 요청이 이전 결과를 대체(supersede)할 수 있다.
+      void startAnalysis(uri, name, mimeType, size);
     } catch (e) {
       console.warn('[WorkplaceForm] 계약서 사진 저장 실패:', e);
       Alert.alert('사진을 첨부하지 못했어요', '다시 시도해주세요.');
+    } finally {
+      pickBusyRef.current = false;
     }
   };
 
   const handlePickDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
-      copyToCacheDirectory: true,
-      base64: Platform.OS === 'web',
-    });
-    if (result.canceled || !result.assets?.[0]) return;
-    const asset = result.assets[0];
-    const mimeType =
-      asset.mimeType ?? (asset.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+    if (pickBusyRef.current) {
+      console.log('[analyze] DUPLICATE_REQUEST_BLOCKED', { screen: 'WorkplaceForm', reason: 'pick-document' });
+      return;
+    }
+    pickBusyRef.current = true;
     try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+        base64: Platform.OS === 'web',
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const mimeType =
+        asset.mimeType ?? (asset.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+      const size = asset.size ?? null;
       const uri = await persistPickedFile({ uri: asset.uri, name: asset.name, mimeType, base64: asset.base64 });
       setContractPhotoUri(uri);
       setContractDisplayUri((await resolveReadableUri(uri)) ?? undefined);
       setContractFileKind(mimeType === 'application/pdf' ? 'pdf' : 'image');
       setContractFileName(asset.name);
-      setContractFileSize(asset.size ?? null);
+      setContractFileSize(size);
       setContractMimeType(mimeType);
-      await runOcr(uri, mimeType);
+      void startAnalysis(uri, asset.name, mimeType, size);
     } catch (e) {
       console.warn('[WorkplaceForm] 계약서 파일 저장 실패:', e);
       Alert.alert('파일을 첨부하지 못했어요', '다시 시도해주세요.');
+    } finally {
+      pickBusyRef.current = false;
     }
   };
 
@@ -268,6 +338,24 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       return;
     }
 
+    // 최저임금 미달이면 경고하되, 사용자가 원하면 그대로 저장할 수 있게 한다(강제 차단 아님).
+    if (wage < MINIMUM_HOURLY_WAGE) {
+      Alert.alert(
+        '최저임금보다 낮아요',
+        `입력한 시급(${wage.toLocaleString('ko-KR')}원)이 ${MINIMUM_WAGE_YEAR}년 최저임금 ${MINIMUM_HOURLY_WAGE.toLocaleString(
+          'ko-KR'
+        )}원보다 낮아요. 그래도 저장할까요?`,
+        [
+          { text: '다시 입력', style: 'cancel' },
+          { text: '그대로 저장', onPress: () => void persistWorkplace(wage, day, breakMin) },
+        ]
+      );
+      return;
+    }
+    await persistWorkplace(wage, day, breakMin);
+  };
+
+  const persistWorkplace = async (wage: number, day: number, breakMin: number) => {
     const id = editingId ?? makeId();
     const existingWorkplaces = await getWorkplaces();
     const workplace = {
@@ -277,6 +365,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       payDay: day,
       weeklyAllowance,
       fiveOrMoreEmployees,
+      incomeDeductionType,
       breakMinutesPerShift: breakMin,
       contractPhotoUri,
       contractFileKind,
@@ -346,6 +435,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
   const wageNum = Number(hourlyWage);
   const wagePreview = hourlyWage && Number.isFinite(wageNum) && wageNum > 0 ? `${wageNum.toLocaleString('ko-KR')}원` : null;
+  const belowMinWage = !!hourlyWage && Number.isFinite(wageNum) && wageNum > 0 && wageNum < MINIMUM_HOURLY_WAGE;
 
   return (
     <KeyboardAvoidingView
@@ -391,6 +481,12 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           suffix="원"
         />
         {wagePreview && <Text style={styles.preview}>= {wagePreview}</Text>}
+        {belowMinWage && (
+          <Text style={styles.wageWarn}>
+            <Ionicons name="alert-circle" size={12} color={colors.danger} /> {MINIMUM_WAGE_YEAR}년 최저임금(
+            {MINIMUM_HOURLY_WAGE.toLocaleString('ko-KR')}원)보다 낮아요.
+          </Text>
+        )}
 
         <Text style={styles.label}>급여일 (매월)</Text>
         <FieldInput
@@ -429,6 +525,28 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
             thumbColor="#fff"
           />
         </View>
+
+        <Text style={styles.label}>세금·공제 유형</Text>
+        <View style={styles.segment}>
+          {DEDUCTION_OPTIONS.map((opt) => {
+            const active = incomeDeductionType === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                style={[styles.segmentItem, active && styles.segmentItemActive]}
+                onPress={() => setIncomeDeductionType(opt.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={opt.label}
+              >
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.help}>
+          세후 예상 실수령액을 어림하는 데 쓰여요. 정확한 공제액은 사업장·소득에 따라 달라질 수 있어요.
+        </Text>
 
         <Text style={styles.label}>근무 1건당 기본 휴게시간</Text>
         <FieldInput
@@ -477,13 +595,13 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           )}
         </Pressable>
 
-        {ocrLoading && (
+        {analyzing && (
           <View style={styles.ocrStatusRow}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.ocrStatusText}>계약서 텍스트를 인식하는 중...</Text>
+            <Text style={styles.ocrStatusText}>계약서를 분석하고 있어요.</Text>
           </View>
         )}
-        {!ocrLoading && contractOcrText && (
+        {!analyzing && contractOcrText && (
           <View style={styles.ocrCard}>
             <View style={styles.ocrCardHeader}>
               <Ionicons name="sparkles-outline" size={14} color={colors.primaryDark} />
@@ -495,13 +613,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {summaryLoading && (
-          <View style={styles.ocrStatusRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.ocrStatusText}>계약서 내용을 AI로 요약하는 중...</Text>
-          </View>
-        )}
-        {!ocrLoading && !summaryLoading && contractOcrText && (
+        {!analyzing && contractOcrText && (
           <View style={styles.summaryCard}>
             <View style={styles.ocrCardHeader}>
               <Ionicons name="bulb-outline" size={14} color={colors.primaryDark} />
@@ -512,23 +624,23 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
                 <Text style={styles.summaryText}>{contractSummary}</Text>
                 <Pressable
                   style={styles.summaryRetryButton}
-                  onPress={() => runSummary(contractOcrText)}
+                  onPress={retryAnalysis}
                   accessibilityRole="button"
-                  accessibilityLabel="다시 요약하기"
+                  accessibilityLabel="다시 분석하기"
                 >
                   <Ionicons name="refresh-outline" size={13} color={colors.primaryDark} />
-                  <Text style={styles.summaryRetryText}>다시 요약하기</Text>
+                  <Text style={styles.summaryRetryText}>다시 분석하기</Text>
                 </Pressable>
               </>
             ) : (
               <Pressable
                 style={styles.summaryRetryButton}
-                onPress={() => runSummary(contractOcrText)}
+                onPress={retryAnalysis}
                 accessibilityRole="button"
-                accessibilityLabel="AI로 요약하기"
+                accessibilityLabel="AI로 다시 분석하기"
               >
                 <Ionicons name="sparkles-outline" size={13} color={colors.primaryDark} />
-                <Text style={styles.summaryRetryText}>AI로 요약하기</Text>
+                <Text style={styles.summaryRetryText}>AI로 다시 분석하기</Text>
               </Pressable>
             )}
           </View>
@@ -570,6 +682,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   help: { fontSize: 12, color: colors.subtext, marginBottom: spacing.md },
   preview: { fontSize: 12, color: colors.primaryDark, fontWeight: '600', marginTop: -spacing.xs, marginBottom: spacing.md },
+  wageWarn: { fontSize: 12, color: colors.danger, fontWeight: '600', marginTop: -spacing.sm, marginBottom: spacing.md },
   switchCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -581,6 +694,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 3,
+    gap: 3,
+    marginBottom: spacing.xs,
+  },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  segmentItemActive: { backgroundColor: colors.primary },
+  segmentText: { fontSize: 12, fontWeight: '700', color: colors.subtext },
+  segmentTextActive: { color: '#fff' },
   placeCard: {
     flexDirection: 'row',
     alignItems: 'center',

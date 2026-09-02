@@ -1,17 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, Workplace } from './types';
-
-const KEYS = {
-  workplaces: '@workproof/workplaces',
-  attendance: '@workproof/attendance',
-  pay: '@workproof/pay',
-  evidence: '@workproof/evidence',
-  account: '@workproof/account',
-  session: '@workproof/session',
-  onboardingDone: '@workproof/onboardingDone',
-  activeWorkplaceId: '@workproof/activeWorkplaceId',
-  readNotifications: '@workproof/readNotifications',
-};
+import { Account, AttendanceRecord, EvidenceFile, EvidenceDocumentType, EvidenceKind, PayRecord, ScheduledShift, Workplace } from './types';
+import { ALL_KEYS, BACKUP_KEYS, KEYS } from './storageKeys';
 
 export function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -63,6 +52,11 @@ export async function deleteWorkplace(id: string): Promise<void> {
   await writeList(
     KEYS.pay,
     pay.filter((p) => p.workplaceId !== id)
+  );
+  const shifts = await getScheduledShifts();
+  await writeList(
+    KEYS.scheduledShifts,
+    shifts.filter((s) => s.workplaceId !== id)
   );
 }
 
@@ -134,6 +128,48 @@ export async function savePayRecord(record: PayRecord): Promise<void> {
     list.push(record);
   }
   await writeList(KEYS.pay, list);
+}
+
+// ---------- Scheduled shifts (근무 예정) ----------
+
+export async function getScheduledShifts(): Promise<ScheduledShift[]> {
+  return readList<ScheduledShift>(KEYS.scheduledShifts);
+}
+
+export async function getScheduledShift(id: string): Promise<ScheduledShift | undefined> {
+  const list = await getScheduledShifts();
+  return list.find((s) => s.id === id);
+}
+
+/** 아직 지나지 않은(오늘 이후) 예정 근무를 시작 시각 순으로. */
+export async function getUpcomingShifts(): Promise<ScheduledShift[]> {
+  const list = await getScheduledShifts();
+  const now = new Date();
+  return list
+    .filter((s) => new Date(`${s.date}T${s.startTime || '00:00'}:00`) >= startOfMinute(now))
+    .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+}
+
+function startOfMinute(d: Date): Date {
+  const copy = new Date(d);
+  copy.setSeconds(0, 0);
+  return copy;
+}
+
+export async function saveScheduledShift(shift: ScheduledShift): Promise<void> {
+  const list = await getScheduledShifts();
+  const idx = list.findIndex((s) => s.id === shift.id);
+  if (idx >= 0) list[idx] = shift;
+  else list.push(shift);
+  await writeList(KEYS.scheduledShifts, list);
+}
+
+export async function deleteScheduledShift(id: string): Promise<void> {
+  const list = await getScheduledShifts();
+  await writeList(
+    KEYS.scheduledShifts,
+    list.filter((s) => s.id !== id)
+  );
 }
 
 // ---------- Evidence files ----------
@@ -257,17 +293,18 @@ export async function setLoggedIn(value: boolean): Promise<void> {
   }
 }
 
-// 새 계정은 이 기기에 남아있던 이전 근무지/기록/급여 데이터를 이어받지 않고 초기 상태로 시작해야 함
+// 새 계정은 이 기기에 남아있던 이전 근무지/기록/급여 데이터를 이어받지 않고 초기 상태로 시작해야 함.
+// 전체 초기화이므로 appLock(기기 보안 설정)도 함께 지운다(ALL_KEYS 포함) — 초기화 후 잠금 없는 상태.
 export async function clearAllData(): Promise<void> {
-  await AsyncStorage.multiRemove(Object.values(KEYS));
+  await AsyncStorage.multiRemove(ALL_KEYS);
 }
 
 // ---------- 백업 / 복원 ----------
 
-// 앱이 관리하는 모든 저장 키의 원본 값(JSON 문자열)을 그대로 담아 돌려준다.
-// 값은 이미 직렬화돼 있으므로 그대로 백업 파일에 실으면 복원 시 완전히 복구된다.
+// 앱이 관리하는 저장 키의 원본 값(JSON 문자열)을 담아 돌려준다. appLock(기기 보안 설정)은
+// BACKUP_KEYS에서 제외돼 백업에 실리지 않는다 — 다른 기기 복원 시 잠금이 옮겨가지 않게 한다.
 export async function exportAllData(): Promise<Record<string, string>> {
-  const entries = await AsyncStorage.multiGet(Object.values(KEYS));
+  const entries = await AsyncStorage.multiGet(BACKUP_KEYS);
   const data: Record<string, string> = {};
   for (const [key, value] of entries) {
     if (value != null) data[key] = value;
@@ -275,15 +312,16 @@ export async function exportAllData(): Promise<Record<string, string>> {
   return data;
 }
 
-// 백업 파일의 데이터로 기존 데이터를 통째로 교체한다. 앱이 아는 키만 복원하며,
-// 백업에 없던 키는 비운다(부분 복원으로 인한 데이터 불일치를 막기 위함).
+// 백업 파일의 데이터로 기존 데이터를 통째로 교체한다. BACKUP_KEYS(=appLock 제외)만 복원하며,
+// 백업에 없던 키는 비운다(부분 복원으로 인한 데이터 불일치 방지). appLock은 복원 대상이 아니므로
+// 이 기기의 기존 잠금 설정이 그대로 유지된다(구버전 백업에 appLock이 있어도 무시됨).
 export async function importAllData(data: Record<string, unknown>): Promise<void> {
   const pairs: [string, string][] = [];
-  for (const key of Object.values(KEYS)) {
+  for (const key of BACKUP_KEYS) {
     const value = data[key];
     if (typeof value === 'string') pairs.push([key, value]);
   }
-  await AsyncStorage.multiRemove(Object.values(KEYS));
+  await AsyncStorage.multiRemove(BACKUP_KEYS);
   if (pairs.length > 0) await AsyncStorage.multiSet(pairs);
 }
 
@@ -321,6 +359,17 @@ export async function markNotificationsRead(ids: string[]): Promise<void> {
   const existing = new Set(await getReadNotificationIds());
   for (const id of ids) existing.add(id);
   await AsyncStorage.setItem(KEYS.readNotifications, JSON.stringify([...existing]));
+}
+
+// ---------- 앱 잠금 (생체/기기 인증) ----------
+
+export async function getAppLockEnabled(): Promise<boolean> {
+  return (await AsyncStorage.getItem(KEYS.appLock)) === 'true';
+}
+
+export async function setAppLockEnabled(value: boolean): Promise<void> {
+  if (value) await AsyncStorage.setItem(KEYS.appLock, 'true');
+  else await AsyncStorage.removeItem(KEYS.appLock);
 }
 
 export async function getActiveOrFirstWorkplace(): Promise<Workplace | undefined> {

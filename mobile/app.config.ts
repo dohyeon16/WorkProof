@@ -12,7 +12,8 @@ const config: ExpoConfig = {
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'light',
+  // 시스템 라이트/다크 설정을 따르도록 automatic. theme/semantic.ts가 시작 시 팔레트를 고른다.
+  userInterfaceStyle: 'automatic',
   ios: {
     supportsTablet: true,
     // Required for the "iOS" (bundle-id-scoped) OAuth client types that
@@ -49,7 +50,13 @@ const config: ExpoConfig = {
     [
       'expo-location',
       {
-        locationWhenInUsePermission: '근무지 위치를 등록하기 위해 현재 위치를 사용합니다.',
+        locationWhenInUsePermission: '근무지 위치를 등록하고 출퇴근을 인증하기 위해 현재 위치를 사용합니다.',
+      },
+    ],
+    [
+      'expo-local-authentication',
+      {
+        faceIDPermission: '앱 잠금을 해제하기 위해 Face ID를 사용합니다.',
       },
     ],
     [

@@ -1,9 +1,10 @@
 import { Platform } from 'react-native';
-import type { Workplace } from './types';
+import type { ScheduledShift, Workplace } from './types';
 import { isExpoGo } from './utils/expoGo';
 
 const PAYDAY_REMINDER_ID_PREFIX = 'payday-reminder-';
 const PAYDAY_REMINDER_HOUR = 10;
+const SHIFT_REMINDER_ID_PREFIX = 'shift-reminder-';
 
 /** MONTHLY 트리거는 day를 "이번 달" 일수 기준으로 검증하므로, 31일처럼 없는 달이 있는 값은 28로 낮춰 매달 항상 유효하게 만든다. */
 function safeMonthlyDay(payDay: number): number {
@@ -78,6 +79,52 @@ export async function cancelPaydayReminder(workplaceId: string): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(`${PAYDAY_REMINDER_ID_PREFIX}${workplaceId}`).catch(() => {});
+}
+
+/**
+ * 예정 근무의 출근 리마인더를 예약한다. 출근 시각에서 reminderMinutes 분 전에 울린다.
+ * 이미 지난 시각이거나 reminderMinutes가 0이면 예약하지 않는다(기존 예약은 먼저 취소).
+ */
+export async function scheduleShiftReminder(shift: ScheduledShift, workplaceName: string): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+
+  const identifier = `${SHIFT_REMINDER_ID_PREFIX}${shift.id}`;
+  await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {});
+
+  if (!shift.reminderMinutes || shift.reminderMinutes <= 0) return;
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+
+  const start = new Date(`${shift.date}T${shift.startTime}:00`);
+  const fireAt = new Date(start.getTime() - shift.reminderMinutes * 60 * 1000);
+  if (Number.isNaN(fireAt.getTime()) || fireAt.getTime() <= Date.now()) return; // 이미 지난 알림은 예약 안 함
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: '기본 알림',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title: '곧 출근 시간이에요',
+      body: `${workplaceName} · ${shift.startTime} 출근 예정이에요. 준비하고 출퇴근을 기록해보세요.`,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fireAt,
+    },
+  });
+}
+
+export async function cancelShiftReminder(shiftId: string): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) return;
+  await Notifications.cancelScheduledNotificationAsync(`${SHIFT_REMINDER_ID_PREFIX}${shiftId}`).catch(() => {});
 }
 
 /** 알림 권한이 이미 허용된 상태라면, 등록된 모든 근무지의 급여일 알림을 다시 예약(설정 변경 반영)한다. */

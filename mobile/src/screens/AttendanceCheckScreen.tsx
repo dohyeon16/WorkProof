@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,9 @@ import type { RootScreenProps } from '../navigation/types';
 import { getAttendanceByWorkplace, getWorkplace, makeId, saveAttendance } from '../storage';
 import { AttendanceRecord, Workplace } from '../types';
 import { formatMinutesAsHours, shiftWorkedMinutes } from '../payCalc';
-import { formatDateWithWeekday, todayDateString } from '../utils/date';
+import { formatDateWithWeekday, todayDateString, currentTimeString } from '../utils/date';
+import { getCurrentLocation } from '../utils/currentLocation';
+import { evaluateProximity, formatDistance } from '../utils/geo';
 import { colors, radius, shadow, spacing } from '../theme';
 import { LoadingScreen } from '../components/LoadingScreen';
 
@@ -19,6 +21,7 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
   const [workplace, setWorkplace] = useState<Workplace | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [now, setNow] = useState(new Date());
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -46,28 +49,52 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
   const todayRecord = records.find((r) => r.date === today);
   const inProgress = !!todayRecord && !todayRecord.clockOut;
   const completed = !!todayRecord && !!todayRecord.clockOut;
+  // 근무지 좌표와 출근 시 캡처한 위치를 비교해 '근무지에서 기록됨' 인증을 표시한다.
+  // 근무지에 좌표가 없거나(구버전) 위치를 못 얻었으면 null → 배지 자체를 숨긴다.
+  const clockInProximity = todayRecord
+    ? evaluateProximity(workplace, {
+        latitude: todayRecord.clockInLatitude,
+        longitude: todayRecord.clockInLongitude,
+      })
+    : null;
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(
     2,
     '0'
   )}:${String(now.getSeconds()).padStart(2, '0')}`;
 
   const handleClockIn = async () => {
+    if (locating) return;
+    // 버튼을 누른 '지금' 시각을 먼저 확정한다(위치 조회가 1초쯤 걸려도 기록 시각이 밀리지 않도록).
+    const time = currentTimeString();
+    setLocating(true);
+    const loc = await getCurrentLocation();
+    setLocating(false);
     await saveAttendance({
       id: makeId(),
       workplaceId,
       date: today,
-      clockIn: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      clockIn: time,
       clockOut: '',
       breakMinutes: workplace.breakMinutesPerShift,
+      ...(loc.status === 'ok'
+        ? { clockInLatitude: loc.coords.latitude, clockInLongitude: loc.coords.longitude }
+        : {}),
     });
     load();
   };
 
   const handleClockOut = async () => {
-    if (!todayRecord) return;
+    if (!todayRecord || locating) return;
+    const time = currentTimeString();
+    setLocating(true);
+    const loc = await getCurrentLocation();
+    setLocating(false);
     await saveAttendance({
       ...todayRecord,
-      clockOut: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      clockOut: time,
+      ...(loc.status === 'ok'
+        ? { clockOutLatitude: loc.coords.latitude, clockOutLongitude: loc.coords.longitude }
+        : {}),
     });
     load();
   };
@@ -106,12 +133,43 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
             <Text style={styles.timeValue}>{todayRecord?.clockOut || '--:--'}</Text>
           </View>
         </View>
+
+        {locating && (
+          <View style={styles.locationRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.locationMuted}>위치 확인 중…</Text>
+          </View>
+        )}
+        {!locating && clockInProximity && (
+          <View
+            style={[
+              styles.locationBadge,
+              clockInProximity.verified ? styles.locationBadgeOk : styles.locationBadgeWarn,
+            ]}
+          >
+            <Ionicons
+              name={clockInProximity.verified ? 'checkmark-circle' : 'alert-circle'}
+              size={14}
+              color={clockInProximity.verified ? colors.primaryDark : colors.danger}
+            />
+            <Text
+              style={[
+                styles.locationBadgeText,
+                clockInProximity.verified ? styles.locationBadgeTextOk : styles.locationBadgeTextWarn,
+              ]}
+            >
+              {clockInProximity.verified
+                ? `근무지에서 출근 인증됨 · ${formatDistance(clockInProximity.distanceMeters)}`
+                : `근무지에서 ${formatDistance(clockInProximity.distanceMeters)} 떨어진 곳에서 기록됨`}
+            </Text>
+          </View>
+        )}
       </View>
 
       <Pressable
-        style={[styles.actionButton, (inProgress || completed) && styles.actionButtonDisabled]}
+        style={[styles.actionButton, (inProgress || completed || locating) && styles.actionButtonDisabled]}
         onPress={handleClockIn}
-        disabled={inProgress || completed}
+        disabled={inProgress || completed || locating}
         accessibilityRole="button"
         accessibilityLabel="출근"
       >
@@ -119,9 +177,9 @@ export default function AttendanceCheckScreen({ navigation, route }: Props) {
         <Text style={styles.actionButtonText}>출근</Text>
       </Pressable>
       <Pressable
-        style={[styles.actionButtonOutline, !inProgress && styles.actionButtonDisabledOutline]}
+        style={[styles.actionButtonOutline, (!inProgress || locating) && styles.actionButtonDisabledOutline]}
         onPress={handleClockOut}
-        disabled={!inProgress}
+        disabled={!inProgress || locating}
         accessibilityRole="button"
         accessibilityLabel="퇴근"
       >
@@ -199,6 +257,29 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginTop: spacing.xs },
   timeCol: { flex: 1, alignItems: 'center', gap: 2 },
   timeDivider: { width: 1, height: 40, backgroundColor: colors.border },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  locationMuted: { fontSize: 12, color: colors.subtext },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+    marginTop: spacing.md,
+  },
+  locationBadgeOk: { backgroundColor: colors.primaryLight },
+  locationBadgeWarn: { backgroundColor: colors.dangerLight },
+  locationBadgeText: { fontSize: 12, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
+  locationBadgeTextOk: { color: colors.primaryDark },
+  locationBadgeTextWarn: { color: colors.danger },
   timeLabel: { fontSize: 12, color: colors.subtext },
   timeValue: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 2 },
   actionButton: {

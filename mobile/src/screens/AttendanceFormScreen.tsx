@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Text';
 import { FieldInput } from '../components/FieldInput';
@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Alert } from '../alert';
 import type { RootScreenProps } from '../navigation/types';
 import { getAttendanceRecord, getWorkplace, deleteAttendance, makeId, saveAttendance } from '../storage';
+import type { AttendanceRecord } from '../types';
 import { formatTimeInput, todayDateString } from '../utils/date';
 import { BREAK_REQUIRED_MINUTES, shiftDurationMinutes } from '../payCalc';
 import { colors, radius, shadow, spacing } from '../theme';
@@ -38,27 +39,38 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   const [clockIn, setClockIn] = useState('');
   const [clockOut, setClockOut] = useState('');
   const [breakMinutes, setBreakMinutes] = useState(0);
+  const [isHoliday, setIsHoliday] = useState(false);
   // 휴게시간 휠을 조작하는 동안 화면 스크롤을 잠근다(네이티브).
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  // 수정 시 폼에 노출하지 않는 필드(출퇴근 GPS 위치 등)를 잃지 않도록 원본 기록을 보관한다.
+  const existingRef = useRef<AttendanceRecord | null>(null);
   const numericNav = useNumericInputNavigation(NUMERIC_FIELDS);
 
   useEffect(() => {
     (async () => {
       if (editingId) {
         const record = await getAttendanceRecord(editingId);
-        if (record) {
-          setDate(record.date);
-          setClockIn(record.clockIn);
-          setClockOut(record.clockOut);
-          setBreakMinutes(clampBreakMinutes(record.breakMinutes));
+        if (!record) {
+          // 알림 등으로 이 화면에 들어왔지만 대상 기록이 이미 삭제된 경우.
+          // 빈 폼을 열지 않고(빈 기록 생성 방지) 안내 후 이전 화면으로 돌아간다.
+          Alert.alert('기록을 찾을 수 없어요', '해당 근무 기록이 삭제되었거나 존재하지 않아요.', [
+            { text: '확인', onPress: () => navigation.goBack() },
+          ]);
+          return; // setLoaded(true)도 하지 않아 폼이 그려지지 않는다
         }
+        existingRef.current = record;
+        setDate(record.date);
+        setClockIn(record.clockIn);
+        setClockOut(record.clockOut);
+        setBreakMinutes(clampBreakMinutes(record.breakMinutes));
+        setIsHoliday(record.isHoliday ?? false);
       } else {
         const workplace = await getWorkplace(workplaceId);
         if (workplace) setBreakMinutes(clampBreakMinutes(workplace.breakMinutesPerShift));
       }
       setLoaded(true);
     })();
-  }, [editingId, workplaceId]);
+  }, [editingId, workplaceId, navigation]);
 
   const isShortShift = TIME_RE.test(clockIn) && TIME_RE.test(clockOut) && shiftDurationMinutes(clockIn, clockOut) < BREAK_REQUIRED_MINUTES;
 
@@ -71,6 +83,13 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
   if (!loaded) return <LoadingScreen />;
 
   const handleSave = async () => {
+    // 편집 모드인데 원본 기록이 사라졌다면(삭제 등) 빈 기록을 새로 만들지 않도록 방어한다.
+    if (editingId && !existingRef.current) {
+      Alert.alert('기록을 찾을 수 없어요', '해당 근무 기록이 삭제되었거나 존재하지 않아요.', [
+        { text: '확인', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
     if (!DATE_RE.test(date)) {
       Alert.alert('날짜를 YYYY-MM-DD 형식으로 입력해주세요.');
       return;
@@ -85,12 +104,15 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
     }
 
     await saveAttendance({
+      // 폼에 없는 필드(출퇴근 GPS 위치 등)는 원본에서 이어받아 수정 시 유실되지 않게 한다.
+      ...(existingRef.current ?? {}),
       id: editingId ?? makeId(),
       workplaceId,
       date,
       clockIn,
       clockOut,
       breakMinutes,
+      isHoliday,
     });
     navigation.goBack();
   };
@@ -172,6 +194,19 @@ export default function AttendanceFormScreen({ navigation, route }: Props) {
             : '4시간 미만 근무는 휴게시간이 자동으로 반영되지 않아요.'}
         </Text>
 
+        <View style={styles.switchCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>휴일근로</Text>
+            <Text style={styles.switchHelp}>공휴일·약정휴일 근무. 5인 이상 사업장이면 휴일 가산수당이 반영돼요.</Text>
+          </View>
+          <Switch
+            value={isHoliday}
+            onValueChange={setIsHoliday}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+
         <Pressable
           style={styles.saveButton}
           onPress={handleSave}
@@ -208,6 +243,18 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
   label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   help: { fontSize: 12, color: colors.subtext, marginTop: -spacing.xs, marginBottom: spacing.md },
+  switchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginBottom: spacing.md,
+  },
+  switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  switchHelp: { fontSize: 12, color: colors.subtext, paddingRight: spacing.sm },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

@@ -5,7 +5,7 @@ import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../navigation/types';
-import { getActiveOrFirstWorkplace, getAllPayRecords, getAttendanceByWorkplace } from '../storage';
+import { getActiveOrFirstWorkplace, getAllPayRecords, getAttendanceByWorkplace, getWorkplaces } from '../storage';
 import { AttendanceRecord, PayRecord, Workplace } from '../types';
 import { formatMinutesAsHours, formatWon, shiftWorkedMinutes } from '../payCalc';
 import { currentYearMonth, formatYearMonth, shiftYearMonth } from '../utils/date';
@@ -39,12 +39,14 @@ export default function AnalysisScreen({ navigation }: Props) {
   const [workplace, setWorkplace] = useState<Workplace | null | undefined>(undefined);
   const [payRecords, setPayRecords] = useState<PayRecord[]>([]);
   const [series, setSeries] = useState<MonthlyHours[]>([]);
+  const [workplaceCount, setWorkplaceCount] = useState(0);
   const yearMonth = currentYearMonth();
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const w = await getActiveOrFirstWorkplace();
+        const [w, all] = await Promise.all([getActiveOrFirstWorkplace(), getWorkplaces()]);
+        setWorkplaceCount(all.length);
         setWorkplace(w ?? null);
         if (!w) return;
         const [payList, attendance] = await Promise.all([
@@ -83,6 +85,24 @@ export default function AnalysisScreen({ navigation }: Props) {
   const header = (
     <>
       <Text style={styles.title}>급여 분석</Text>
+
+      {workplaceCount >= 2 && (
+        <Pressable
+          style={styles.allWorkplacesCard}
+          onPress={() => navigation.navigate('AllWorkplaces')}
+          accessibilityRole="button"
+          accessibilityLabel="전체 근무지 합산 보기"
+        >
+          <View style={styles.allWorkplacesIconWrap}>
+            <Ionicons name="albums-outline" size={18} color={colors.primaryDark} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.allWorkplacesTitle}>전체 근무지 합산</Text>
+            <Text style={styles.allWorkplacesSub}>{workplaceCount}곳의 이번 달 예상 급여를 한눈에</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.currentCard}
@@ -191,6 +211,27 @@ export default function AnalysisScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
+  allWorkplacesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    marginBottom: spacing.md,
+  },
+  allWorkplacesIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allWorkplacesTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  allWorkplacesSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
   currentCard: {
     flexDirection: 'row',
     alignItems: 'center',
