@@ -8,12 +8,23 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MainTabScreenProps } from '../../../app/navigation/types';
 import { clearAllData, getAccount, getAppLockEnabled, setAppLockEnabled, setLoggedIn } from '../../../core/data/storage';
 import { useAuth } from '../../auth/state/AuthContext';
+import { useSync } from '../../sync/SyncContext';
 import { isAppLockAvailable, authenticateAppLock } from '../../security/services/appLock';
 import { createBackup, restoreBackup } from '../../../core/backup/backup';
 import { Account } from '../../../core/domain/models/types';
 import { colors, radius, shadow, spacing } from '../../../shared/theme';
 
 type Props = MainTabScreenProps<'More'>;
+
+// 서버 동기화 상태를 한 줄 안내 문구로. (토큰/서버 값은 노출하지 않는다.)
+function syncStatusLabel(sync: ReturnType<typeof useSync>): string {
+  if (sync.phase === 'syncing') return '동기화 중…';
+  if (sync.failedCount > 0) return `동기화 실패 ${sync.failedCount}건 — 눌러서 재시도`;
+  if (sync.phase === 'offline') return '오프라인 — 연결되면 자동으로 재시도해요';
+  if (sync.pendingCount > 0) return `${sync.pendingCount}건 전송 대기 중`;
+  if (sync.lastSyncedAt) return '최신 상태로 동기화됨';
+  return '변경 사항 없음';
+}
 
 const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; action: (nav: Props['navigation']) => void }[] = [
   { icon: 'business-outline', label: '근무지 관리', action: (nav) => nav.navigate('WorkplaceSwitch') },
@@ -38,6 +49,7 @@ export default function MoreScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   // 백엔드 이메일 세션이 있으면 그 사용자를, 없으면(소셜/로컬) 기존 로컬 Account를 표시한다.
   const { isAuthenticated, user: authUser, logout } = useAuth();
+  const sync = useSync();
   const [account, setAccount] = useState<Account | null>(null);
   const [busy, setBusy] = useState<null | 'backup' | 'restore'>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -265,6 +277,35 @@ export default function MoreScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
         )}
       </Pressable>
+
+      {isAuthenticated && (
+        <Pressable
+          style={styles.row}
+          onPress={() => (sync.failedCount > 0 ? sync.retryFailed() : sync.syncNow())}
+          disabled={sync.phase === 'syncing'}
+          accessibilityRole="button"
+          accessibilityLabel="서버 동기화"
+        >
+          <View style={styles.rowIconWrap}>
+            <Ionicons name="sync-outline" size={18} color={colors.primaryDark} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>서버 동기화</Text>
+            <Text style={[styles.rowSub, sync.failedCount > 0 && { color: colors.danger }]}>
+              {syncStatusLabel(sync)}
+            </Text>
+          </View>
+          {sync.phase === 'syncing' ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons
+              name={sync.failedCount > 0 ? 'refresh' : 'chevron-forward'}
+              size={18}
+              color={sync.failedCount > 0 ? colors.danger : colors.subtext}
+            />
+          )}
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.logoutButton}

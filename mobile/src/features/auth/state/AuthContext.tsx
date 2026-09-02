@@ -38,6 +38,8 @@ export interface AuthContextValue {
   refreshUser(): Promise<AuthUser>;
   updateProfile(input: UpdateProfileInput): Promise<AuthUser>;
   deleteAccount(): Promise<void>;
+  /** access 토큰이 필요한 요청 실행기(single-flight refresh 재사용). work-data 동기화가 쓴다. */
+  runAuthorized<T>(run: (accessToken: string) => Promise<T>): Promise<T>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser: () => session.getCurrentUser(),
       updateProfile: (input) => session.updateCurrentUser(input),
       deleteAccount: () => session.deleteCurrentUser(),
+      runAuthorized: (run) => session.runAuthorized(run),
     }),
     [snapshot]
   );
