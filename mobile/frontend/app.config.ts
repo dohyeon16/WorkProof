@@ -18,7 +18,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // Required for the "iOS" (bundle-id-scoped) OAuth client types that
     // Google/Kakao/Naver each need for native login on iOS — see the Google/
-    // Kakao/Naver sections in mobile/OAUTH_SETUP.md. Matches android.package
+    // Kakao/Naver sections in mobile/docs/OAUTH_SETUP.md. Matches android.package
     // below so the same value can be registered across all three consoles.
     bundleIdentifier: 'com.workproof.app',
   },
@@ -68,7 +68,7 @@ const config: ExpoConfig = {
         android: {
           // Kakao's Android SDK artifacts aren't on Maven Central/Google's
           // repo — the Kakao-hosted repo below is required for the native
-          // build to resolve them. See OAUTH_SETUP.md.
+          // build to resolve them. See mobile/docs/OAUTH_SETUP.md.
           extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'],
         },
       },
@@ -77,7 +77,7 @@ const config: ExpoConfig = {
       '@react-native-seoul/kakao-login',
       {
         // Native App Key (Android), distinct from the REST API key used by
-        // the web/iOS AuthSession flow — see mobile/OAUTH_SETUP.md. Empty at
+        // the web/iOS AuthSession flow — see mobile/docs/OAUTH_SETUP.md. Empty at
         // prebuild time just means the native module has no key baked in;
         // src/auth/kakaoNative.ts surfaces that as a specific "설정 필요"
         // reason rather than crashing.

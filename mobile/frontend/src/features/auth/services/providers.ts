@@ -18,7 +18,7 @@ export interface ProviderConfig {
 }
 
 // Client IDs/secrets come from each provider's own developer console — see
-// mobile/OAUTH_SETUP.md for the registration steps. Nothing here is a secret
+// mobile/docs/OAUTH_SETUP.md for the registration steps. Nothing here is a secret
 // by itself; EXPO_PUBLIC_* vars are bundled into the client, same as any
 // mobile app's OAuth client id.
 //
@@ -31,13 +31,13 @@ const GOOGLE_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '').trim()
 // googleIdentityWeb.ts) only accepts http(s) redirect URIs — it rejects the
 // workproof:// custom scheme this native PKCE flow needs. Android requires
 // its own "Android" client type (package name + SHA-1, with "Custom URI
-// scheme" enabled under Advanced settings) — see OAUTH_SETUP.md.
+// scheme" enabled under Advanced settings) — see mobile/docs/OAUTH_SETUP.md.
 const GOOGLE_ANDROID_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '').trim();
 // iOS needs its own OAuth client too, for the same reason Android does: the
 // "Web application" client (GOOGLE_CLIENT_ID) only accepts http(s) redirect
 // URIs. Google's "iOS" client type is scoped to a Bundle ID instead of a
 // SHA-1 — it must match ios.bundleIdentifier in app.config.ts
-// (com.workproof.app) — see OAUTH_SETUP.md.
+// (com.workproof.app) — see mobile/docs/OAUTH_SETUP.md.
 const GOOGLE_IOS_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '').trim();
 console.log('Google iOS configured:', Boolean(GOOGLE_IOS_CLIENT_ID));
 const KAKAO_CLIENT_ID = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID ?? '').trim();

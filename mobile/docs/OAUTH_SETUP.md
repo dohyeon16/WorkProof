@@ -238,7 +238,7 @@ polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐�
 
 **설정 순서:**
 
-1. `backend/README.md`를 따라 FastAPI 서버를 Render 등에 배포하고, 그 서버
+1. `mobile/backend/README.md`를 따라 FastAPI 서버를 Render 등에 배포하고, 그 서버
    전용 환경변수(`GOOGLE_CLIENT_SECRET`, `KAKAO_CLIENT_SECRET`,
    `NAVER_CLIENT_SECRET` 등)를 채웁니다. **이 값들은 `mobile/.env`나
    `EXPO_PUBLIC_*`에 절대 넣지 않습니다** — 앱 번들에 노출되면 안 되는 진짜
@@ -248,7 +248,7 @@ polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐�
    브리지는 그 값을 아예 쓰지 않습니다.)
 2. 배포된 서버의 base URL(예: `https://workproof-auth.onrender.com`)을 각
    provider 콘솔에 `{base URL}/auth/{provider}/callback` 형식으로 등록합니다
-   (`backend/README.md`의 "각 콘솔에 등록할 Callback URL" 참고).
+   (`mobile/backend/README.md`의 "각 콘솔에 등록할 Callback URL" 참고).
 3. `mobile/.env`에 `EXPO_PUBLIC_AUTH_API_URL=<base URL>`을 채웁니다.
 4. `npm run start`로 실행하고 iPhone Expo Go 앱으로 QR을 스캔합니다. 로그인/
    회원가입 화면에서 소셜 로그인 버튼을 누르면 인앱 브라우저가 열리고, 실제

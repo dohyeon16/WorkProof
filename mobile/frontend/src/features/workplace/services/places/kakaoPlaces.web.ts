@@ -2,7 +2,7 @@ import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './types'
 
 // 카카오 로컬 REST API는 브라우저 CORS를 지원하지 않아 직접 fetch로 부를 수
 // 없다. 대신 브라우저에서 바로 쓰도록 만들어진 카카오맵 JavaScript SDK(로그인용
-// REST API 키와는 별도의 "JavaScript 키" 필요, OAUTH_SETUP.md 참고)를 스크립트로
+// REST API 키와는 별도의 "JavaScript 키" 필요, mobile/docs/OAUTH_SETUP.md 참고)를 스크립트로
 // 불러와 kakao.maps.services.Places로 검색한다.
 const KAKAO_JS_KEY = (process.env.EXPO_PUBLIC_KAKAO_JS_KEY ?? '').trim();
 const SDK_SRC = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;

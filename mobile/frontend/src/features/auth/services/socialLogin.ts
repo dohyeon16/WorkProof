@@ -39,20 +39,20 @@ function notConfiguredReason(provider: 'google' | 'kakao'): string {
     return (
       'Google Android Client ID(EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID) 설정이 필요해요. ' +
       '패키지명(com.workproof.app)과 SHA-1 인증서 지문을 Google Cloud Console의 "Android" 클라이언트로 ' +
-      '등록한 뒤 값을 채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.'
+      '등록한 뒤 값을 채워주세요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.'
     );
   }
   if (provider === 'google' && Platform.OS === 'ios') {
     return (
       'Google iOS Client ID(EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) 설정이 필요해요. ' +
       'Bundle ID(com.workproof.app)를 Google Cloud Console의 "iOS" 클라이언트로 등록한 뒤 값을 ' +
-      '채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.'
+      '채워주세요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.'
     );
   }
   if (provider === 'kakao') {
-    return 'Kakao Client ID(EXPO_PUBLIC_KAKAO_CLIENT_ID)가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고하세요.';
+    return 'Kakao Client ID(EXPO_PUBLIC_KAKAO_CLIENT_ID)가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.';
   }
-  return 'Google Client ID(EXPO_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고하세요.';
+  return 'Google Client ID(EXPO_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.';
 }
 
 async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLoginResult> {

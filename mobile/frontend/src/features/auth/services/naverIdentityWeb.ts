@@ -191,7 +191,7 @@ export async function startNaverRedirect(
   if (!NAVER_CLIENT_ID) {
     return {
       status: 'not_configured',
-      reason: 'Naver Client ID(EXPO_PUBLIC_NAVER_CLIENT_ID)가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고하세요.',
+      reason: 'Naver Client ID(EXPO_PUBLIC_NAVER_CLIENT_ID)가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.',
     };
   }
   try {

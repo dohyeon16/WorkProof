@@ -9,7 +9,7 @@ import type { SocialLoginResult } from './socialLogin';
 // directly in the app (NaverLogin.initialize({ consumerSecret, ... })), same
 // as the official Naver Android/iOS SDKs it wraps. Putting a secret in the
 // client bundle is a deliberate, documented trade-off for this project (see
-// OAUTH_SETUP.md's Naver section) — NOT the client-secret-free pattern used
+// mobile/docs/OAUTH_SETUP.md's Naver section) — NOT the client-secret-free pattern used
 // for Google/Kakao. `serviceUrlSchemeIOS` below is what makes the SDK usable
 // on iOS at all — it must match a CFBundleURLTypes scheme registered in
 // Info.plist, which the @react-native-seoul/naver-login config plugin
@@ -22,7 +22,7 @@ const NOT_NATIVE_REASON = 'Naver 네이티브 로그인은 iOS/Android 앱에서
 const NOT_CONFIGURED_REASON =
   'Naver Client ID/Secret(EXPO_PUBLIC_NAVER_CLIENT_ID, EXPO_PUBLIC_NAVER_CLIENT_SECRET)이 ' +
   '설정되지 않았어요. 네이버 개발자센터에서 Android/iOS 플랫폼(패키지명/Bundle ID ' +
-  'com.workproof.app)을 등록한 뒤 값을 채워주세요. mobile/OAUTH_SETUP.md 안내를 참고하세요.';
+  'com.workproof.app)을 등록한 뒤 값을 채워주세요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.';
 
 let initialized = false;
 function ensureInitialized(): void {

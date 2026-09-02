@@ -6,7 +6,7 @@ Kakao/Naver 네이티브 모듈을 쓸 수 없어서, 이 서버가 대신 OAuth
 code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로 결과를 받아갑니다.
 
 - **web / Android·iOS Development Build**: 이 서버를 쓰지 않습니다. 기존
-  방식(웹 OAuth, 네이티브 SDK) 그대로 동작합니다 — `mobile/OAUTH_SETUP.md` 참고.
+  방식(웹 OAuth, 네이티브 SDK) 그대로 동작합니다 — `mobile/docs/OAUTH_SETUP.md` 참고.
 - **iOS/Android Expo Go**: 이 서버가 필요합니다.
 
 ## 동작 방식
@@ -69,7 +69,7 @@ Render 무료 플랜은 트래픽이 없으면 슬립 상태로 들어갑니다 
 
 - **Google**: [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
   OAuth 클라이언트(웹 애플리케이션 타입) → **승인된 리디렉션 URI**에 위 주소 등록.
-  기존 `mobile/OAUTH_SETUP.md`의 웹용 클라이언트(`EXPO_PUBLIC_GOOGLE_CLIENT_ID`)와는
+  기존 `mobile/docs/OAUTH_SETUP.md`의 웹용 클라이언트(`EXPO_PUBLIC_GOOGLE_CLIENT_ID`)와는
   별개로, 여기서는 `GOOGLE_CLIENT_SECRET`이 실제로 필요합니다(서버 전용).
 - **Kakao**: [Kakao Developers](https://developers.kakao.com) → 해당 앱 →
   "카카오 로그인" → **Redirect URI**에 위 주소를 웹/네이티브용과 별개 항목으로 추가.

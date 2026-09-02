@@ -3,7 +3,7 @@ import type { PlaceResult, PlaceSearchParams, PlaceSearchResult } from './types'
 // 네이티브(iOS/Android)는 브라우저가 아니라 CORS 제약이 없으므로, 카카오 로그인에
 // 쓰는 것과 같은 REST API 키로 카카오 로컬 API를 직접 호출한다. 웹에서는 이 키로
 // dapi.kakao.com을 직접 호출하면 CORS에 막히므로 kakaoPlaces.web.ts가 대신
-// 카카오맵 JavaScript SDK를 쓴다(OAUTH_SETUP.md 참고).
+// 카카오맵 JavaScript SDK를 쓴다(mobile/docs/OAUTH_SETUP.md 참고).
 const KAKAO_REST_KEY = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID ?? '').trim();
 
 interface KakaoDocument {

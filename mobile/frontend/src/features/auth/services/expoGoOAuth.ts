@@ -51,7 +51,7 @@ function notConfiguredResult(): SocialLoginResult {
     status: 'not_configured',
     reason:
       'Expo Go 로그인용 백엔드 주소(EXPO_PUBLIC_AUTH_API_URL)가 설정되지 않았어요. ' +
-      'mobile/OAUTH_SETUP.md와 backend/README.md 안내를 참고하세요.',
+      'mobile/docs/OAUTH_SETUP.md와 mobile/backend/README.md 안내를 참고하세요.',
   };
 }
 

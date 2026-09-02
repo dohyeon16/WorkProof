@@ -85,7 +85,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
       if (result.status === 'not_configured') {
         Alert.alert(
           '장소 검색 준비 중',
-          '아직 카카오맵 키가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
+          '아직 카카오맵 키가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고해 키를 등록해주세요.'
         );
         return;
       }

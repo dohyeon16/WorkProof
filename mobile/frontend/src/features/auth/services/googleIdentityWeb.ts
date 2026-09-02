@@ -3,7 +3,7 @@ import type { SocialLoginResult } from './socialLogin';
 // Google Identity Services (GIS) — web-only ID Token sign-in. No client
 // secret and no authorization-code exchange: the browser gets a signed JWT
 // (the "credential") directly from Google, and we read openid/email/profile
-// straight out of its claims. See OAUTH_SETUP.md for why this replaces the
+// straight out of its claims. See mobile/docs/OAUTH_SETUP.md for why this replaces the
 // expo-auth-session/PKCE flow on web specifically.
 const GOOGLE_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '').trim();
 console.log('Google configured:', Boolean(process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID));
@@ -70,7 +70,7 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
   if (!GOOGLE_CLIENT_ID) {
     return {
       status: 'not_configured',
-      reason: 'Google Client ID(EXPO_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았어요. mobile/OAUTH_SETUP.md 안내를 참고하세요.',
+      reason: 'Google Client ID(EXPO_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.',
     };
   }
 

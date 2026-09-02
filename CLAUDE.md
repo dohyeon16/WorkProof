@@ -9,7 +9,7 @@
 
 - 작업은 항상 `mobile/` 안에서 진행한다
 - 커밋 메시지는 영어 conventional commits 스타일 (`feat:`, `fix:`, `chore:` ...)
-- 소셜 로그인(Google/Kakao/Naver), 카카오 장소 검색(`src/places/`) 관련 작업은 `mobile/OAUTH_SETUP.md`를 먼저 확인한다
+- 소셜 로그인(Google/Kakao/Naver), 카카오 장소 검색(`src/places/`) 관련 작업은 `mobile/docs/OAUTH_SETUP.md`를 먼저 확인한다
 - 네이티브(.ts/.tsx)와 웹(.web.ts/.web.tsx) 플랫폼별 파일이 갈리는 곳은 두 버전 다 확인한다
 - UI/기능을 바꾼 뒤에는 가능하면 실제로 앱을 띄워 눌러보고 확인한다
 
