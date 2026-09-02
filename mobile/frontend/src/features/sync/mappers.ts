@@ -1,7 +1,7 @@
 // 모바일 도메인 모델 ↔ 백엔드 wire(snake_case) 매핑 + 지문(fingerprint) + 서버 필드 병합.
 // 순수 모듈(RN/fetch 의존 없음). 백엔드 계약 근거:
 //   backend/app/schemas/{workplace,work_schedule,attendance_record}.py
-//   backend/app/services/work_data.py (client_id 멱등, soft-delete, proximity 재계산)
+//   backend/app/services/work_data_service.py (client_id 멱등, soft-delete, proximity 재계산)
 //
 // 핵심 규칙:
 //  - 로컬 record.id 를 그대로 client_id 로 보낸다(재전송 멱등 키).

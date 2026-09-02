@@ -21,7 +21,8 @@ export function isExpoGo(): boolean {
 
 const AUTH_API_URL = (process.env.EXPO_PUBLIC_AUTH_API_URL ?? '').trim().replace(/\/+$/, '');
 
-// Backend sessions expire after 10 minutes (see backend/main.py); polling
+// Backend sessions expire after 10 minutes (SESSION_TTL_SECONDS in
+// backend/app/services/auth/oauth_bridge.py); polling
 // stops a little before that so the app never waits on a session the server
 // has already dropped.
 const POLL_TIMEOUT_MS = 8 * 60 * 1000;
