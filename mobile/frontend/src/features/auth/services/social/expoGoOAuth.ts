@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import type { SocialLoginResult } from './socialLogin';
 import { classifySocialError, describeForLog } from './socialAuthErrors';
+import { API_BASE_URL } from '../../../../services/api/config';
 
 // Expo Go can't register the app's custom URL scheme (workproof://) or load
 // the Kakao/Naver native SDKs — so none of the flows in providers.ts,
@@ -20,7 +22,8 @@ export function isExpoGo(): boolean {
   return Constants.expoGoConfig != null;
 }
 
-const AUTH_API_URL = (process.env.EXPO_PUBLIC_AUTH_API_URL ?? '').trim().replace(/\/+$/, '');
+const AUTH_API_URL =
+  (process.env.EXPO_PUBLIC_AUTH_API_URL ?? '').trim().replace(/\/+$/, '') || API_BASE_URL;
 
 // Backend sessions expire after 10 minutes (SESSION_TTL_SECONDS in
 // backend/app/services/auth/oauth_bridge.py); polling
@@ -46,7 +49,13 @@ interface BridgeProfile {
 type SessionStatusResponse =
   | { status: 'pending' }
   | { status: 'success'; profile: BridgeProfile }
-  | { status: 'error'; message?: string };
+  | {
+      status: 'error';
+      message?: string;
+      error_code?: 'PROVIDER_CONFIG' | 'PROVIDER_UNAVAILABLE' | 'PROFILE_UNAVAILABLE' | 'UNKNOWN';
+      provider_error?: string;
+      provider_error_code?: string;
+    };
 
 function notConfiguredResult(): SocialLoginResult {
   return {
@@ -118,23 +127,43 @@ function dismissAuthBrowser(): void {
   WebBrowser.dismissBrowser().catch(() => {});
 }
 
-export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise<SocialLoginResult> {
+export async function loginWithProviderBridge(provider: BridgeProvider): Promise<SocialLoginResult> {
   if (!AUTH_API_URL) {
     return notConfiguredResult();
+  }
+
+  // Web opens a blank popup synchronously, before the session-creation fetch,
+  // so mobile browsers do not classify it as an unsolicited popup. The
+  // provider callback stays on the backend and this page polls only the
+  // opaque session id; no authorization code or provider token reaches Web.
+  const webPopup = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.open('about:blank', '_blank', 'popup,width=520,height=720')
+    : null;
+  if (Platform.OS === 'web' && !webPopup) {
+    return { status: 'error', code: 'UNKNOWN' };
   }
 
   // 앱 복귀 URL. Expo Go에서는 실행 중인 tunnel/LAN 주소에 맞춘 exp(s):// URL을,
   // dev-client/독립 앱에서는 app.config.ts의 workproof:// 스킴을 런타임에 만든다
   // (예전 exp.direct 주소 하드코딩 금지). 백엔드는 이 스킴만 허용 목록으로 검증한다.
-  const returnUrl = AuthSession.makeRedirectUri({ scheme: 'workproof', path: 'auth-complete' });
+  // Web은 backend callback 결과 페이지에 머물고 opener가 polling하므로 복귀 URL을
+  // 보내지 않는다. 이 방식은 localhost/LAN origin 혼용 문제도 만들지 않는다.
+  const returnUrl = Platform.OS === 'web'
+    ? ''
+    : AuthSession.makeRedirectUri({ scheme: 'workproof', path: 'auth-complete' });
 
   let session: CreateSessionResponse;
   try {
     session = await createBridgeSession(provider, returnUrl);
   } catch (err) {
+    webPopup?.close();
     return { status: 'error', code: (console.warn(describeForLog('provider', 'bridge', err)), classifySocialError(err)) };
   }
   const { session_id: sessionId, login_url: loginUrl } = session;
+
+  if (webPopup) {
+    webPopup.location.replace(loginUrl);
+  }
 
   // openAuthSessionAsync는 복귀 URL(returnUrl)로의 리디렉션을 감지하면 인증
   // 브라우저를 자동으로 닫고 { type: 'success' }로 resolve한다. 사용자가 직접
@@ -146,14 +175,16 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
   // 성공/실패 판정은 아래 세션 폴링이 담당하므로 result 객체 자체는 보관하지
   // 않는다.
   let browserClosedWithoutRedirect = false;
-  const authPromise = WebBrowser.openAuthSessionAsync(loginUrl, returnUrl)
-    .then((result) => {
-      if (result.type !== 'success') browserClosedWithoutRedirect = true;
-    })
-    .catch(() => {
-      // 브라우저 열기/닫기 자체 실패 — 폴링 타임아웃까지는 결과를 기다려본다.
-      browserClosedWithoutRedirect = true;
-    });
+  const authPromise = webPopup
+    ? Promise.resolve()
+    : WebBrowser.openAuthSessionAsync(loginUrl, returnUrl)
+        .then((result) => {
+          if (result.type !== 'success') browserClosedWithoutRedirect = true;
+        })
+        .catch(() => {
+          // 브라우저 열기/닫기 자체 실패 — 폴링 타임아웃까지는 결과를 기다려본다.
+          browserClosedWithoutRedirect = true;
+        });
 
   // 세션 정리·브라우저 닫기를 한 번만 수행하도록 감싼 종료 헬퍼.
   // 성공 결과는 sessionId를 그대로 호출부에 넘겨(bridgeSessionId) /auth/bridge/exchange
@@ -165,6 +196,7 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
   const finish = (result: SocialLoginResult): SocialLoginResult => {
     if (settled) return result;
     settled = true;
+    webPopup?.close();
     dismissAuthBrowser();
     if (result.status !== 'success') deleteBridgeSession(sessionId);
     return result;
@@ -189,14 +221,25 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
         return finish(toSocialLoginResult(statusRes.profile, sessionId));
       }
       if (statusRes.status === 'error') {
-        console.warn(describeForLog(provider, 'bridge-status', statusRes.message));
-        return finish({ status: 'error', code: classifySocialError(statusRes.message) });
+        // Only provider error identifiers are returned by the backend. Codes,
+        // credentials and tokens never cross this diagnostic boundary.
+        const safeDiagnostic = [statusRes.error_code, statusRes.provider_error, statusRes.provider_error_code]
+          .filter(Boolean)
+          .join(':');
+        console.warn(describeForLog(provider, 'bridge-status', safeDiagnostic || statusRes.message));
+        const code = statusRes.error_code === 'PROVIDER_CONFIG'
+          ? 'PROVIDER_CONFIG'
+          : classifySocialError(statusRes.message);
+        return finish({ status: 'error', code });
       }
       // 세션이 아직 pending인데 브라우저가 복귀 URL이 아닌 방식으로 닫혔다면
       // (사용자가 직접 닫음) 취소로 처리한다. 복귀 URL 감지로 닫힌 경우
       // (type === 'success')는 이 플래그가 서지 않으므로, 다음 폴링에서 결과가
       // 곧 채워진다.
       if (browserClosedWithoutRedirect) {
+        return finish({ status: 'cancelled' });
+      }
+      if (webPopup?.closed) {
         return finish({ status: 'cancelled' });
       }
     }
@@ -206,3 +249,7 @@ export async function loginWithProviderExpoGo(provider: BridgeProvider): Promise
 
   return finish({ status: 'error', code: 'TIMEOUT' });
 }
+
+// Backwards-compatible name for callers/tests that describe the original
+// Expo-Go-only use. Web Kakao now intentionally uses the same secure bridge.
+export const loginWithProviderExpoGo = loginWithProviderBridge;

@@ -31,6 +31,46 @@ def test_legacy_unknown_provider_contract_unchanged(client):
     assert r.json()["detail"] == "지원하지 않는 provider입니다."
 
 
+def test_bridge_error_exposes_only_sanitized_provider_codes(client, _clean_bridge):
+    oauth_bridge.sessions["safe-error"] = oauth_bridge.OAuthSession(
+        provider="kakao",
+        created_at=time.time(),
+        status="error",
+        message="로그인 처리 중 오류가 발생했어요.",
+        error_code="PROVIDER_CONFIG",
+        provider_error="invalid_client",
+        provider_error_code="KOE010",
+    )
+    r = client.get("/auth/session/safe-error")
+    assert r.status_code == 200
+    assert r.json() == {
+        "status": "error",
+        "message": "로그인 처리 중 오류가 발생했어요.",
+        "error_code": "PROVIDER_CONFIG",
+        "provider_error": "invalid_client",
+        "provider_error_code": "KOE010",
+    }
+
+
+def test_kakao_bad_credentials_is_safely_classified_without_description():
+    error, code = oauth_bridge.sanitize_provider_error(
+        {
+            "error": "invalid_client",
+            "error_description": "Bad client credentials.",
+            "untrusted": "must not escape",
+        }
+    )
+    assert (error, code) == ("invalid_client", "KOE010")
+
+
+def test_provider_error_sanitizer_rejects_untrusted_text():
+    error, code = oauth_bridge.sanitize_provider_error(
+        {"error": "secret-like free form value", "error_description": "KOE101"}
+    )
+    assert error == ""
+    assert code == "KOE101"
+
+
 # --------------------------- 직접 소셜 identity 위조 방지 ---------------------------
 def test_direct_social_forgery_rejected_by_default(client):
     # 검증기 미등록 + ALLOW_UNVERIFIED_SOCIAL=False(기본) → 임의 provider_user_id

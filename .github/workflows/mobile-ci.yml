@@ -28,7 +28,6 @@ jobs:
       EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: "ci-placeholder"
       EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: "ci-placeholder"
       EXPO_PUBLIC_KAKAO_CLIENT_ID: "ci-placeholder"
-      EXPO_PUBLIC_KAKAO_CLIENT_SECRET: "ci-placeholder"
       EXPO_PUBLIC_KAKAO_JS_KEY: "ci-placeholder"
       EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY: "ci-placeholder"
       EXPO_PUBLIC_NAVER_CLIENT_ID: "ci-placeholder"

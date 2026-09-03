@@ -110,7 +110,7 @@ async def oauth_callback(
     redirect_uri = f"{_get_base_url(request)}/auth/{provider}/callback"
     try:
         profile = await svc.exchange_and_fetch_profile(provider, code, redirect_uri)
-    except Exception as exc:
+    except svc.ProviderExchangeError as exc:
         # 토큰·secret이 섞일 수 있는 예외 원문은 남기지 않는다 — provider와 예외
         # 유형만 남긴다(로그에 토큰/secret/코드 노출 금지).
         logger.warning(
@@ -120,6 +120,19 @@ async def oauth_callback(
         )
         session.status = "error"
         session.message = "로그인 처리 중 오류가 발생했어요."
+        session.error_code = exc.code
+        session.provider_error = exc.provider_error or None
+        session.provider_error_code = exc.provider_error_code or None
+        return _finish_callback(session, session_id, "error")
+    except Exception as exc:
+        logger.warning(
+            "oauth code exchange/profile fetch failed provider=%s type=%s",
+            provider,
+            type(exc).__name__,
+        )
+        session.status = "error"
+        session.message = "로그인 처리 중 오류가 발생했어요."
+        session.error_code = "UNKNOWN"
         return _finish_callback(session, session_id, "error")
 
     session.status = "success"
@@ -136,7 +149,13 @@ async def session_status(session_id: str) -> dict:
         return {"status": "pending"}
     if session.status == "success":
         return {"status": "success", "profile": session.profile}
-    return {"status": "error", "message": session.message or "로그인에 실패했어요."}
+    return {
+        "status": "error",
+        "message": session.message or "로그인에 실패했어요.",
+        "error_code": session.error_code or "UNKNOWN",
+        "provider_error": session.provider_error,
+        "provider_error_code": session.provider_error_code,
+    }
 
 
 @router.delete("/auth/session/{session_id}")

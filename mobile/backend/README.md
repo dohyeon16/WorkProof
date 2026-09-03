@@ -1,12 +1,11 @@
-# WorkProof Auth Bridge (Expo Go 전용)
+# WorkProof Auth Bridge
 
-`mobile/frontend/`를 Expo Go(무료 Apple Developer 계정, 커스텀 URL 스킴/네이티브 SDK 없이)로
-실행할 때만 쓰는 FastAPI 서버입니다. Expo Go는 `workproof://` 커스텀 스킴과
-Kakao/Naver 네이티브 모듈을 쓸 수 없어서, 이 서버가 대신 OAuth authorization
-code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로 결과를 받아갑니다.
+`mobile/frontend/`의 Expo Go OAuth와 Kakao Web OAuth를 안전하게 중계하는 FastAPI 서버입니다.
+이 서버가 OAuth authorization code 교환을 서버 사이드에서 처리하고, 앱은 짧은 polling으로
+결과를 받아갑니다.
 
-- **web / Android·iOS Development Build**: 이 서버를 쓰지 않습니다. 기존
-  방식(웹 OAuth, 네이티브 SDK) 그대로 동작합니다 — `mobile/docs/OAUTH_SETUP.md` 참고.
+- **web**: Kakao만 이 서버를 사용합니다. Google/Naver의 기존 Web 흐름은 유지합니다.
+- **Android·iOS Development Build**: provider 네이티브 SDK 흐름을 유지합니다.
 - **iOS/Android Expo Go**: 이 서버가 필요합니다.
 
 ## app/ 구성 — 폴더 이름이 곧 역할이다
@@ -20,7 +19,7 @@ app/
 │
 ├─ api/v1/            ← HTTP 엔드포인트 (파일 하나 = 기능 하나)
 │  ├─ auth.py             회원가입 · 로그인 · 토큰 재발급 · 소셜 로그인
-│  ├─ oauth_bridge.py     Expo Go 전용 OAuth 브릿지 (접두사 없는 레거시 경로)
+│  ├─ oauth_bridge.py     Server-side OAuth 브릿지 (접두사 없는 레거시 경로)
 │  ├─ users.py            내 정보 조회·수정 · 근무 데이터 초기화
 │  ├─ workplaces.py       근무지 CRUD
 │  ├─ work_schedules.py   근무 예정 CRUD
