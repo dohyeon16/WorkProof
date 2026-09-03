@@ -15,6 +15,7 @@ import type {
   RefreshTokenStore,
   RegisterInput,
   SessionApi,
+  SocialSessionInput,
   UpdateProfileInput,
 } from '../auth.types';
 
@@ -40,7 +41,12 @@ export interface Session {
   register(input: RegisterInput): Promise<AuthUser>;
   login(input: LoginInput): Promise<AuthUser>;
   /** 서버 검증된 OAuth 브릿지 세션(Expo Go 소셜 로그인)을 실제 백엔드 인증 세션으로 교환한다. */
-  loginWithBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthUser>;
+  loginWithBridgeSession(
+    bridgeSessionId: string,
+    deviceLabel?: string,
+    bridgeApiUrl?: string
+  ): Promise<AuthUser>;
+  loginWithSocialCredential(input: SocialSessionInput): Promise<AuthUser>;
   refreshSession(): Promise<string>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<AuthUser>;
@@ -136,8 +142,18 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
     return applySession(session);
   }
 
-  async function loginWithBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthUser> {
-    const session = await api.exchangeBridgeSession(bridgeSessionId, deviceLabel);
+  async function loginWithBridgeSession(
+    bridgeSessionId: string,
+    deviceLabel?: string,
+    bridgeApiUrl?: string
+  ): Promise<AuthUser> {
+    const session = await api.exchangeBridgeSession(bridgeSessionId, deviceLabel, bridgeApiUrl);
+    return applySession(session);
+  }
+
+  async function loginWithSocialCredential(input: SocialSessionInput): Promise<AuthUser> {
+    if (!api.social) throw new Error('Social session API is unavailable.');
+    const session = await api.social(input);
     return applySession(session);
   }
 
@@ -241,6 +257,7 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
     register,
     login,
     loginWithBridgeSession,
+    loginWithSocialCredential,
     refreshSession,
     logout,
     getCurrentUser,

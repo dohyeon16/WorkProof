@@ -129,6 +129,7 @@ export async function loginWithGoogleWeb(): Promise<SocialLoginResult> {
           }
           settle({
             status: 'success',
+            providerCredential: response.credential,
             profile: {
               provider: 'google',
               providerId: String(payload.sub),

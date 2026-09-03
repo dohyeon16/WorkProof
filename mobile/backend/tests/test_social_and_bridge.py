@@ -195,6 +195,78 @@ def test_direct_social_invalid_credential_rejected(client):
         social_verify.unregister_verifier("google")
 
 
+def test_google_web_credential_is_verified_server_side(client, db, monkeypatch):
+    monkeypatch.setattr(
+        social_verify,
+        "_fetch_json",
+        lambda url, **kwargs: {
+            "aud": social_verify.settings.GOOGLE_CLIENT_ID,
+            "iss": "https://accounts.google.com",
+            "sub": "verified-google-id",
+            "email": "google@example.com",
+        },
+    )
+    r = client.post(
+        "/api/v1/auth/social",
+        json={
+            "provider": "google",
+            "provider_user_id": "untrusted-client-id",
+            "name": "Google user",
+            "credential": "signed-id-token",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["user"]["primary_provider"] == "google"
+    account = db.execute(select(OAuthAccount)).scalar_one()
+    assert account.provider_user_id == "verified-google-id"
+
+
+def test_google_web_credential_rejects_wrong_audience(client, monkeypatch):
+    monkeypatch.setattr(
+        social_verify,
+        "_fetch_json",
+        lambda url, **kwargs: {
+            "aud": "different-client",
+            "iss": "https://accounts.google.com",
+            "sub": "google-id",
+        },
+    )
+    r = client.post(
+        "/api/v1/auth/social",
+        json={
+            "provider": "google",
+            "provider_user_id": "x",
+            "name": "Google user",
+            "credential": "signed-id-token",
+        },
+    )
+    assert r.status_code == 401
+
+
+def test_naver_web_credential_allows_nullable_email_and_reuses_identity(client, db, monkeypatch):
+    monkeypatch.setattr(
+        social_verify,
+        "_fetch_json",
+        lambda url, **kwargs: {
+            "resultcode": "00",
+            "response": {"id": "verified-naver-id", "nickname": "네이버 사용자"},
+        },
+    )
+    payload = {
+        "provider": "naver",
+        "provider_user_id": "untrusted-client-id",
+        "name": "Naver user",
+        "credential": "provider-access-token",
+    }
+    first = client.post("/api/v1/auth/social", json=payload)
+    second = client.post("/api/v1/auth/social", json=payload)
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json()["user"]["id"] == second.json()["user"]["id"]
+    account = db.execute(select(OAuthAccount)).scalar_one()
+    assert account.provider_user_id == "verified-naver-id"
+    assert account.provider_email is None
+
+
 # --------------------------- 브릿지 교환 ---------------------------
 @pytest.fixture()
 def _clean_bridge():

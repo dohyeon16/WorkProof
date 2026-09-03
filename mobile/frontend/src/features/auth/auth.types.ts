@@ -33,6 +33,15 @@ export interface LoginInput {
   deviceLabel?: string;
 }
 
+export interface SocialSessionInput {
+  provider: 'google' | 'kakao' | 'naver';
+  providerUserId: string;
+  email: string | null;
+  name: string;
+  credential: string;
+  deviceLabel?: string;
+}
+
 export interface UpdateProfileInput {
   name: string;
 }
@@ -47,7 +56,13 @@ export interface SessionApi {
    * 이후 성공한 session_id)을 서버 JWT로 교환한다(일회성 — 서버가 소비함). Expo Go의
    * Google/Kakao/Naver 로그인이 이 경로로 실제 백엔드 인증 세션을 얻는다.
    */
-  exchangeBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthSession>;
+  exchangeBridgeSession(
+    bridgeSessionId: string,
+    deviceLabel?: string,
+    bridgeApiUrl?: string
+  ): Promise<AuthSession>;
+  /** provider credential을 서버가 직접 검증한 뒤 WorkProof 세션으로 교환한다. */
+  social?(input: SocialSessionInput): Promise<AuthSession>;
   refresh(refreshToken: string): Promise<AuthSession>;
   logout(refreshToken: string): Promise<void>;
   getMe(accessToken: string): Promise<AuthUser>;

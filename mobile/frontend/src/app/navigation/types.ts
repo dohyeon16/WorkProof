@@ -22,7 +22,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Splash: undefined;
-  Login: { prefillEmail?: string; naverResume?: NaverResumeParams } | undefined;
+  Login: { prefillEmail?: string; naverResume?: NaverResumeParams; returnToAi?: boolean } | undefined;
   Signup: { naverResume?: NaverResumeParams } | undefined;
   ResetPassword: undefined;
   Account: undefined;

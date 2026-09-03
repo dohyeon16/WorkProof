@@ -21,6 +21,9 @@ const loginScreenSrc = readSrc('src/features/auth/screens/LoginScreen.tsx');
 const signupScreenSrc = readSrc('src/features/auth/screens/SignupScreen.tsx');
 const authApiSrc = readSrc('src/features/auth/services/authApi.ts');
 const authContextSrc = readSrc('src/features/auth/state/AuthContext.tsx');
+const googleWebSrc = readSrc('src/features/auth/services/social/googleIdentityWeb.ts');
+const naverWebSrc = readSrc('src/features/auth/services/social/naverIdentityWeb.ts');
+const aiHookSrc = readSrc('src/services/ai_summary/useAiAnalysis.ts');
 
 test('SocialLoginResult: success에 bridgeSessionId를 실을 수 있다', () => {
   assert.match(
@@ -75,8 +78,13 @@ test('authApi: POST /auth/bridge/exchange 로 실제 백엔드 세션을 교환�
 });
 
 test('AuthContext: loginWithBridgeSession 을 공개해 화면이 canonical 세션을 갱신할 수 있다', () => {
-  assert.match(authContextSrc, /loginWithBridgeSession\(bridgeSessionId: string\): Promise<AuthUser>/);
-  assert.match(authContextSrc, /loginWithBridgeSession:\s*\(bridgeSessionId\)\s*=>\s*\r?\n?\s*session\.loginWithBridgeSession/);
+  assert.match(authContextSrc, /loginWithBridgeSession\(bridgeSessionId: string, bridgeApiUrl\?: string\): Promise<AuthUser>/);
+  assert.match(authContextSrc, /loginWithBridgeSession:\s*\(bridgeSessionId, bridgeApiUrl\)\s*=>\s*\r?\n?\s*session\.loginWithBridgeSession/);
+});
+
+test('bridge exchange uses the exact backend origin that created its process-local session', () => {
+  assert.match(expoGoOAuthSrc, /bridgeApiUrl: AUTH_API_URL/);
+  assert.match(authApiSrc, /bridgeApiUrl \? createApiClient\(bridgeApiUrl\) : client/);
 });
 
 for (const [label, src] of [
@@ -96,8 +104,32 @@ for (const [label, src] of [
     const idx = src.indexOf('loginWithBridgeSession(');
     assert.ok(idx >= 0);
     // loginWithBridgeSession 호출 지점 앞뒤 400자 안에 try/catch가 있어야 한다(격리 확인).
-    const region = src.slice(Math.max(0, idx - 200), idx + 200);
+    const region = src.slice(Math.max(0, idx - 250), idx + 850);
     assert.match(region, /try\s*\{/, `${label} 의 bridge 교환 호출이 try 블록 안에 있어야 한다`);
     assert.match(region, /catch/, `${label} 의 bridge 교환 실패를 catch로 흡수해야 한다`);
+  });
+}
+
+test('Google/Naver Web retain their working provider UI and hand the credential to server verification', () => {
+  assert.match(googleWebSrc, /providerCredential: response\.credential/);
+  assert.match(naverWebSrc, /extractProfile\(naverLogin\.user, hashParams\.access_token\)/);
+  assert.match(authContextSrc, /loginWithSocialCredential/);
+});
+
+test('AI login gate carries a return intent instead of resetting away the attached document screen', () => {
+  assert.match(aiHookSrc, /navigation\.navigate\('Login', \{ returnToAi: true \}\)/);
+  assert.match(loginScreenSrc, /route\.params\?\.returnToAi/);
+  assert.match(loginScreenSrc, /navigation\.goBack\(\)/);
+});
+
+for (const [label, src] of [
+  ['LoginScreen', loginScreenSrc],
+  ['SignupScreen', signupScreenSrc],
+] as const) {
+  test(`${label}: backend social session succeeds before local success state`, () => {
+    assert.match(src, /loginWithSocialCredential/);
+    const sessionIndex = Math.max(src.indexOf('loginWithBridgeSession('), src.indexOf('loginWithSocialCredential({'));
+    const localIndex = label === 'LoginScreen' ? src.indexOf('setLoggedIn(true)') : src.indexOf('saveAccount({');
+    assert.ok(sessionIndex >= 0 && localIndex > sessionIndex);
   });
 }

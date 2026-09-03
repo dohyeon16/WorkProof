@@ -26,6 +26,11 @@ export type SocialLoginResult =
       // 그 경로는 아직 서버측 provider credential 검증기가 없어(§social_verify.py)
       // 백엔드 세션 발급 대상이 아니다.
       bridgeSessionId?: string;
+      /** Origin that created the in-memory bridge session; never a credential. */
+      bridgeApiUrl?: string;
+      // Web Google/Naver가 받은 provider credential. 화면은 값을 표시/저장하지 않고
+      // 즉시 /api/v1/auth/social로 보내 서버 검증 후 WorkProof 세션으로 교환한다.
+      providerCredential?: string;
     }
   | { status: 'cancelled' }
   // `reason` is a specific, provider+platform-aware explanation shown

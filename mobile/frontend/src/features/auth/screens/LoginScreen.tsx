@@ -21,7 +21,7 @@ type Props = RootScreenProps<'Login'>;
 
 export default function LoginScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { login, loginWithBridgeSession } = useAuth();
+  const { login, loginWithBridgeSession, loginWithSocialCredential } = useAuth();
   const prefill = parseEmail(route.params?.prefillEmail ?? '');
   const [emailLocal, setEmailLocal] = useState(prefill.local);
   const [emailDomain, setEmailDomain] = useState(prefill.domain);
@@ -34,6 +34,10 @@ export default function LoginScreen({ navigation, route }: Props) {
   // Alert의 '확인'을 누른 뒤에 홈(또는 온보딩)으로 이동한다. 이메일/소셜
   // 로그인이 각자 다른 안내 문구를 쓰되 이동 로직은 공유한다.
   const goHomeAfterLogin = async () => {
+    if (route.params?.returnToAi && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     const onboardingDone = await isOnboardingDone();
     navigation.reset({
       index: 0,
@@ -87,20 +91,26 @@ export default function LoginScreen({ navigation, route }: Props) {
       Alert.alert('가입된 계정이 없어요', '먼저 회원가입을 진행해주세요.');
       return;
     }
-    await setLoggedIn(true);
-    // Expo Go 경로는 서버가 검증한 bridge session_id를 받는다 — 이걸 실제 백엔드
-    // 인증 세션으로 교환해야 AI 분석(useAiAnalysis의 isAuthenticated) 등 백엔드
-    // 인증이 필요한 기능이 소셜 로그인 사용자에게도 정상 동작한다. 실패해도(네트워크
-    // 등) 앱 로그인 자체는 이미 끝난 흐름이라 사용자에게 별도로 막지 않는다 —
-    // 다음 로그인이나 재시도에서 다시 시도된다.
+    // 소셜 provider 인증과 WorkProof 백엔드 인증을 한 단계로 마친 뒤에만 로컬
+    // 로그인 플래그를 세운다. bridgeSessionId(Kakao Web/Expo Go)는 일회성 bridge
+    // exchange로, Google/Naver Web credential은 서버 검증 /auth/social로 교환한다.
+    // 이 순서를 뒤집으면 교환 실패 시 앱만 로그인된 반쪽 상태가 다시 생긴다.
     let backendSessionReady = true;
-    if (result.bridgeSessionId) {
-      try {
-        await loginWithBridgeSession(result.bridgeSessionId);
-      } catch (e) {
-        backendSessionReady = false;
-        console.warn('[LoginScreen] bridge session 교환 실패:', e instanceof Error ? e.message : String(e));
+    try {
+      if (result.bridgeSessionId) {
+        await loginWithBridgeSession(result.bridgeSessionId, result.bridgeApiUrl);
+      } else if (result.providerCredential) {
+        await loginWithSocialCredential({
+          provider,
+          providerUserId: result.profile.providerId,
+          email: result.profile.email || null,
+          name: result.profile.name,
+          credential: result.providerCredential,
+        });
       }
+    } catch (e) {
+      backendSessionReady = false;
+      console.warn('[LoginScreen] backend social session stage failed:', e instanceof Error ? e.name : typeof e);
     }
     // 교환이 실패하면 앱 로그인만 된 반쪽 상태다. 예전에는 이것을 삼키고 "로그인 완료"만
     // 띄워서, 사용자는 AI 분석에서만 로그인을 다시 요구받는 이유를 알 수 없었다.
@@ -110,6 +120,7 @@ export default function LoginScreen({ navigation, route }: Props) {
       ]);
       return;
     }
+    await setLoggedIn(true);
     // 소셜 인증 성공 → 앱 복귀 직후 앱 내부 팝업만 짧게 표시한다(Render 성공
     // 웹페이지는 정상 흐름에서 더 이상 보이지 않는다). 확인 후 홈으로 이동.
     Alert.alert('로그인 완료', '로그인되었습니다.', [

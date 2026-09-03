@@ -20,8 +20,12 @@
   개발 편의를 위해 settings.ALLOW_UNVERIFIED_SOCIAL=True 로 두면 클라이언트
   입력을 그대로 신뢰하지만, 이는 **위조 가능**하므로 운영에서 켜면 안 된다.
 """
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from app.core.config import settings
 from app.schemas.auth import SocialAuthRequest
@@ -50,6 +54,66 @@ class SocialVerificationUnavailable(Exception):
 _VERIFIERS: dict[str, Callable[[SocialAuthRequest], VerifiedSocialIdentity]] = {}
 
 
+def _fetch_json(url: str, *, authorization: str | None = None) -> dict:
+    """Fetch provider identity JSON without ever logging the credential-bearing URL/header."""
+    headers = {"Accept": "application/json"}
+    if authorization:
+        headers["Authorization"] = authorization
+    try:
+        with urlopen(Request(url, headers=headers), timeout=10) as response:
+            payload = json.load(response)
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError) as exc:
+        # Provider response bodies, URLs and headers can contain credentials. Only
+        # expose the stable exception type to callers/logs.
+        raise SocialVerificationError(type(exc).__name__) from None
+    if not isinstance(payload, dict):
+        raise SocialVerificationError("invalid_provider_payload")
+    return payload
+
+
+def _verify_google(req: SocialAuthRequest) -> VerifiedSocialIdentity:
+    if not req.credential:
+        raise SocialVerificationError("missing_credential")
+    payload = _fetch_json(
+        "https://oauth2.googleapis.com/tokeninfo?id_token=" + quote(req.credential, safe="")
+    )
+    if (
+        payload.get("aud") != settings.GOOGLE_CLIENT_ID
+        or payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}
+        or not payload.get("sub")
+    ):
+        raise SocialVerificationError("invalid_google_identity")
+    email = payload.get("email") if isinstance(payload.get("email"), str) else None
+    name = payload.get("name") if isinstance(payload.get("name"), str) else None
+    return VerifiedSocialIdentity(
+        provider="google",
+        provider_user_id=str(payload["sub"]),
+        email=email,
+        name=name or email or "Google 사용자",
+    )
+
+
+def _verify_naver(req: SocialAuthRequest) -> VerifiedSocialIdentity:
+    if not req.credential:
+        raise SocialVerificationError("missing_credential")
+    payload = _fetch_json(
+        "https://openapi.naver.com/v1/nid/me",
+        authorization=f"Bearer {req.credential}",
+    )
+    profile = payload.get("response")
+    if payload.get("resultcode") != "00" or not isinstance(profile, dict) or not profile.get("id"):
+        raise SocialVerificationError("invalid_naver_identity")
+    email = profile.get("email") if isinstance(profile.get("email"), str) else None
+    name = profile.get("name") if isinstance(profile.get("name"), str) else None
+    nickname = profile.get("nickname") if isinstance(profile.get("nickname"), str) else None
+    return VerifiedSocialIdentity(
+        provider="naver",
+        provider_user_id=str(profile["id"]),
+        email=email,
+        name=name or nickname or "네이버 사용자",
+    )
+
+
 def register_verifier(
     provider: str, verifier: Callable[[SocialAuthRequest], VerifiedSocialIdentity]
 ) -> None:
@@ -75,6 +139,14 @@ def verify_social(req: SocialAuthRequest) -> VerifiedSocialIdentity:
     verifier = _VERIFIERS.get(req.provider)
     if verifier is not None:
         return verifier(req)
+
+    # Web Google/Naver already obtained a provider-issued credential as part of
+    # their existing successful UI flow. Validate it server-side so the same
+    # sign-in also establishes the WorkProof JWT session required by AI proxy.
+    if req.provider == "google" and req.credential:
+        return _verify_google(req)
+    if req.provider == "naver" and req.credential:
+        return _verify_naver(req)
 
     if settings.ALLOW_UNVERIFIED_SOCIAL:
         # 개발 전용 경로. provider_user_id를 검증 없이 신뢰한다(운영 금지).
