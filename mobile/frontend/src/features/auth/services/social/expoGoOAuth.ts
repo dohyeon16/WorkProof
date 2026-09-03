@@ -112,6 +112,7 @@ function toSocialLoginResult(profile: BridgeProfile, sessionId: string): SocialL
     },
     // 호출부가 /auth/bridge/exchange 로 실제 백엔드 인증 세션을 교환할 수 있게 넘긴다.
     bridgeSessionId: sessionId,
+    bridgeApiUrl: AUTH_API_URL,
   };
 }
 

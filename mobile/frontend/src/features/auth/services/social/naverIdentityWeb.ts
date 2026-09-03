@@ -117,7 +117,7 @@ function createNaverLogin(naver: NaverGlobal): NaverLoginInstance {
   });
 }
 
-function extractProfile(user: NaverUser): SocialLoginResult {
+function extractProfile(user: NaverUser, credential?: string): SocialLoginResult {
   const id = user.getId ? user.getId() : user.id;
   if (!id) {
     return { status: 'error', code: 'UNKNOWN' };
@@ -126,6 +126,7 @@ function extractProfile(user: NaverUser): SocialLoginResult {
   const name = (user.getName ? user.getName() : user.name) || user.getNickName?.() || '네이버 사용자';
   return {
     status: 'success',
+    providerCredential: credential,
     profile: { provider: 'naver', providerId: String(id), email, name },
   };
 }
@@ -269,7 +270,7 @@ export async function resumeNaverRedirectIfPending(): Promise<NaverRedirectResum
       resolve({
         mode: pending.mode,
         screen: pending.screen,
-        result: status ? extractProfile(naverLogin.user) : { status: 'cancelled' },
+        result: status ? extractProfile(naverLogin.user, hashParams.access_token) : { status: 'cancelled' },
       });
     });
   });

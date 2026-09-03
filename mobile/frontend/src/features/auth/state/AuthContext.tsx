@@ -21,7 +21,7 @@ import { createApiClient } from '../../../services/api/client';
 import { createSessionApi } from '../services/authApi';
 import { refreshTokenStore } from '../services/tokenStore';
 import { createSession, type AuthStateSnapshot } from './session';
-import type { AuthUser, LoginInput, RegisterInput, UpdateProfileInput } from '../auth.types';
+import type { AuthUser, LoginInput, RegisterInput, SocialSessionInput, UpdateProfileInput } from '../auth.types';
 
 // 앱 수명 동안 유지되는 단일 세션. 클라이언트/스토어는 모듈 로드 시 한 번만 만든다.
 const session = createSession({
@@ -39,7 +39,8 @@ export interface AuthContextValue {
   register(input: Omit<RegisterInput, 'deviceLabel'>): Promise<AuthUser>;
   login(email: string, password: string): Promise<AuthUser>;
   /** Expo Go 소셜 로그인(Google/Kakao/Naver) 성공 후 받은 bridge session_id를 백엔드 인증 세션으로 교환한다. */
-  loginWithBridgeSession(bridgeSessionId: string): Promise<AuthUser>;
+  loginWithBridgeSession(bridgeSessionId: string, bridgeApiUrl?: string): Promise<AuthUser>;
+  loginWithSocialCredential(input: Omit<SocialSessionInput, 'deviceLabel'>): Promise<AuthUser>;
   logout(): Promise<void>;
   refreshUser(): Promise<AuthUser>;
   updateProfile(input: UpdateProfileInput): Promise<AuthUser>;
@@ -66,8 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register: (input) => session.register({ ...input }),
       login: (email, password) =>
         session.login({ email, password, deviceLabel: DEVICE_LABEL }),
-      loginWithBridgeSession: (bridgeSessionId) =>
-        session.loginWithBridgeSession(bridgeSessionId, DEVICE_LABEL),
+      loginWithBridgeSession: (bridgeSessionId, bridgeApiUrl) =>
+        session.loginWithBridgeSession(bridgeSessionId, DEVICE_LABEL, bridgeApiUrl),
+      loginWithSocialCredential: (input) =>
+        session.loginWithSocialCredential({ ...input, deviceLabel: DEVICE_LABEL }),
       logout: () => session.logout(),
       refreshUser: () => session.getCurrentUser(),
       updateProfile: (input) => session.updateCurrentUser(input),

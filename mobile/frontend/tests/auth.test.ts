@@ -70,7 +70,7 @@ function makeStore(initial: string | null = null) {
 
 /** 프로그래머블 SessionApi 목. 각 메서드 호출 횟수를 센다. */
 function makeApi(impl: Partial<SessionApi> = {}) {
-  const counts = { refresh: 0, getMe: 0, logout: 0, deleteMe: 0, login: 0, register: 0, exchangeBridgeSession: 0 };
+  const counts = { refresh: 0, getMe: 0, logout: 0, deleteMe: 0, login: 0, register: 0, exchangeBridgeSession: 0, social: 0 };
   let lastLogoutToken: string | undefined;
   const api: SessionApi = {
     async register(input) {
@@ -86,6 +86,10 @@ function makeApi(impl: Partial<SessionApi> = {}) {
       return impl.exchangeBridgeSession
         ? impl.exchangeBridgeSession(bridgeSessionId, deviceLabel)
         : makeSessionResp('bridge');
+    },
+    async social(input) {
+      counts.social += 1;
+      return impl.social ? impl.social(input) : makeSessionResp('social');
     },
     async refresh(rt) {
       counts.refresh += 1;
@@ -119,6 +123,24 @@ function makeApi(impl: Partial<SessionApi> = {}) {
     },
   };
 }
+
+test('server-verified social credential session hydrates authenticated state and refresh storage', async () => {
+  const s = makeStore(null);
+  const a = makeApi();
+  const session = createSession({ api: a.api, store: s.store });
+
+  await session.loginWithSocialCredential({
+    provider: 'google',
+    providerUserId: 'client-claim-is-not-trusted',
+    email: 'social@example.com',
+    name: 'Social',
+    credential: 'provider-issued-credential',
+  });
+
+  assert.equal(a.counts.social, 1);
+  assert.equal(session.getState().status, 'authenticated');
+  assert.equal(s.value, 'refresh-social');
+});
 
 // ---------- 오류 정규화 ----------
 test('normalizeHttpError: {detail:string} 은 detail/message 보존', () => {

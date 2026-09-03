@@ -10,7 +10,7 @@
 //  GET  /users/me       (Bearer)                       -> 200 UserResponse
 //  PATCH/users/me       {name?} (Bearer)               -> 200 UserResponse
 //  DELETE /users/me     (Bearer)                       -> 204 No Content
-import type { ApiClient } from '../../../services/api/client';
+import { createApiClient, type ApiClient } from '../../../services/api/client';
 import { AUTH_TIMEOUT_MS } from '../../../services/api/config';
 import type {
   AuthSession,
@@ -18,6 +18,7 @@ import type {
   LoginInput,
   RegisterInput,
   SessionApi,
+  SocialSessionInput,
   UpdateProfileInput,
 } from '../auth.types';
 
@@ -88,11 +89,35 @@ export function createSessionApi(client: ApiClient): SessionApi {
       return mapSession(wire);
     },
 
-    async exchangeBridgeSession(bridgeSessionId: string, deviceLabel?: string): Promise<AuthSession> {
-      const wire = await client.request<WireTokenPair>('/auth/bridge/exchange', {
+    async exchangeBridgeSession(
+      bridgeSessionId: string,
+      deviceLabel?: string,
+      bridgeApiUrl?: string
+    ): Promise<AuthSession> {
+      // Bridge sessions are process-local on the backend. Exchange against the
+      // exact origin that created the session even when the general API and
+      // OAuth bridge origins are configured differently.
+      const exchangeClient = bridgeApiUrl ? createApiClient(bridgeApiUrl) : client;
+      const wire = await exchangeClient.request<WireTokenPair>('/auth/bridge/exchange', {
         method: 'POST',
         timeoutMs: AUTH_TIMEOUT_MS,
         body: { bridge_session_id: bridgeSessionId, device_label: deviceLabel },
+      });
+      return mapSession(wire);
+    },
+
+    async social(input: SocialSessionInput): Promise<AuthSession> {
+      const wire = await client.request<WireTokenPair>('/auth/social', {
+        method: 'POST',
+        timeoutMs: AUTH_TIMEOUT_MS,
+        body: {
+          provider: input.provider,
+          provider_user_id: input.providerUserId,
+          email: input.email,
+          name: input.name,
+          credential: input.credential,
+          device_label: input.deviceLabel,
+        },
       });
       return mapSession(wire);
     },

@@ -40,7 +40,7 @@ export function useAiAnalysis(): AiAnalysis {
 
   const promptLogin = (): void => {
     Alert.alert(AI_LOGIN_GATE.title, AI_LOGIN_GATE.message, [
-      { text: AI_LOGIN_GATE.confirmLabel, onPress: () => navigation.navigate('Login') },
+      { text: AI_LOGIN_GATE.confirmLabel, onPress: () => navigation.navigate('Login', { returnToAi: true }) },
       { text: AI_LOGIN_GATE.cancelLabel, style: 'cancel' },
     ]);
   };
