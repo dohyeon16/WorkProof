@@ -37,7 +37,10 @@ WORKPROOF_RETURN_HOST = "auth-complete"
 EXPO_RETURN_PATH_SUFFIX = "/--/auth-complete"
 
 # return_url이 없거나 유효하지 않을 때만 보여주는 최소 fallback HTML 문구.
-FALLBACK_RETURN_MESSAGE = "인증이 완료되었습니다. 앱으로 돌아가주세요."
+# 성공과 실패를 절대 같은 문장으로 렌더링하지 않는다. Web opener는 이 페이지와
+# 별개로 opaque session_id를 polling하며, provider code/token은 받지 않는다.
+FALLBACK_SUCCESS_MESSAGE = "카카오 인증이 완료되었습니다. WorkProof 화면으로 돌아가주세요."
+FALLBACK_ERROR_MESSAGE = "인증을 완료하지 못했습니다. 이 창을 닫고 WorkProof에서 다시 시도해주세요."
 
 
 class StateError(Exception):
@@ -126,6 +129,12 @@ class OAuthSession:
 
 
 sessions: dict[str, OAuthSession] = {}
+
+
+def deployed_revision() -> str:
+    """Return a public deploy revision only when Render supplied a Git SHA."""
+    revision = os.getenv("RENDER_GIT_COMMIT", "").strip()
+    return revision if re.fullmatch(r"[0-9a-fA-F]{40}", revision) else "unknown"
 
 
 def sanitize_provider_error(payload: object) -> tuple[str, str]:
