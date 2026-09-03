@@ -124,8 +124,11 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
   }
 
   async function register(input: RegisterInput): Promise<AuthUser> {
-    const session = await api.register(input);
-    return applySession(session);
+    // 가입 성공은 로그인 성공이 아니다. 백엔드가 하위 호환 계약상 TokenPair를
+    // 반환하더라도 이를 메모리/SecureStore에 적용하지 않는다. 사용자가 로그인
+    // 화면에서 자격 증명을 다시 제출해 login()이 성공한 뒤에만 세션을 만든다.
+    const registered = await api.register(input);
+    return registered.user;
   }
 
   async function login(input: LoginInput): Promise<AuthUser> {
