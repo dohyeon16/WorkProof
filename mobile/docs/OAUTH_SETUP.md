@@ -4,6 +4,13 @@
 
 ## 1. 환경 변수 설정
 
+> `EXPO_NO_DOTENV=1`은 키가 없는 상태의 번들/config 안정성만 확인하는 진단용
+> 실행에 한정합니다. 이 값을 설정한 프로세스에서 개발 서버를 띄우면 Expo가
+> `.env`를 로드하지 않으므로 Google/Naver/Kakao 로그인과 Kakao 장소 검색이 모두
+> `not_configured`가 됩니다. OAuth/지도 기능 검증 서버는 이 변수를 설정하지 않은
+> 새 터미널에서 실행해야 합니다. EAS Development Build는 아래 public 변수를 해당
+> build environment에도 등록한 뒤 다시 빌드해야 합니다.
+
 ```bash
 cp .env.example .env
 ```

@@ -196,13 +196,15 @@ test('login: 성공 시 authenticated + refresh 저장', async () => {
   assert.equal(s.value, 'refresh-login');
 });
 
-test('register: 성공 시 authenticated (자동 로그인)', async () => {
+test('register: 성공해도 세션/토큰을 저장하지 않고 로그인 전 상태를 유지', async () => {
   const s = makeStore(null);
   const a = makeApi();
   const session = createSession({ api: a.api, store: s.store });
-  await session.register({ email: 'a@b.com', password: 'pw', name: 'A' });
-  assert.equal(session.getState().status, 'authenticated');
-  assert.equal(s.value, 'refresh-register');
+  const user = await session.register({ email: 'a@b.com', password: 'pw', name: 'A' });
+  assert.equal(user.email, 'a@b.com');
+  assert.notEqual(session.getState().status, 'authenticated');
+  assert.equal(s.value, null);
+  assert.deepEqual(s.setCalls, []);
 });
 
 // 회귀 배경: 실기기에서 이메일/Google/Kakao/Naver 로그인이 전부 앱에는 "로그인됨"으로

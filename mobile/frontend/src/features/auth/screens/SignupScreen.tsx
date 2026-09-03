@@ -282,13 +282,17 @@ export default function SignupScreen({ navigation, route }: Props) {
     const signupEmail = getFinalEmail();
     setSubmitting(true);
     try {
-      // 성공 시 토큰이 SecureStore/메모리에 저장되고 인증 상태로 전환된다(자동 로그인).
+      // 가입 성공과 인증 성공은 분리한다. register 응답은 계정 생성 확인에만 쓰고,
+      // 토큰/세션은 사용자가 로그인 화면에서 실제 로그인한 뒤에만 저장한다.
       await register({ email: signupEmail, password, name: name.trim() });
-      // 새 계정 → 이 기기에 남은 이전 로컬 데이터를 정리하고 온보딩부터 시작.
-      // refresh 토큰은 SecureStore에 있어 AsyncStorage를 지우는 clearAllData의 영향을 받지 않는다.
+      // 새 계정이 이전 기기 로컬 데이터와 섞이지 않게 정리하되 인증 세션은 만들지 않는다.
       await clearAllData();
       Alert.alert('회원가입 완료', 'WorkProof 회원가입이 완료되었어요.', [
-        { text: '확인', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'OnboardingIntro' }] }) },
+        {
+          text: '로그인하기',
+          onPress: () =>
+            navigation.reset({ index: 0, routes: [{ name: 'Login', params: { prefillEmail: signupEmail } }] }),
+        },
       ]);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
