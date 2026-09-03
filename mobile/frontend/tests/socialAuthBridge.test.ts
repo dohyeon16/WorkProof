@@ -44,6 +44,14 @@ test('expoGoOAuth: 성공 시 bridgeSessionId를 결과에 담아 돌려준다',
   );
 });
 
+test('Kakao Web도 server-side OAuth bridge를 사용한다', () => {
+  assert.match(
+    socialLoginSrc,
+    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'\)/
+  );
+  assert.doesNotMatch(socialLoginSrc, /clientSecret:\s*config\.clientSecret/);
+});
+
 test('expoGoOAuth: 성공 결과는 세션을 먼저 지우지 않는다(교환 전 삭제 경합 방지)', () => {
   // finish()가 성공일 때도 무조건 deleteBridgeSession을 부르면, 호출부가
   // bridgeSessionId로 /auth/bridge/exchange를 하기도 전에 세션이 삭제될 수 있다

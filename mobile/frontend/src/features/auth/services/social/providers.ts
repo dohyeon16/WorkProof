@@ -11,7 +11,6 @@ export interface SocialProfile {
 
 export interface ProviderConfig {
   clientId: string;
-  clientSecret?: string;
   scopes: string[];
   discovery: AuthDiscoveryDocument & { tokenEndpoint: string; userInfoEndpoint: string };
   mapProfile: (raw: Record<string, any>) => SocialProfile;
@@ -42,7 +41,6 @@ const GOOGLE_IOS_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? ''
 console.log('Google iOS configured:', Boolean(GOOGLE_IOS_CLIENT_ID));
 const KAKAO_CLIENT_ID = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID ?? '').trim();
 console.log('Kakao configured:', Boolean(process.env.EXPO_PUBLIC_KAKAO_CLIENT_ID));
-const KAKAO_CLIENT_SECRET = (process.env.EXPO_PUBLIC_KAKAO_CLIENT_SECRET ?? '').trim();
 
 // Naver is handled separately (see naverIdentityWeb.ts) via the official
 // web-only JS SDK, which needs no client secret and no discovery-document
@@ -73,7 +71,6 @@ export function getProviderConfig(provider: 'google' | 'kakao'): ProviderConfig 
     case 'kakao':
       return {
         clientId: KAKAO_CLIENT_ID,
-        clientSecret: KAKAO_CLIENT_SECRET || undefined,
         // account_email requires the Kakao app to have the email consent item
         // enabled (business app review); many dev apps can't turn it on, so
         // we only request the nickname and treat email as optional below.

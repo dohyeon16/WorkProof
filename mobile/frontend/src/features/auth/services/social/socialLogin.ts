@@ -5,7 +5,7 @@ import { getProviderConfig, isProviderConfigured, type SocialProfile } from './p
 import { loginWithGoogleWeb } from './googleIdentityWeb';
 import { loginWithKakaoNative } from './kakaoNative';
 import { loginWithNaverNative } from './naverNative';
-import { isExpoGo, loginWithProviderExpoGo } from './expoGoOAuth';
+import { isExpoGo, loginWithProviderBridge } from './expoGoOAuth';
 import { classifySocialError, describeForLog, type SocialAuthErrorCode } from './socialAuthErrors';
 import {
   startNaverRedirect,
@@ -69,6 +69,13 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
     return loginWithGoogleWeb();
   }
 
+  // Kakao's REST flow uses a confidential Client Secret when that security
+  // feature is enabled. The browser must never receive or send that secret,
+  // so Web uses the existing server-side OAuth bridge just like Expo Go.
+  if (provider === 'kakao' && Platform.OS === 'web') {
+    return loginWithProviderBridge('kakao');
+  }
+
   // Expo Go can't use custom URL schemes or the Kakao/Naver native modules
   // at all, so every non-web provider routes through the FastAPI OAuth
   // bridge (expoGoOAuth.ts) instead of the AuthSession/native-SDK flows
@@ -76,7 +83,7 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
   // would otherwise hit the native SDK, which isn't linked in Expo Go and
   // throws immediately.
   if (Platform.OS !== 'web' && isExpoGo()) {
-    return loginWithProviderExpoGo(provider);
+    return loginWithProviderBridge(provider);
   }
 
   // Kakao on native builds (Android and iOS) uses the native SDK
@@ -123,7 +130,6 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
     const tokenResponse = await AuthSession.exchangeCodeAsync(
       {
         clientId: config.clientId,
-        clientSecret: config.clientSecret,
         code: result.params.code,
         redirectUri,
         extraParams: { code_verifier: request.codeVerifier ?? '' },
@@ -169,7 +175,7 @@ export async function loginWithNaver(
   // See the Expo Go branch in loginWithProvider() above — same reasoning
   // applies here, Naver's native SDK isn't linked in Expo Go either.
   if (isExpoGo()) {
-    return loginWithProviderExpoGo('naver');
+    return loginWithProviderBridge('naver');
   }
   return loginWithNaverNative();
 }

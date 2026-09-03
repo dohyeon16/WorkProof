@@ -13,6 +13,7 @@ Flow:
   5. 앱: GET /auth/session/{session_id} 폴링 후 DELETE 로 정리.
 """
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -50,9 +51,17 @@ class ProviderExchangeError(Exception):
     않는다. 사용자에게는 앱이 code 로 문구를 만들고, 진단은 서버 로그에만 남긴다.
     """
 
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        *,
+        provider_error: str = "",
+        provider_error_code: str = "",
+    ) -> None:
         super().__init__(code)
         self.code = code
+        self.provider_error = provider_error
+        self.provider_error_code = provider_error_code
 
 
 PROVIDERS = {
@@ -108,12 +117,41 @@ class OAuthSession:
     status: str = "pending"  # pending | success | error
     profile: Optional[dict] = None
     message: Optional[str] = None
+    error_code: Optional[str] = None
+    provider_error: Optional[str] = None
+    provider_error_code: Optional[str] = None
     # 세션 생성 시 앱이 넘겨준 복귀 URL. 콜백이 여기로 302한다. 없거나 스킴이
     # 허용 목록에 없으면 fallback HTML을 쓴다(is_valid_return_url로 검증).
     return_url: Optional[str] = None
 
 
 sessions: dict[str, OAuthSession] = {}
+
+
+def sanitize_provider_error(payload: object) -> tuple[str, str]:
+    """Return only non-sensitive OAuth/KOE identifiers from a provider body."""
+    if not isinstance(payload, dict):
+        return "", ""
+    raw_error = str(payload.get("error", ""))
+    provider_error = raw_error if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", raw_error) else ""
+
+    raw_code = str(payload.get("error_code", ""))
+    koe_match = re.search(r"\bKOE\d{3}\b", raw_code, re.IGNORECASE)
+    description = str(payload.get("error_description", ""))
+    if not koe_match:
+        koe_match = re.search(r"\bKOE\d{3}\b", description, re.IGNORECASE)
+    provider_error_code = koe_match.group(0).upper() if koe_match else ""
+
+    # Kakao's token response may omit the symbolic KOE code while returning
+    # the documented invalid_client description. Classify it without storing
+    # or returning the description itself.
+    if (
+        not provider_error_code
+        and provider_error == "invalid_client"
+        and "bad client credentials" in description.lower()
+    ):
+        provider_error_code = "KOE010"
+    return provider_error, provider_error_code
 
 
 def is_valid_return_url(url: Optional[str]) -> bool:
@@ -278,24 +316,33 @@ async def exchange_and_fetch_profile(provider: str, code: str, redirect_uri: str
             # provider 가 돌려준 본문은 사용자에게도, 예외 메시지에도 넣지 않는다.
             # 원인 구분에 필요한 provider 의 error 코드만 로그로 남긴다(값 아님).
             try:
-                err_code = str(token_res.json().get("error", ""))[:64]
+                err_code, kakao_code = sanitize_provider_error(token_res.json())
             except Exception:
                 err_code = ""
+                kakao_code = ""
             logger.error(
                 "oauth token exchange failed provider=%s status=%s provider_error=%s "
-                "client_secret_sent=%s",
+                "provider_error_code=%s client_secret_sent=%s",
                 provider,
                 token_res.status_code,
                 err_code or "(none)",
+                kakao_code or "(none)",
                 bool(cfg["client_secret"]),
             )
+            category = (
+                "PROVIDER_CONFIG"
+                if token_res.status_code in (400, 401)
+                else "PROVIDER_UNAVAILABLE"
+            )
             raise ProviderExchangeError(
-                "client_auth" if token_res.status_code in (400, 401) else "provider_unavailable"
+                category,
+                provider_error=err_code,
+                provider_error_code=kakao_code,
             )
         access_token = token_res.json().get("access_token")
         if not access_token:
             logger.error("oauth token exchange returned no access_token provider=%s", provider)
-            raise ProviderExchangeError("client_auth")
+            raise ProviderExchangeError("PROVIDER_CONFIG")
 
         user_res = await client.get(
             cfg["userinfo_url"], headers={"Authorization": f"Bearer {access_token}"}
@@ -304,7 +351,7 @@ async def exchange_and_fetch_profile(provider: str, code: str, redirect_uri: str
             logger.error(
                 "oauth profile fetch failed provider=%s status=%s", provider, user_res.status_code
             )
-            raise ProviderExchangeError("profile_unavailable")
+            raise ProviderExchangeError("PROFILE_UNAVAILABLE")
         raw_profile = user_res.json()
 
     return normalize_profile(provider, raw_profile)

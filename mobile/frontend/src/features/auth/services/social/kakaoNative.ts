@@ -4,8 +4,7 @@ import type { SocialLoginResult } from './socialLogin';
 import { classifySocialError, describeForLog } from './socialAuthErrors';
 
 // Native-build-only (Android + iOS) Kakao login. This is deliberately
-// separate from the browser-based AuthSession/PKCE flow in socialLogin.ts
-// (which now only handles web) — Kakao's native SDK opens the Kakao
+// separate from the server-side Web bridge in socialLogin.ts — Kakao's native SDK opens the Kakao
 // app/native login sheet directly instead of a browser redirect, and needs
 // its own "Native App Key" (EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY), baked into
 // the native build at prebuild time via the @react-native-seoul/kakao-login

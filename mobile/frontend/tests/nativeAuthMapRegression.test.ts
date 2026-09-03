@@ -11,6 +11,9 @@ const signup = read('src/features/auth/screens/SignupScreen.tsx');
 const packageJson = read('package.json');
 const easConfig = read('eas.json');
 const appConfig = read('app.config.ts');
+const providers = read('src/features/auth/services/social/providers.ts');
+const socialLogin = read('src/features/auth/services/social/socialLogin.ts');
+const bridge = read('src/features/auth/services/social/expoGoOAuth.ts');
 
 test('이메일 회원가입 완료는 로그인 화면으로 이동하고 authenticated route를 열지 않는다', () => {
   const emailFlow = signup.slice(signup.indexOf('// ---- 이메일 회원가입'));
@@ -44,4 +47,14 @@ test('일반 실행/build 설정은 dotenv 로딩을 영구 차단하지 않는�
   ] as const) {
     assert.doesNotMatch(source, /EXPO_NO_DOTENV|EXPO_NO_CLIENT_ENV_VARS/, `${name}이 Expo env 로딩을 차단함`);
   }
+});
+
+test('Kakao Web은 Client Secret을 읽거나 브라우저에서 토큰 교환하지 않는다', () => {
+  assert.doesNotMatch(providers, /EXPO_PUBLIC_KAKAO_CLIENT_SECRET|KAKAO_CLIENT_SECRET/);
+  assert.doesNotMatch(socialLogin, /clientSecret:/);
+  assert.match(
+    socialLogin,
+    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'\)/
+  );
+  assert.match(bridge, /Platform\.OS === 'web'[\s\S]*?window\.open\('about:blank'/);
 });

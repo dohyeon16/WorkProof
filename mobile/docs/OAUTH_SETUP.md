@@ -22,8 +22,7 @@ EXPO_PUBLIC_GOOGLE_CLIENT_ID=...
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=...  # Android 네이티브 전용, 아래 Google 섹션 참고
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...      # iOS 네이티브 전용, 아래 Google 섹션 참고
 
-EXPO_PUBLIC_KAKAO_CLIENT_ID=...        # REST API 키 (웹 전용)
-EXPO_PUBLIC_KAKAO_CLIENT_SECRET=...    # 카카오 콘솔에서 "Client Secret" 사용 설정한 경우만
+EXPO_PUBLIC_KAKAO_CLIENT_ID=...        # REST API 키 (네이티브 장소 검색용)
 EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY=...   # iOS/Android 네이티브 전용, REST API 키와 다른 값 — 아래 Kakao 섹션 참고
 
 EXPO_PUBLIC_NAVER_CLIENT_ID=...      # 웹은 Client Secret 불필요, iOS/Android 네이티브는 아래 SECRET도 필요
@@ -50,9 +49,9 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
     ```
 - **휴대폰 브라우저로 테스트**: `localhost:8081`은 휴대폰에서 못 엽니다. `npm run web:tunnel` (`expo start --web --tunnel`)로 실행하면 `https://xxxx.exp.direct` 같은 공개 https 주소가 생기고, 이 주소를 휴대폰 브라우저에서 그대로 열면 됩니다 (Expo Go 앱 필요 없음).
   - Google 로그인(GIS)은 `localhost` 또는 **https**가 아니면 아예 동작하지 않아서, 휴대폰 테스트에는 반드시 이 tunnel 방식(또는 다른 https 방식)이 필요합니다. LAN IP(`http://192.168.x.x:8081`)로는 Google 로그인이 안 됩니다.
-  - **주의**: 이 tunnel 주소는 매번 껐다 켤 때마다 랜덤하게 바뀝니다. 즉, 재실행할 때마다 Google Cloud Console의 승인된 자바스크립트 원본과 Kakao Developers의 Redirect URI를 새 주소로 다시 등록해야 합니다. 등록 안 하면 다시 "8081/8082" 때와 같은 origin 불일치 에러가 납니다.
+  - **주의**: tunnel 주소가 바뀌면 Google Cloud Console의 승인된 자바스크립트 원본은 갱신해야 합니다. Kakao Web은 backend callback을 사용하므로 frontend tunnel/LAN 주소를 Kakao Redirect URI로 등록하지 않습니다.
 - **네이티브(iOS/Android)**: Expo Go에서는 커스텀 스킴(`workproof://`)이 동작하지 않습니다. `npx expo run:ios` / `npx expo run:android`로 빌드하거나 EAS 개발 빌드를 사용해야 실제 테스트가 가능합니다. 이 경우 리다이렉트 URI는 `workproof://`입니다(`AuthSession.makeRedirectUri({ scheme: 'workproof' })`가 dev-client/standalone 빌드에서 반환하는 값 — Expo Go에서는 대신 `exp://...` 형태가 나옵니다).
-  - 이 리다이렉트 URI는 **Google(모든 플랫폼)과 Kakao/Naver의 웹 플로우**에만 해당합니다. **Kakao/Naver의 iOS·Android 플로우는 브라우저 리다이렉트를 아예 쓰지 않고 네이티브 SDK**(`src/auth/kakaoNative.ts`, `src/auth/naverNative.ts`)로 동작하므로, `workproof://` 리다이렉트 URI 등록이 필요 없는 대신 각 콘솔에 패키지명/Bundle ID + 키 해시(Kakao, Android만) / iOS·Android 플랫폼(Naver) 등록이 필요합니다 — 아래 3절 참고. (Naver 네이티브 SDK는 iOS에서도 `serviceUrlSchemeIOS`로 `workproof` 스킴을 쓰지만, 이건 Naver 앱에서 돌아올 때 OS가 라우팅하는 용도이지 `expo-auth-session`의 리다이렉트 URI 등록과는 무관합니다.)
+  - Kakao/Naver의 iOS·Android 플로우는 브라우저 리다이렉트를 쓰지 않고 네이티브 SDK로 동작합니다. Kakao Web의 Redirect URI는 frontend origin이 아니라 backend의 `/auth/kakao/callback`입니다.
 
 ## 3. 플랫폼별 발급 절차
 
@@ -80,16 +79,13 @@ EXPO_PUBLIC_NAVER_CLIENT_SECRET=...  # iOS/Android 네이티브 전용 — 앱 �
 ### Kakao
 
 1. [Kakao Developers](https://developers.kakao.com) → 애플리케이션 추가
-2. "카카오 로그인" 활성화, Redirect URI에 위 2번 주소 등록
+2. "카카오 로그인" 활성화, REST API 키 Redirect URI에 backend의 정확한 callback
+   (`https://<backend-origin>/auth/kakao/callback`) 등록
 3. "동의항목"에서 닉네임(`profile_nickname`)을 "사용함"으로 설정. 이메일(`account_email`)은 앱이 요청하지 않습니다 — 비즈니스 앱 검수 없이는 활성화가 안 되는 경우가 많아, 코드에서 아예 요청하지 않고 이메일 없이 로그인/가입이 완료되도록 처리했습니다.
-4. "앱 키" 중 **REST API 키**를 `EXPO_PUBLIC_KAKAO_CLIENT_ID`에 입력
-5. (선택) 보안 강화를 위해 "Client Secret" 활성화했다면 `EXPO_PUBLIC_KAKAO_CLIENT_SECRET`에도 입력
-6. **웹**: 위 REST API 키(`EXPO_PUBLIC_KAKAO_CLIENT_ID`)로 브라우저 기반 AuthSession/PKCE
-   플로우를 그대로 씁니다(`src/auth/socialLogin.ts`). "카카오 로그인" → Redirect URI 목록에
-   **`workproof://`** 를 웹 주소와 별개 항목으로 추가 등록하세요. (이 REST API 키 + AuthSession
-   플로우를 iOS에서 그대로 쓰면 `KOE006`이 납니다 — Kakao REST API 플로우가 등록되지 않은 iOS
-   플랫폼의 커스텀 스킴 리다이렉트를 거부하기 때문입니다. 그래서 iOS는 아래 7번의 네이티브 SDK를
-   씁니다.)
+4. "앱 키" 중 **REST API 키**를 backend 전용 `KAKAO_REST_API_KEY`에 입력
+5. "Client Secret"은 frontend에 두지 않고 backend 전용 `KAKAO_CLIENT_SECRET`에 입력
+6. **웹**: 브라우저는 backend OAuth bridge를 열기만 하며, 인가 코드 교환과 Client Secret 전송은
+   `mobile/backend`가 수행합니다. `EXPO_PUBLIC_KAKAO_CLIENT_SECRET`은 사용하지 않습니다.
 7. **iOS/Android 개발 빌드(네이티브 SDK)**: iOS/Android는 브라우저 리다이렉트 대신
    [`@react-native-seoul/kakao-login`](https://github.com/crossplatformkorea/react-native-kakao-login)
    네이티브 SDK를 씁니다(`src/auth/kakaoNative.ts`) — Kakao 앱이 설치돼 있으면 브라우저를 거치지 않고
@@ -215,7 +211,7 @@ WorkProof backend 세션/토큰 정식 exchange** 방향으로 진행합니다.
 서버에 키가 없으면(503) 앱은 "준비 중" 안내를 보여주고, 요약 실패 시에도 OCR
 텍스트는 보존됩니다.
 
-## 3-4. Expo Go 전용 소셜 로그인 (FastAPI OAuth Bridge)
+## 3-4. Server-side 소셜 로그인 (FastAPI OAuth Bridge)
 
 유료 Apple Developer 계정이 없으면 iOS Development Build(`npx expo run:ios`, EAS 개발
 빌드)를 만들 수 없어서, 위 3절의 네이티브 SDK 로그인을 iPhone에서 테스트할 방법이
@@ -227,19 +223,17 @@ WorkProof backend 세션/토큰 정식 exchange** 방향으로 진행합니다.
   `@react-native-seoul/naver-login`은 네이티브 빌드에만 링크되어 있어서 Expo Go에서
   호출하면 즉시 에러가 납니다.
 
-그래서 **Expo Go에서만** 별도의 흐름을 씁니다: `mobile/backend/`(FastAPI)가
+그래서 **Expo Go와 Kakao Web**은 `mobile/backend/`(FastAPI)가
 OAuth authorization code 교환을 서버 사이드에서 대신 처리하고, 앱은
 `src/auth/expoGoOAuth.ts`로 로그인 페이지를 인앱 브라우저로 띄운 뒤 결과를
-polling으로 받아옵니다. web과 Android/iOS Development Build는 이 흐름을 전혀
-타지 않고 기존 방식(웹 OAuth, 네이티브 SDK) 그대로 동작합니다 —
-`src/auth/socialLogin.ts`의 `isExpoGo()` 분기가 실행 환경에 따라 자동으로
-결정합니다.
+polling으로 받아옵니다. Kakao Web도 Client Secret과 authorization code를 브라우저에
+노출하지 않기 위해 같은 경로를 사용합니다. Android/iOS Development Build는 네이티브 SDK를 사용합니다.
 
 **플랫폼별 로그인 방식 정리:**
 
 | 환경 | Google | Kakao | Naver |
 | --- | --- | --- | --- |
-| web | Google Identity Services (`googleIdentityWeb.ts`) | AuthSession/PKCE | Naver JS SDK |
+| web | Google Identity Services (`googleIdentityWeb.ts`) | **FastAPI 브리지** | Naver JS SDK |
 | Android/iOS Development Build | AuthSession/PKCE(네이티브 클라이언트) | 네이티브 SDK | 네이티브 SDK |
 | **Expo Go(iOS/Android)** | **FastAPI 브리지** | **FastAPI 브리지** | **FastAPI 브리지** |
 
