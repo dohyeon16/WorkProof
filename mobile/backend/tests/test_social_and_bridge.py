@@ -23,6 +23,7 @@ def test_legacy_five_routes_still_registered(client):
 def test_legacy_health_contract_unchanged(client):
     r = client.get("/health")
     assert r.status_code == 200 and r.json() == {"status": "ok"}
+    assert r.headers["X-WorkProof-Revision"] == "unknown"
 
 
 def test_legacy_unknown_provider_contract_unchanged(client):
@@ -69,6 +70,52 @@ def test_provider_error_sanitizer_rejects_untrusted_text():
     )
     assert error == ""
     assert code == "KOE101"
+
+
+def test_failed_callback_never_renders_false_success(client, _clean_bridge):
+    session_id = oauth_bridge.create_session_record("kakao", None)
+    state = oauth_bridge.make_state(session_id, "kakao")
+    r = client.get("/auth/kakao/callback", params={"state": state})
+    assert r.status_code == 400
+    assert oauth_bridge.FALLBACK_ERROR_MESSAGE in r.text
+    assert oauth_bridge.FALLBACK_SUCCESS_MESSAGE not in r.text
+
+
+def test_kakao_callback_to_workproof_session_handoff(client, db, _clean_bridge, monkeypatch):
+    async def fake_exchange(provider, code, redirect_uri):
+        assert provider == "kakao"
+        assert code == "provider-code"
+        assert redirect_uri == "http://testserver/auth/kakao/callback"
+        return {
+            "provider": "kakao",
+            "providerUserId": "kakao-handoff-1",
+            "name": "카카오 사용자",
+            "email": None,
+        }
+
+    monkeypatch.setattr(oauth_bridge, "exchange_and_fetch_profile", fake_exchange)
+    session_id = oauth_bridge.create_session_record("kakao", None)
+    state = oauth_bridge.make_state(session_id, "kakao")
+
+    callback = client.get(
+        "/auth/kakao/callback",
+        params={"code": "provider-code", "state": state},
+    )
+    assert callback.status_code == 200
+    assert oauth_bridge.FALLBACK_SUCCESS_MESSAGE in callback.text
+
+    status = client.get(f"/auth/session/{session_id}")
+    assert status.status_code == 200
+    assert status.json()["status"] == "success"
+
+    exchange = client.post(
+        "/api/v1/auth/bridge/exchange",
+        json={"bridge_session_id": session_id},
+    )
+    assert exchange.status_code == 200
+    body = exchange.json()
+    assert body["access_token"] and body["refresh_token"]
+    assert body["user"]["primary_provider"] == "kakao"
 
 
 # --------------------------- 직접 소셜 identity 위조 방지 ---------------------------

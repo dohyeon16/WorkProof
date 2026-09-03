@@ -32,11 +32,19 @@ def _finish_callback(session: svc.OAuthSession, session_id: str, oauth_status: s
     if svc.is_valid_return_url(session.return_url):
         redirect_url = svc.build_app_redirect(session.return_url, oauth_status, session_id)
         return RedirectResponse(redirect_url, status_code=302)
-    return HTMLResponse(svc.render_result_page(svc.FALLBACK_RETURN_MESSAGE))
+    if oauth_status == "success" and session.status == "success" and session.profile:
+        return HTMLResponse(svc.render_result_page(svc.FALLBACK_SUCCESS_MESSAGE))
+    return HTMLResponse(
+        svc.render_result_page(svc.FALLBACK_ERROR_MESSAGE),
+        status_code=400,
+    )
 
 
 @router.get("/health")
-async def health() -> dict:
+async def health(response: Response) -> dict:
+    # Body contract stays unchanged. The sanitized Git SHA header lets clients
+    # prove which Render revision is serving without exposing configuration.
+    response.headers["X-WorkProof-Revision"] = svc.deployed_revision()
     return {"status": "ok"}
 
 
