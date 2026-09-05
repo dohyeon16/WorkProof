@@ -8,6 +8,17 @@ import pytest
 from main import app
 from app.api.v1 import ai_proxy as ai_router
 from app.core.config import settings
+from app.services.ocr.vision import normalize_ocr_text
+
+
+def test_ocr_normalizes_korean_form_lines_without_inventing_content():
+    raw = "\uc778\ud134\uadfc\ubb34\ud655\uc778\uc11c\n\uc131\n\uba85\n\uae40\n\ub3c4\ud604\n\uc8fc\ubbfc\ub4f1\ub85d\ubc88\ud638\n041116 3******\n\uc8fc\n\uc18c\n\uc11c\uc6b8"
+    normalized = normalize_ocr_text(raw)
+    assert "\uc131\uba85: \uae40\ub3c4\ud604" in normalized
+    assert "\uc8fc\ubbfc\ub4f1\ub85d\ubc88\ud638: 041116 3******" in normalized
+    assert "\uc8fc\uc18c: \uc11c\uc6b8" in normalized
+    assert "\uc131\n\uba85" not in normalized
+
 
 
 def _auth(client, email="ai@example.com"):
