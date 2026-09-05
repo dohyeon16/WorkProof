@@ -96,9 +96,18 @@ test('expected > payslip / expected < payslip → diff 부호', () => {
 
 test('payslip > actual / payslip < actual', () => {
   const c = buildPayComparison({ summary: null, payslip: payslip({ netPay: 1_000_000 }), actualDeposit: 950_000 });
-  assert.equal(c.payslipNetVsActual.diff, 50_000);
+  assert.equal(c.payslipNetVsActual.diff, -50_000);
   const c2 = buildPayComparison({ summary: null, payslip: payslip({ netPay: 1_000_000 }), actualDeposit: 1_050_000 });
-  assert.equal(c2.payslipNetVsActual.diff, -50_000);
+  assert.equal(c2.payslipNetVsActual.diff, 50_000);
+});
+
+test('actual-versus-expected uses actual - expected for shortage, excess, and equality', () => {
+  const shortage = buildPayComparison({ summary: makeSummary({ netExpectedPay: 82_560 }), payslip: null, actualDeposit: 80_000 });
+  assert.equal(shortage.expectedNetVsActual.diff, -2_560);
+  const excess = buildPayComparison({ summary: makeSummary({ netExpectedPay: 80_000 }), payslip: null, actualDeposit: 82_560 });
+  assert.equal(excess.expectedNetVsActual.diff, 2_560);
+  const match = buildPayComparison({ summary: makeSummary({ netExpectedPay: 80_000 }), payslip: null, actualDeposit: 80_000 });
+  assert.equal(match.expectedNetVsActual.diff, 0);
 });
 
 test('gross 같고 net 다름 → gross match, net differs', () => {

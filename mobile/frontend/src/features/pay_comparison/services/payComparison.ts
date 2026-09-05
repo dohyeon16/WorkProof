@@ -84,6 +84,14 @@ export function comparePair(a: number | null, b: number | null): ComparePair {
   return { a, b, diff, status: diff === 0 ? 'match' : 'differs' };
 }
 
+/** Actual-versus-expected comparisons use the user's perspective: actual - expected.
+ * A negative result therefore means the deposit was short, while a positive
+ * result means it exceeded the reference amount.
+ */
+export function compareActualToExpected(expected: number | null, actual: number | null): ComparePair {
+  return comparePair(actual, expected);
+}
+
 interface ExpectedItems {
   basePay: number | null;
   weeklyAllowance: number | null;
@@ -179,8 +187,8 @@ export function buildPayComparison(input: {
   const payslipNet = ps?.netPay ?? null;
 
   const expectedVsPayslipGross = comparePair(expectedGross, payslipGross);
-  const payslipNetVsActual = comparePair(payslipNet, actualDeposit);
-  const expectedNetVsActual = comparePair(expectedNet, actualDeposit);
+  const payslipNetVsActual = compareActualToExpected(payslipNet, actualDeposit);
+  const expectedNetVsActual = compareActualToExpected(expectedNet, actualDeposit);
 
   const items: CompareItem[] = ITEM_DEFS.map((def) => {
     const e = exp ? exp[def.key] : null;
