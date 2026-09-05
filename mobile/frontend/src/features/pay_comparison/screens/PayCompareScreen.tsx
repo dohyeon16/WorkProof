@@ -33,10 +33,10 @@ function diffText(pair: ComparePair): string {
   return `${d > 0 ? '+' : '-'}${formatWon(Math.abs(d))}`;
 }
 
-function diffColor(pair: ComparePair): string {
+function diffColor(pair: ComparePair, actualPerspective = false): string {
   if (pair.status === 'incomparable') return colors.subtext;
   if (pair.status === 'match') return colors.primaryDark;
-  return colors.danger;
+  return actualPerspective && (pair.diff ?? 0) > 0 ? colors.primaryDark : colors.danger;
 }
 
 export default function PayCompareScreen({ navigation, route }: Props) {
@@ -121,8 +121,8 @@ export default function PayCompareScreen({ navigation, route }: Props) {
       {/* 차이 쌍 */}
       <View style={styles.diffCard}>
         <DiffRow label="예상 ↔ 명세서" pair={c.expectedVsPayslipGross} />
-        <DiffRow label="명세서 ↔ 실제 입금" pair={c.payslipNetVsActual} />
-        <DiffRow label="예상 ↔ 실제 입금" pair={c.expectedNetVsActual} last />
+        <DiffRow label={'\uC2E4\uC81C \uC785\uAE08 \u2212 \uBA85\uC138\uC11C \uC2E4\uC9C0\uAE09'} pair={c.payslipNetVsActual} actualPerspective />
+        <DiffRow label={'\uC2E4\uC81C \uC785\uAE08 \u2212 \uC608\uC0C1 \uC2E4\uC218\uB839'} pair={c.expectedNetVsActual} actualPerspective last />
       </View>
 
       {/* 정보성 안내(법적 판단 아님) */}
@@ -209,11 +209,11 @@ function ValueRow({
   );
 }
 
-function DiffRow({ label, pair, last }: { label: string; pair: ComparePair; last?: boolean }) {
+function DiffRow({ label, pair, actualPerspective = false, last }: { label: string; pair: ComparePair; actualPerspective?: boolean; last?: boolean }) {
   return (
     <View style={[styles.diffRow, !last && styles.diffRowBorder]}>
       <Text style={styles.diffLabel}>{label}</Text>
-      <Text style={[styles.diffValue, { color: diffColor(pair) }]}>{diffText(pair)}</Text>
+      <Text style={[styles.diffValue, { color: diffColor(pair, actualPerspective) }]}>{diffText(pair)}</Text>
     </View>
   );
 }

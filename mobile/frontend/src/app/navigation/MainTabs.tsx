@@ -1,6 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from './types';
 import HomeScreen from '../../features/home/screens/HomeScreen';
@@ -29,7 +28,6 @@ const LABELS: Record<keyof MainTabParamList, string> = {
 };
 
 export default function MainTabs() {
-  const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
   return (
     <Tab.Navigator
@@ -42,10 +40,10 @@ export default function MainTabs() {
         // 고정 height/paddingBottom은 제스처 내비게이션 바(홈 인디케이터) 영역을
         // 가려서 마지막 탭이 시스템 바 밑에 깔릴 수 있다. insets.bottom을 더해
         // 기기별 안전영역을 확보한다.
-        // React Navigation applies the explicit bar height around the safe-area
-        // inset. Keep the inset in the height only; adding it again to padding
-        // pushes labels below the viewport on short devices.
-        tabBarStyle: [styles.tabBar, { height: Math.max(64, 44 + 20 * fontScale) + insets.bottom, paddingBottom: spacing.sm }],
+        // The navigator owns the device bottom inset. A fixed height that also
+        // includes the inset clips labels on short devices, so constrain the
+        // content with minHeight and let the native tab bar size itself.
+        tabBarStyle: [styles.tabBar, { minHeight: Math.max(64, 44 + 20 * fontScale), paddingBottom: spacing.sm }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarIcon: ({ color, size, focused }) => (
           <Ionicons name={ICONS[route.name][focused ? 0 : 1]} size={size} color={color} />
