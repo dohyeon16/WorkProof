@@ -15,15 +15,18 @@ Flow:
 import os
 import re
 import time
+from datetime import timezone
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 import httpx
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.models.oauth_bridge_session import OAuthBridgeSession
 
 # 세션 만료 10분 — state 서명 max_age와 폴링 세션 만료 둘 다 이 값을 쓴다.
 SESSION_TTL_SECONDS = 10 * 60
@@ -202,22 +205,72 @@ def build_app_redirect(return_url: str, oauth_status: str, session_id: str) -> s
     return f"{return_url}{separator}{query}"
 
 
-def get_session(session_id: str) -> Optional[OAuthSession]:
-    session = sessions.get(session_id)
-    if session is None:
-        return None
-    if time.time() - session.created_at > SESSION_TTL_SECONDS:
-        sessions.pop(session_id, None)
-        return None
-    return session
+def _from_row(row: OAuthBridgeSession) -> OAuthSession:
+    return OAuthSession(
+        provider=row.provider, created_at=row.created_at.timestamp(), status=row.status,
+        profile=row.profile, message=row.message, error_code=row.error_code,
+        provider_error=row.provider_error, provider_error_code=row.provider_error_code,
+        return_url=row.return_url,
+    )
 
 
-def create_session_record(provider: str, return_url: Optional[str]) -> str:
+def _row_age(row: OAuthBridgeSession) -> float:
+    created = row.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return time.time() - created.timestamp()
+
+
+def _save_row(db: Session, session_id: str, session: OAuthSession) -> None:
+    row = db.get(OAuthBridgeSession, session_id)
+    if row is None:
+        row = OAuthBridgeSession(id=session_id, provider=session.provider)
+        db.add(row)
+    row.status = session.status
+    row.profile = session.profile
+    row.message = session.message
+    row.error_code = session.error_code
+    row.provider_error = session.provider_error
+    row.provider_error_code = session.provider_error_code
+    row.return_url = session.return_url
+    db.commit()
+
+
+def get_session(session_id: str, db: Session | None = None) -> Optional[OAuthSession]:
+    local_session = sessions.get(session_id)
+    if local_session is not None:
+        if time.time() - local_session.created_at > SESSION_TTL_SECONDS:
+            sessions.pop(session_id, None)
+            return None
+        return local_session
+    if db is not None:
+        row = db.get(OAuthBridgeSession, session_id)
+        if row is not None:
+            if _row_age(row) > SESSION_TTL_SECONDS:
+                db.delete(row)
+                db.commit()
+                return None
+            return _from_row(row)
+        # Keep the in-memory path for unit callers and older development data;
+        # production-created sessions are always persisted by the HTTP route.
+    return None
+
+
+def create_session_record(provider: str, return_url: Optional[str], db: Session | None = None) -> str:
     session_id = os.urandom(32).hex()
-    sessions[session_id] = OAuthSession(
+    session = OAuthSession(
         provider=provider, created_at=time.time(), return_url=return_url
     )
+    sessions[session_id] = session
+    if db is not None:
+        _save_row(db, session_id, session)
     return session_id
+
+
+def persist_session(session_id: str, session: OAuthSession, db: Session | None = None) -> None:
+    sessions[session_id] = session
+    if db is not None:
+        _save_row(db, session_id, session)
 
 
 def make_state(session_id: str, provider: str) -> str:

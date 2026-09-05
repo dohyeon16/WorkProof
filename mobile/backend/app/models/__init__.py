@@ -5,6 +5,7 @@
 """
 from app.models.attendance_record import AttendanceRecord
 from app.models.oauth_account import OAuthAccount
+from app.models.oauth_bridge_session import OAuthBridgeSession
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.models.work_schedule import WorkSchedule
@@ -13,6 +14,7 @@ from app.models.workplace import Workplace
 __all__ = [
     "User",
     "OAuthAccount",
+    "OAuthBridgeSession",
     "RefreshToken",
     "Workplace",
     "WorkSchedule",

@@ -5,11 +5,22 @@ services/auth/oauth_bridge.py에 있고, 여기서는 HTTP 요청 파싱과 응�
 """
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.logging import get_logger
 from app.services.auth import oauth_bridge as svc
+from app.core.deps import get_db
+from sqlalchemy.orm import Session
+
+
+def _optional_db(request: Request):
+    """Allow legacy bridge fallback in environments without a configured DB."""
+    provider = request.app.dependency_overrides.get(get_db, get_db)
+    try:
+        yield from provider()
+    except RuntimeError:
+        yield None
 
 logger = get_logger("workproof.bridge")
 router = APIRouter()
@@ -49,7 +60,7 @@ async def health(response: Response) -> dict:
 
 
 @router.post("/auth/session/{provider}")
-async def create_session(provider: str, request: Request) -> dict:
+async def create_session(provider: str, request: Request, db: Session | None = Depends(_optional_db)) -> dict:
     if provider not in svc.PROVIDERS:
         raise HTTPException(404, "지원하지 않는 provider입니다.")
     cfg = svc.PROVIDERS[provider]
@@ -69,7 +80,7 @@ async def create_session(provider: str, request: Request) -> dict:
     except Exception:
         return_url = None
 
-    session_id = svc.create_session_record(provider, return_url)
+    session_id = svc.create_session_record(provider, return_url, db)
     redirect_uri = f"{_get_base_url(request)}/auth/{provider}/callback"
     login_url = svc.build_login_url(provider, session_id, redirect_uri)
     return {"session_id": session_id, "login_url": login_url}
@@ -82,6 +93,7 @@ async def oauth_callback(
     code: Optional[str] = None,
     state: Optional[str] = None,
     error: Optional[str] = None,
+    db: Session | None = Depends(_optional_db),
 ) -> Response:
     if provider not in svc.PROVIDERS:
         return HTMLResponse(svc.render_result_page("잘못된 요청이에요."), status_code=404)
@@ -95,7 +107,7 @@ async def oauth_callback(
     except svc.StateError as exc:
         return HTMLResponse(svc.render_result_page(str(exc)), status_code=400)
 
-    session = svc.get_session(session_id)
+    session = svc.get_session(session_id, db)
     if session is None:
         return HTMLResponse(
             svc.render_result_page("세션을 찾을 수 없거나 만료됐어요. WorkProof 앱에서 다시 시도해주세요."),
@@ -108,11 +120,13 @@ async def oauth_callback(
         logger.warning("oauth callback error param provider=%s", provider)
         session.status = "error"
         session.message = "로그인이 취소되었거나 실패했어요."
+        svc.persist_session(session_id, session, db)
         return _finish_callback(session, session_id, "error")
 
     if not code:
         session.status = "error"
         session.message = "authorization code를 받지 못했어요."
+        svc.persist_session(session_id, session, db)
         return _finish_callback(session, session_id, "error")
 
     redirect_uri = f"{_get_base_url(request)}/auth/{provider}/callback"
@@ -131,6 +145,7 @@ async def oauth_callback(
         session.error_code = exc.code
         session.provider_error = exc.provider_error or None
         session.provider_error_code = exc.provider_error_code or None
+        svc.persist_session(session_id, session, db)
         return _finish_callback(session, session_id, "error")
     except Exception as exc:
         logger.warning(
@@ -141,16 +156,18 @@ async def oauth_callback(
         session.status = "error"
         session.message = "로그인 처리 중 오류가 발생했어요."
         session.error_code = "UNKNOWN"
+        svc.persist_session(session_id, session, db)
         return _finish_callback(session, session_id, "error")
 
     session.status = "success"
     session.profile = profile
+    svc.persist_session(session_id, session, db)
     return _finish_callback(session, session_id, "success")
 
 
 @router.get("/auth/session/{session_id}")
-async def session_status(session_id: str) -> dict:
-    session = svc.get_session(session_id)
+async def session_status(session_id: str, db: Session | None = Depends(_optional_db)) -> dict:
+    session = svc.get_session(session_id, db)
     if session is None:
         return {"status": "error", "message": "세션을 찾을 수 없거나 만료됐어요."}
     if session.status == "pending":
@@ -167,6 +184,11 @@ async def session_status(session_id: str) -> dict:
 
 
 @router.delete("/auth/session/{session_id}")
-async def delete_session(session_id: str) -> dict:
+async def delete_session(session_id: str, db: Session | None = Depends(_optional_db)) -> dict:
     svc.sessions.pop(session_id, None)
+    if db is not None:
+        row = db.get(svc.OAuthBridgeSession, session_id)
+        if row is not None:
+            db.delete(row)
+            db.commit()
     return {"ok": True}

@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.models.oauth_account import OAuthAccount
 from app.models.user import User
-from app.services.auth import oauth_bridge, social_verify
+from app.services.auth import auth_service, oauth_bridge, social_verify
 from app.services.auth.social_verify import VerifiedSocialIdentity
 
 
@@ -116,6 +116,36 @@ def test_kakao_callback_to_workproof_session_handoff(client, db, _clean_bridge, 
     body = exchange.json()
     assert body["access_token"] and body["refresh_token"]
     assert body["user"]["primary_provider"] == "kakao"
+
+
+def test_bridge_handoff_survives_instance_boundary(client, db, _clean_bridge, monkeypatch):
+    """Callback and polling may be routed to different Render processes."""
+    async def fake_exchange(provider, code, redirect_uri):
+        return {
+            "provider": provider,
+            "providerUserId": "kakao-instance-safe",
+            "name": "Kakao user",
+            "email": None,
+        }
+
+    monkeypatch.setattr(oauth_bridge, "exchange_and_fetch_profile", fake_exchange)
+    session_id = oauth_bridge.create_session_record("kakao", None, db)
+    # Simulate callback handled by one instance and polling/exchange by another.
+    oauth_bridge.sessions.clear()
+    session = oauth_bridge.get_session(session_id, db)
+    assert session is not None
+    session.status = "success"
+    session.profile = {
+        "provider": "kakao",
+        "providerUserId": "kakao-instance-safe",
+        "name": "Kakao user",
+        "email": None,
+    }
+    oauth_bridge.persist_session(session_id, session, db)
+    oauth_bridge.sessions.clear()
+    assert oauth_bridge.get_session(session_id, db).status == "success"
+    exchanged = auth_service.exchange_bridge_session(db, session_id)
+    assert exchanged.user.primary_provider == "kakao"
 
 
 # --------------------------- 직접 소셜 identity 위조 방지 ---------------------------
