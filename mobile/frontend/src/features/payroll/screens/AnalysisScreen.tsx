@@ -9,7 +9,7 @@ import { getActiveOrFirstWorkplace, getAllPayRecords, getAttendanceByWorkplace, 
 import { AttendanceRecord, PayRecord, Workplace } from '../../../types/domain';
 import { formatMinutesAsHours, formatWon, shiftWorkedMinutes } from '../services/payCalc';
 import { currentYearMonth, formatYearMonth, shiftYearMonth } from '../../../utils/date';
-import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, radius, shadow, spacing, control, typography } from '../../../ui/design_system';
 import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = MainTabScreenProps<'Analysis'>;
@@ -88,7 +88,7 @@ export default function AnalysisScreen({ navigation }: Props) {
 
       {workplaceCount >= 2 && (
         <Pressable
-          style={styles.allWorkplacesCard}
+          style={({ pressed }) => [styles.allWorkplacesCard, pressed && control.pressed]}
           onPress={() => navigation.navigate('AllWorkplaces')}
           accessibilityRole="button"
           accessibilityLabel="전체 근무지 합산 보기"
@@ -105,7 +105,7 @@ export default function AnalysisScreen({ navigation }: Props) {
       )}
 
       <Pressable
-        style={styles.currentCard}
+        style={({ pressed }) => [styles.currentCard, pressed && control.pressed]}
         onPress={() =>
           navigation.navigate(thisMonth ? 'PayCompare' : 'PayInput', { workplaceId: workplace.id, yearMonth })
         }
@@ -137,7 +137,7 @@ export default function AnalysisScreen({ navigation }: Props) {
       </Pressable>
 
       <Pressable
-        style={styles.allWorkplacesCard}
+        style={({ pressed }) => [styles.allWorkplacesCard, pressed && control.pressed]}
         onPress={() => navigation.navigate('PayslipList', { workplaceId: workplace.id })}
         accessibilityRole="button"
         accessibilityLabel="급여명세서 관리"
@@ -200,7 +200,7 @@ export default function AnalysisScreen({ navigation }: Props) {
       ListEmptyComponent={<Text style={styles.empty}>지난 기록이 없어요.</Text>}
       renderItem={({ item }) => (
         <Pressable
-          style={styles.historyRow}
+          style={({ pressed }) => [styles.historyRow, pressed && control.pressed]}
           onPress={() =>
             navigation.navigate('PayCompare', { workplaceId: workplace.id, yearMonth: item.yearMonth })
           }
@@ -225,8 +225,13 @@ export default function AnalysisScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
+  title: {
+    ...typography.title,
+    color: colors.text,
+    marginBottom: spacing.md },
   allWorkplacesCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -234,8 +239,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
   allWorkplacesIconWrap: {
@@ -246,8 +251,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  allWorkplacesTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  allWorkplacesSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  allWorkplacesTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text },
+  allWorkplacesSub: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
   currentCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,9 +277,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  currentLabel: { fontSize: 13, color: colors.primaryDark, fontWeight: '700' },
-  currentDiff: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
-  currentSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  currentLabel: {
+    fontSize: 13,
+    color: colors.primaryDark,
+    fontWeight: '700' },
+  currentDiff: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: spacing.xs },
+  currentSub: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
   chartCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -284,42 +305,95 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
-  chartTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
-  chartAvg: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  chartTitle: {
+    ...typography.section,
+    color: colors.text },
+  chartAvg: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark },
   chart: {
+    minHeight: CHART_HEIGHT + 44,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: CHART_HEIGHT + 24,
+    height: undefined,
   },
-  barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  barValue: { fontSize: 10, color: colors.subtext, marginBottom: 2, fontWeight: '600', height: 14 },
-  barTrack: { height: CHART_HEIGHT, justifyContent: 'flex-end' },
-  bar: { width: 22, borderTopLeftRadius: 5, borderTopRightRadius: 5 },
-  barPast: { backgroundColor: colors.primaryLight },
-  barCurrent: { backgroundColor: colors.primary },
-  barLabel: { fontSize: 11, color: colors.subtext, marginTop: 6 },
-  barLabelCurrent: { color: colors.primaryDark, fontWeight: '800' },
-  chartUnit: { fontSize: 10, color: colors.subtext, textAlign: 'right', marginTop: spacing.xs },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
-  empty: { fontSize: 13, color: colors.subtext },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end' },
+  barValue: {
+    lineHeight: 18,
+    minHeight: 18,
+    fontSize: 12,
+    color: colors.subtext,
+    marginBottom: 2,
+    fontWeight: '600',
+    height: undefined },
+  barTrack: {
+    height: CHART_HEIGHT,
+    justifyContent: 'flex-end' },
+  bar: {
+    width: 22,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5 },
+  barPast: {
+    backgroundColor: colors.primaryLight },
+  barCurrent: {
+    backgroundColor: colors.primary },
+  barLabel: {
+    fontSize: 11,
+    color: colors.subtext,
+    marginTop: 6 },
+  barLabelCurrent: {
+    color: colors.primaryDark,
+    fontWeight: '800' },
+  chartUnit: {
+    fontSize: 10,
+    color: colors.subtext,
+    textAlign: 'right',
+    marginTop: spacing.xs },
+  sectionTitle: {
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.xs },
+  empty: {
+    fontSize: 13,
+    color: colors.subtext },
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.xs,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm + 4,
+    padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  historyMonth: { fontSize: 14, fontWeight: '600', color: colors.text },
-  historyDiff: { fontSize: 13, color: colors.subtext, flex: 1, textAlign: 'right' },
-  historyDiffShort: { color: colors.danger, fontWeight: '700' },
-  historyDiffOver: { color: colors.primaryDark, fontWeight: '700' },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.background },
+  historyMonth: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text },
+  historyDiff: {
+    fontSize: 13,
+    color: colors.subtext,
+    flex: 1,
+    textAlign: 'right' },
+  historyDiffShort: {
+    color: colors.danger,
+    fontWeight: '700' },
+  historyDiffOver: {
+    color: colors.primaryDark,
+    fontWeight: '700' },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.background },
   emptyIconCircle: {
     width: 64,
     height: 64,
@@ -328,5 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  emptyTitle: {
+    ...typography.section,
+    color: colors.text },
 });

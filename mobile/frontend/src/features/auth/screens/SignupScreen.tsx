@@ -13,7 +13,7 @@ import { clearAllData, getAccount, saveAccount } from '../../../services/storage
 import { useAuth } from '../state/AuthContext';
 import { authErrorMessage, SOCIAL_BACKEND_SESSION_FAILED } from '../services/authErrors';
 import { ApiError } from '../../../services/api/errors';
-import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, fonts, radius, shadow, spacing, control, typography } from '../../../ui/design_system';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
 import type { AuthProvider } from '../../../types/domain';
 import { socialErrorMessage } from '../services/social/socialAuthErrors';
@@ -32,9 +32,15 @@ function maskEmail(email: string): string {
 }
 
 const STEP_META: Record<number, { title: string; subtitle: string }> = {
-  1: { title: '회원가입 (1/3)', subtitle: '약관에 동의하고 계정 정보를 입력해주세요.' },
-  2: { title: '회원가입 (2/3)', subtitle: '계정 정보를 입력해주세요.' },
-  3: { title: '회원가입 (3/3)', subtitle: '마지막 정보를 입력하면 가입이 완료돼요.' },
+  1: {
+    title: '회원가입 (1/3)',
+    subtitle: '약관에 동의하고 계정 정보를 입력해주세요.' },
+  2: {
+    title: '회원가입 (2/3)',
+    subtitle: '계정 정보를 입력해주세요.' },
+  3: {
+    title: '회원가입 (3/3)',
+    subtitle: '마지막 정보를 입력하면 가입이 완료돼요.' },
 };
 
 function Stepper({ step }: { step: number }) {
@@ -335,7 +341,7 @@ export default function SignupScreen({ navigation, route }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         <Pressable
-          style={styles.backButton}
+          style={({ pressed }) => [styles.backButton, pressed && control.pressed]}
           onPress={handleBack}
           hitSlop={8}
           accessibilityRole="button"
@@ -356,7 +362,7 @@ export default function SignupScreen({ navigation, route }: Props) {
               <Checkbox checked={allAgreed} onToggle={toggleAll} label="전체 동의합니다." bold />
               <View style={styles.termsDivider} />
               <Pressable
-                style={styles.termsRow}
+                style={({ pressed }) => [styles.termsRow, pressed && control.pressed]}
                 onPress={() => navigation.navigate('LegalDocument', { doc: 'terms' })}
                 accessibilityRole="button"
                 accessibilityLabel="서비스 이용약관 상세보기"
@@ -369,7 +375,7 @@ export default function SignupScreen({ navigation, route }: Props) {
                 <Ionicons name="chevron-forward" size={16} color={colors.subtext} />
               </Pressable>
               <Pressable
-                style={styles.termsRow}
+                style={({ pressed }) => [styles.termsRow, pressed && control.pressed]}
                 onPress={() => navigation.navigate('LegalDocument', { doc: 'privacy' })}
                 accessibilityRole="button"
                 accessibilityLabel="개인정보 처리방침 상세보기"
@@ -382,7 +388,7 @@ export default function SignupScreen({ navigation, route }: Props) {
                 <Ionicons name="chevron-forward" size={16} color={colors.subtext} />
               </Pressable>
               <Pressable
-                style={styles.termsRow}
+                style={({ pressed }) => [styles.termsRow, pressed && control.pressed]}
                 onPress={() => navigation.navigate('LegalDocument', { doc: 'marketing' })}
                 accessibilityRole="button"
                 accessibilityLabel="마케팅 정보 수신 동의 상세보기"
@@ -397,7 +403,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </View>
 
             <Pressable
-              style={styles.primaryButton}
+              style={({ pressed }) => [styles.primaryButton, pressed && control.pressed]}
               onPress={handleNextFromStep1}
               accessibilityRole="button"
               accessibilityLabel="다음으로"
@@ -412,7 +418,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </View>
 
             <Pressable
-              style={[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy]}
+              style={({ pressed }) => [[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy], pressed && control.pressed]}
               onPress={() => handleSocialSignup('kakao')}
               disabled={socialLoading !== null}
               accessibilityRole="button"
@@ -425,7 +431,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </Pressable>
 
             <Pressable
-              style={[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy]}
+              style={({ pressed }) => [[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy], pressed && control.pressed]}
               onPress={() => handleSocialSignup('google')}
               disabled={socialLoading !== null}
               accessibilityRole="button"
@@ -438,7 +444,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </Pressable>
 
             <Pressable
-              style={[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy]}
+              style={({ pressed }) => [[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy], pressed && control.pressed]}
               onPress={() => handleSocialSignup('naver')}
               disabled={socialLoading !== null}
               accessibilityRole="button"
@@ -451,7 +457,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </Pressable>
 
             <Pressable
-              style={styles.footer}
+              style={({ pressed }) => [styles.footer, pressed && control.pressed]}
               onPress={() => navigation.goBack()}
               accessibilityRole="button"
               accessibilityLabel="로그인으로 돌아가기"
@@ -495,7 +501,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             />
 
             <Pressable
-              style={styles.primaryButton}
+              style={({ pressed }) => [styles.primaryButton, pressed && control.pressed]}
               onPress={handleNextFromStep2}
               accessibilityRole="button"
               accessibilityLabel="다음으로"
@@ -503,7 +509,7 @@ export default function SignupScreen({ navigation, route }: Props) {
               <Text style={styles.primaryButtonText}>다음으로</Text>
             </Pressable>
             <Pressable
-              style={styles.footer}
+              style={({ pressed }) => [styles.footer, pressed && control.pressed]}
               onPress={() => setStep(1)}
               accessibilityRole="button"
               accessibilityLabel="이전 단계로 돌아가기"
@@ -549,7 +555,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </View>
 
             <Pressable
-              style={styles.termsRow}
+              style={({ pressed }) => [styles.termsRow, pressed && control.pressed]}
               onPress={() =>
                 Alert.alert('약관 및 개인정보', '확인할 문서를 선택해주세요.', [
                   { text: '서비스 이용약관', onPress: () => navigation.navigate('LegalDocument', { doc: 'terms' }) },
@@ -569,7 +575,7 @@ export default function SignupScreen({ navigation, route }: Props) {
             </Pressable>
 
             <Pressable
-              style={[styles.primaryButton, submitting && styles.socialButtonBusy]}
+              style={({ pressed }) => [[styles.primaryButton, submitting && styles.socialButtonBusy], pressed && control.pressed]}
               onPress={handleSignup}
               disabled={submitting}
               accessibilityRole="button"
@@ -580,7 +586,7 @@ export default function SignupScreen({ navigation, route }: Props) {
               </Text>
             </Pressable>
             <Pressable
-              style={styles.footer}
+              style={({ pressed }) => [styles.footer, pressed && control.pressed]}
               onPress={() => setStep(2)}
               accessibilityRole="button"
               accessibilityLabel="이전 단계로 돌아가기"
@@ -595,11 +601,26 @@ export default function SignupScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl * 2 },
-  backButton: { marginBottom: spacing.sm, alignSelf: 'flex-start' },
-  title: { fontSize: 20, fontWeight: '800', color: colors.text, textAlign: 'center' },
-  subtitle: { fontSize: 13, color: colors.subtext, textAlign: 'center', marginTop: 4 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
+  content: {
+    padding: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl * 2 },
+  backButton: {
+    ...control.iconButton,
+    marginBottom: spacing.sm,
+    alignSelf: 'flex-start' },
+  title: {
+    ...typography.title,
+    color: colors.text,
+    textAlign: 'center' },
+  subtitle: {
+    ...typography.body,
+    color: colors.subtext,
+    textAlign: 'center',
+    marginTop: 4 },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -607,7 +628,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.xl,
   },
-  stepperItem: { flexDirection: 'row', alignItems: 'center' },
+  stepperItem: {
+    flexDirection: 'row',
+    alignItems: 'center' },
   stepCircle: {
     width: 28,
     height: 28,
@@ -618,13 +641,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepCircleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepCircleDone: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepNumber: { fontSize: 13, fontWeight: '700', color: colors.subtext },
-  stepNumberActive: { color: '#fff' },
-  stepLine: { width: 40, height: 1.5, backgroundColor: colors.border, marginHorizontal: 4 },
-  stepLineDone: { backgroundColor: colors.primary },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  stepCircleActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary },
+  stepCircleDone: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary },
+  stepNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.subtext },
+  stepNumberActive: {
+    color: '#fff' },
+  stepLine: {
+    width: 40,
+    height: 1.5,
+    backgroundColor: colors.border,
+    marginHorizontal: 4 },
+  stepLineDone: {
+    backgroundColor: colors.primary },
+  sectionLabel: {
+    ...typography.label,
+    color: colors.text,
+    marginBottom: spacing.sm },
   termsCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -634,15 +673,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     ...shadow.card,
   },
-  termsDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
+  termsDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm },
   termsRow: {
+    gap: spacing.sm,
+    minHeight: control.minTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.xs + 2,
   },
-  label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  help: { fontSize: 12, color: colors.subtext, marginTop: -spacing.xs, marginBottom: spacing.md },
+  label: {
+    ...typography.label,
+    color: colors.text,
+    marginBottom: spacing.xs },
+  help: {
+    ...typography.caption,
+    color: colors.subtext,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md },
   noticeCard: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -652,8 +703,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  noticeText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 18 },
-  noticeAccount: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  noticeText: {
+    ...typography.caption,
+    flex: 1,
+    color: colors.text,
+    },
+  noticeAccount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2 },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,34 +723,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 4,
     marginBottom: spacing.sm,
   },
-  successBannerText: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.success },
+  successBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.success },
   primaryButton: {
+    ...control.button,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     alignItems: 'center',
     marginTop: spacing.md,
     ...shadow.card,
   },
-  primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  footer: { marginTop: spacing.lg, alignItems: 'center' },
-  footerText: { fontSize: 13, color: colors.subtext },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg, gap: spacing.sm },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.subtext, fontSize: 12 },
-  socialButtonBusy: { opacity: 0.6 },
+  primaryButtonText: {
+    ...typography.label,
+    color: colors.onPrimary,
+    },
+  footer: {
+    justifyContent: 'center',
+    minHeight: control.minTarget,
+    marginTop: spacing.lg,
+    alignItems: 'center' },
+  footerText: {
+    ...typography.caption,
+    color: colors.subtext },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    gap: spacing.sm },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border },
+  dividerText: {
+    color: colors.subtext,
+    fontSize: 12 },
+  socialButtonBusy: {
+    opacity: 0.6 },
   kakaoButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
     backgroundColor: '#FEE500',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     marginBottom: spacing.sm,
   },
-  kakaoButtonText: { color: '#1B1F1E', fontWeight: '700', fontSize: 15 },
+  kakaoButtonText: {
+    color: '#1B1F1E',
+    fontWeight: '700',
+    fontSize: 15 },
   googleButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -700,20 +788,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#747775',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     marginBottom: spacing.sm,
   },
-  googleButtonText: { color: '#1F1F1F', fontFamily: fonts.medium, fontSize: 15 },
+  googleButtonText: {
+    color: '#1F1F1F',
+    fontFamily: fonts.medium,
+    fontSize: 15 },
   naverButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
     backgroundColor: '#03C75A',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     marginBottom: spacing.sm,
   },
-  naverLogo: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  naverButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  naverLogo: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 15 },
+  naverButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15 },
 });

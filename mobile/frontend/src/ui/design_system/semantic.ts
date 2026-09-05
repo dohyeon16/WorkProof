@@ -1,5 +1,5 @@
 import { Appearance } from 'react-native';
-import { primitives } from './primitives';
+import { semanticLight } from './semantic.light';
 import { semanticDark } from './semantic.dark';
 
 // Layer 2 — Semantic tokens: purpose aliases over primitives.
@@ -33,35 +33,7 @@ export interface SemanticColors {
   onDestructive: string;
 }
 
-// 라이트 팔레트.
-export const semanticLight: SemanticColors = {
-  primary: primitives.teal600,
-  primaryHover: primitives.teal700,
-  primaryDark: primitives.teal700,
-  primaryLight: primitives.teal100,
-  secondary: primitives.teal500,
-
-  accent: primitives.orange600,
-  accentLight: primitives.orange100,
-
-  destructive: primitives.red600,
-  destructiveLight: primitives.red100,
-  success: primitives.teal600,
-  successLight: primitives.teal100,
-
-  background: primitives.teal50,
-  card: primitives.white,
-  foreground: primitives.teal900,
-  muted: primitives.slate50,
-  mutedForeground: primitives.slate500,
-  border: primitives.teal200,
-  ring: primitives.teal600,
-
-  onPrimary: primitives.white,
-  onSecondary: primitives.white,
-  onAccent: primitives.white,
-  onDestructive: primitives.white,
-};
+export { semanticLight } from './semantic.light';
 
 // 앱 시작 시점의 시스템 색상 설정(라이트/다크)에 따라 팔레트를 확정한다. StyleSheet가 모듈
 // 로드 때 색을 스냅샷하므로 실시간 토글은 아니고 '시스템 설정을 따르는' 다크 모드다.

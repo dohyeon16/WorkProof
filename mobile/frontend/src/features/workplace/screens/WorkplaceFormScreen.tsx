@@ -36,7 +36,7 @@ import { useAiAnalysis } from '../../../services/ai_summary/useAiAnalysis';
 import { FILE_UNREADABLE_MESSAGE } from '../../../services/ocr/visionOcr';
 import { persistPickedFile, resolveReadableUri } from '../../../services/files/fileStore';
 import type { EvidenceKind, IncomeDeductionType } from '../../../types/domain';
-import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, radius, shadow, spacing, control, typography } from '../../../ui/design_system';
 import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = RootScreenProps<'WorkplaceForm'>;
@@ -463,7 +463,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
       >
         <Text style={styles.label}>근무지</Text>
         <Pressable
-          style={styles.placeCard}
+          style={({ pressed }) => [styles.placeCard, pressed && control.pressed]}
           onPress={() => navigation.navigate('WorkplacePlacePicker', { latitude, longitude })}
           accessibilityRole="button"
           accessibilityLabel="지도에서 근무지 검색"
@@ -547,7 +547,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
             return (
               <Pressable
                 key={opt.value}
-                style={[styles.segmentItem, active && styles.segmentItemActive]}
+                style={({ pressed }) => [[styles.segmentItem, active && styles.segmentItemActive], pressed && control.pressed]}
                 onPress={() => setIncomeDeductionType(opt.value)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
@@ -578,7 +578,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
         <Text style={styles.label}>근로계약서 사본 첨부 (선택)</Text>
         <Pressable
-          style={styles.photoPicker}
+          style={({ pressed }) => [styles.photoPicker, pressed && control.pressed]}
           onPress={handlePickContract}
           accessibilityRole="button"
           accessibilityLabel="근로계약서 사본 첨부"
@@ -637,7 +637,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
               <>
                 <Text style={styles.summaryText}>{contractSummary}</Text>
                 <Pressable
-                  style={styles.summaryRetryButton}
+                  style={({ pressed }) => [styles.summaryRetryButton, pressed && control.pressed]}
                   onPress={retryAnalysis}
                   accessibilityRole="button"
                   accessibilityLabel="다시 분석하기"
@@ -648,7 +648,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
               </>
             ) : (
               <Pressable
-                style={styles.summaryRetryButton}
+                style={({ pressed }) => [styles.summaryRetryButton, pressed && control.pressed]}
                 onPress={retryAnalysis}
                 accessibilityRole="button"
                 accessibilityLabel="AI로 다시 분석하기"
@@ -661,7 +661,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
         )}
 
         <Pressable
-          style={styles.saveButton}
+          style={({ pressed }) => [styles.saveButton, pressed && control.pressed]}
           onPress={handleSave}
           accessibilityRole="button"
           accessibilityLabel={editingId ? '수정 완료' : '저장하기'}
@@ -671,7 +671,7 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 
         {editingId && (
           <Pressable
-            style={styles.deleteButton}
+            style={({ pressed }) => [styles.deleteButton, pressed && control.pressed]}
             onPress={handleDelete}
             accessibilityRole="button"
             accessibilityLabel="근무지 삭제"
@@ -691,23 +691,47 @@ export default function WorkplaceFormScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  label: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  help: { fontSize: 12, color: colors.subtext, marginBottom: spacing.md },
-  preview: { fontSize: 12, color: colors.primaryDark, fontWeight: '600', marginTop: -spacing.xs, marginBottom: spacing.md },
-  wageWarn: { fontSize: 12, color: colors.danger, fontWeight: '600', marginTop: -spacing.sm, marginBottom: spacing.md },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
+  content: {
+    padding: spacing.page,
+    paddingBottom: spacing.xl * 2 },
+  label: {
+    ...typography.label,
+    color: colors.text,
+    marginBottom: spacing.sm },
+  help: {
+    ...typography.caption,
+    color: colors.subtext,
+    marginBottom: spacing.md },
+  preview: {
+    fontSize: 12,
+    color: colors.primaryDark,
+    fontWeight: '600',
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md },
+  wageWarn: {
+    fontSize: 12,
+    color: colors.danger,
+    fontWeight: '600',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md },
   switchCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
-  switchLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  switchLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2 },
   segment: {
     flexDirection: 'row',
     backgroundColor: colors.card,
@@ -719,15 +743,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   segmentItem: {
+    minHeight: control.minTarget,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,
   },
-  segmentItemActive: { backgroundColor: colors.primary },
-  segmentText: { fontSize: 12, fontWeight: '700', color: colors.subtext },
-  segmentTextActive: { color: '#fff' },
+  segmentItemActive: {
+    backgroundColor: colors.primary },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.subtext },
+  segmentTextActive: {
+    color: '#fff' },
   placeCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -735,8 +765,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
   placeIcon: {
@@ -747,9 +777,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeName: { fontSize: 14, fontWeight: '700', color: colors.text },
-  placeSubtext: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  placeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text },
+  placeSubtext: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
   saveButton: {
+    ...control.button,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm + 6,
@@ -757,13 +794,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     ...shadow.card,
   },
-  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  saveButtonText: {
+    ...typography.label,
+    color: '#fff',
+    },
   deleteButton: {
+    justifyContent: 'center',
+    minHeight: control.minTarget,
     marginTop: spacing.md,
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
-  deleteButtonText: { color: colors.danger, fontWeight: '600', fontSize: 13 },
+  deleteButtonText: {
+    color: colors.danger,
+    fontWeight: '600',
+    fontSize: 13 },
   photoPicker: {
     width: '100%',
     paddingVertical: spacing.lg,
@@ -778,10 +823,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     gap: spacing.xs,
   },
-  photoPickerText: { fontSize: 12, color: colors.subtext },
-  photoPreview: { width: '100%', height: 140 },
-  pdfPreview: { paddingVertical: spacing.md, alignItems: 'center', gap: spacing.xs },
-  pdfPreviewText: { fontSize: 12, color: colors.primaryDark, fontWeight: '700' },
+  photoPickerText: {
+    fontSize: 12,
+    color: colors.subtext },
+  photoPreview: {
+    width: '100%',
+    height: 140 },
+  pdfPreview: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs },
+  pdfPreviewText: {
+    fontSize: 12,
+    color: colors.primaryDark,
+    fontWeight: '700' },
   ocrStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -789,34 +844,55 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
-  ocrStatusText: { fontSize: 12, color: colors.subtext },
+  ocrStatusText: {
+    fontSize: 12,
+    color: colors.subtext },
   ocrCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
-  ocrCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs },
-  ocrCardTitle: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
-  ocrTextScroll: { maxHeight: 160 },
-  ocrText: { fontSize: 12, color: colors.text, lineHeight: 18 },
+  ocrCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.xs },
+  ocrCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark },
+  ocrTextScroll: {
+    maxHeight: 160 },
+  ocrText: {
+    ...typography.caption,
+    color: colors.text,
+    },
   summaryCard: {
     backgroundColor: colors.primaryLight,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
-  summaryText: { fontSize: 13, color: colors.text, lineHeight: 19 },
+  summaryText: {
+    ...typography.body,
+    color: colors.text,
+    },
   summaryRetryButton: {
+    justifyContent: 'center',
+    minHeight: control.minTarget,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
   },
-  summaryRetryText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
+  summaryRetryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark },
 });
