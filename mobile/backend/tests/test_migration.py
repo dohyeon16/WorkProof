@@ -23,7 +23,7 @@ def test_single_head_is_workplace_policy():
 
     script = ScriptDirectory.from_config(_alembic_config())
     heads = list(script.get_heads())
-    assert heads == ["0004_workplace_policy"], f"단일 head 여야 함: {heads}"
+    assert heads == ["0005_oauth_bridge_sessions"], f"단일 head 여야 함: {heads}"
 
 
 def test_revision_chain_0004_to_0001_to_base():
@@ -119,7 +119,7 @@ def test_offline_sql_0004_adds_policy_columns():
             "-m",
             "alembic",
             "upgrade",
-            "0003_work_data:0004_workplace_policy",
+            "0003_work_data:0005_oauth_bridge_sessions",
             "--sql",
         ],
         cwd=BACKEND_DIR,

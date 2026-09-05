@@ -167,7 +167,7 @@ def exchange_bridge_session(
     profile은 서버가 직접 OAuth code 교환으로 받은 값이라 provider_user_id를
     신뢰할 수 있다(§6 — 위조 불가 경로).
     """
-    session = get_bridge_session(bridge_session_id)
+    session = get_bridge_session(bridge_session_id, db)
     if session is None:
         raise BridgeExchangeError("세션을 찾을 수 없거나 만료됐어요.")
     if session.status != "success" or not session.profile:
@@ -188,6 +188,10 @@ def exchange_bridge_session(
         tokens = issue_token_pair(db, user, device_label=device_label)
         # 일회성: 성공 세션을 소비해 재교환을 막는다.
         bridge_sessions.pop(bridge_session_id, None)
+        from app.models.oauth_bridge_session import OAuthBridgeSession
+        row = db.get(OAuthBridgeSession, bridge_session_id)
+        if row is not None:
+            db.delete(row)
         db.commit()
     except BridgeExchangeError:
         db.rollback()
