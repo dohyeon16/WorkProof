@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, PanResponder, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import { Text } from '../display/Text';
 import { colors, radius } from '../../design_system';
 
@@ -7,6 +7,10 @@ const ITEM_HEIGHT = 40;
 const VISIBLE_COUNT = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT;
 const CENTER_OFFSET = ITEM_HEIGHT * Math.floor(VISIBLE_COUNT / 2);
+const DRAG_HYSTERESIS = 10;
+const RUBBERBAND_CONSTANT = 0.55;
+const MOMENTUM_PROJECTION_MS = 180;
+const SPRING = { tension: 300, settleFriction: 30, momentumFriction: 24 } as const;
 
 interface WheelPickerProps {
   min: number;
@@ -48,6 +52,19 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
   const disabledRef = useRef(disabled);
   const wheelSnapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapRef = useRef<View>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotion(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
 
   // PanResponder는 최초 1회만 생성되므로, 최신 onActiveChange를 ref로 참조한다.
   const onActiveChangeRef = useRef(onActiveChange);
@@ -73,24 +90,41 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
     return () => offsetY.removeListener(id);
   }, [offsetY]);
 
+  const animateTo = (targetOffset: number, velocity: number) => {
+    offsetY.stopAnimation();
+    if (reduceMotion) {
+      Animated.timing(offsetY, { toValue: targetOffset, duration: 1, useNativeDriver: false }).start();
+      return;
+    }
+    Animated.spring(offsetY, {
+      toValue: targetOffset,
+      useNativeDriver: false,
+      velocity,
+      tension: SPRING.tension,
+      friction: Math.abs(velocity) > 0.25 ? SPRING.momentumFriction : SPRING.settleFriction,
+    }).start();
+  };
+
+  const rubberband = (offset: number) => {
+    if (offset < 0) return -Math.min(ITEM_HEIGHT, -offset * RUBBERBAND_CONSTANT);
+    if (offset > maxOffset) return maxOffset + Math.min(ITEM_HEIGHT, (offset - maxOffset) * RUBBERBAND_CONSTANT);
+    return offset;
+  };
+
   // Keep the wheel's visual position in sync when `value` changes from
   // outside (e.g. a parent forcing it back to 0), not just from our own drag.
   useEffect(() => {
     if (value !== lastEmittedValue.current) {
       lastEmittedValue.current = value;
       const idx = Math.max(0, data.indexOf(value));
-      Animated.spring(offsetY, { toValue: idx * ITEM_HEIGHT, useNativeDriver: false, bounciness: 4 }).start();
+      animateTo(idx * ITEM_HEIGHT, 0);
     }
-  }, [value, data, offsetY]);
+  }, [value, data, offsetY, reduceMotion]);
 
-  const snapTo = (targetOffset: number) => {
+  const snapTo = (targetOffset: number, velocity = 0) => {
     const clamped = Math.max(0, Math.min(maxOffset, targetOffset));
     const index = Math.max(0, Math.min(data.length - 1, Math.round(clamped / ITEM_HEIGHT)));
-    Animated.spring(offsetY, {
-      toValue: index * ITEM_HEIGHT,
-      useNativeDriver: false,
-      bounciness: 4,
-    }).start();
+    animateTo(index * ITEM_HEIGHT, velocity);
     lastEmittedValue.current = data[index];
     onChange(data[index]);
   };
@@ -110,8 +144,7 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
     e.stopPropagation?.();
     offsetY.stopAnimation();
     const next = currentOffsetRef.current + e.deltaY;
-    const clamped = Math.max(-ITEM_HEIGHT / 2, Math.min(maxOffset + ITEM_HEIGHT / 2, next));
-    offsetY.setValue(clamped);
+    offsetY.setValue(rubberband(next));
     if (wheelSnapTimeout.current) clearTimeout(wheelSnapTimeout.current);
     wheelSnapTimeout.current = setTimeout(() => snapTo(currentOffsetRef.current), 120);
   };
@@ -137,9 +170,9 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
       // Claim the gesture in the capture phase so the wrapping ScrollView
       // never gets a chance to start scrolling the whole screen alongside it.
       onStartShouldSetPanResponderCapture: () => !disabledRef.current,
-      onMoveShouldSetPanResponderCapture: (_, gesture) => !disabledRef.current && Math.abs(gesture.dy) > 2,
+      onMoveShouldSetPanResponderCapture: (_, gesture) => !disabledRef.current && Math.abs(gesture.dy) > DRAG_HYSTERESIS,
       onStartShouldSetPanResponder: () => !disabledRef.current,
-      onMoveShouldSetPanResponder: (_, gesture) => !disabledRef.current && Math.abs(gesture.dy) > 2,
+      onMoveShouldSetPanResponder: (_, gesture) => !disabledRef.current && Math.abs(gesture.dy) > DRAG_HYSTERESIS,
       onPanResponderGrant: () => {
         offsetY.stopAnimation();
         dragStartOffset.current = currentOffsetRef.current;
@@ -147,12 +180,11 @@ export function WheelPicker({ min, max, step = 1, value, onChange, suffix, disab
       },
       onPanResponderMove: (_, gesture) => {
         const next = dragStartOffset.current - gesture.dy;
-        const clamped = Math.max(-ITEM_HEIGHT / 2, Math.min(maxOffset + ITEM_HEIGHT / 2, next));
-        offsetY.setValue(clamped);
+        offsetY.setValue(rubberband(next));
       },
       onPanResponderRelease: (_, gesture) => {
-        const projected = currentOffsetRef.current - gesture.vy * 60;
-        snapTo(projected);
+        const projected = currentOffsetRef.current - gesture.vy * MOMENTUM_PROJECTION_MS;
+        snapTo(projected, -gesture.vy);
         setActive(false); // 손을 떼면(휠 밖에서 떼도) 부모 스크롤 복구
       },
       onPanResponderTerminate: () => {
