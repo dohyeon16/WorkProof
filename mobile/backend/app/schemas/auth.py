@@ -35,6 +35,7 @@ class SocialAuthRequest(BaseModel):
 class BridgeExchangeRequest(BaseModel):
     bridge_session_id: str = Field(min_length=1, max_length=128)
     device_label: str | None = Field(default=None, max_length=255)
+    mode: str = Field(default="signup", pattern="^(signup|login)$")
 
 
 class RefreshRequest(BaseModel):

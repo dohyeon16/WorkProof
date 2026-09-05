@@ -59,7 +59,8 @@ export interface SessionApi {
   exchangeBridgeSession(
     bridgeSessionId: string,
     deviceLabel?: string,
-    bridgeApiUrl?: string
+    bridgeApiUrl?: string,
+    mode?: 'signup' | 'login'
   ): Promise<AuthSession>;
   /** provider credential을 서버가 직접 검증한 뒤 WorkProof 세션으로 교환한다. */
   social?(input: SocialSessionInput): Promise<AuthSession>;

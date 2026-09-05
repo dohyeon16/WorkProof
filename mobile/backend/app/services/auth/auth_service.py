@@ -44,6 +44,10 @@ class InvalidCredentialsError(Exception):
 
 
 class BridgeExchangeError(Exception):
+    def __init__(self, message: str, code: str = "BRIDGE_ERROR"):
+        super().__init__(message)
+        self.code = code
+
     """브릿지 세션 교환 실패(미존재/만료/미완료/재사용). → 400."""
 
 
@@ -157,7 +161,7 @@ def social_login(
 
 
 def exchange_bridge_session(
-    db: Session, bridge_session_id: str, device_label: str | None = None
+    db: Session, bridge_session_id: str, device_label: str | None = None, mode: str = "signup"
 ) -> IssuedTokens:
     """기존 OAuth 브릿지의 success 세션을 서버 JWT로 교환한다(일회성).
 
@@ -184,6 +188,10 @@ def exchange_bridge_session(
         raise BridgeExchangeError("프로필 식별자가 없어 교환할 수 없어요.")
 
     try:
+        if mode == "login" and oauth_repo.get_by_provider_identity(
+            db, identity.provider, identity.provider_user_id
+        ) is None:
+            raise BridgeExchangeError("가입된 계정이 없어요. 먼저 회원가입을 진행해주세요.", "ACCOUNT_NOT_FOUND")
         user = _upsert_social_user(db, identity)
         tokens = issue_token_pair(db, user, device_label=device_label)
         # 일회성: 성공 세션을 소비해 재교환을 막는다.

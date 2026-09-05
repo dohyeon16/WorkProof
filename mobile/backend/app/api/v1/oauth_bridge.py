@@ -71,16 +71,19 @@ async def create_session(provider: str, request: Request, db: Session | None = D
     # 아니어도(구버전 클라이언트) 세션 생성은 성공하고, 그 경우 콜백은 fallback
     # HTML을 쓴다. 검증되지 않은 스킴은 저장하지 않아 open redirect를 막는다.
     return_url: Optional[str] = None
+    mode = "signup"
     try:
         payload = await request.json()
         if isinstance(payload, dict):
             raw_return = payload.get("return_url")
             if isinstance(raw_return, str) and svc.is_valid_return_url(raw_return.strip()):
                 return_url = raw_return.strip()
+            if payload.get("mode") in ("signup", "login"):
+                mode = payload["mode"]
     except Exception:
         return_url = None
 
-    session_id = svc.create_session_record(provider, return_url, db)
+    session_id = svc.create_session_record(provider, return_url, db, mode=mode)
     redirect_uri = f"{_get_base_url(request)}/auth/{provider}/callback"
     login_url = svc.build_login_url(provider, session_id, redirect_uri)
     return {"session_id": session_id, "login_url": login_url}
@@ -173,7 +176,7 @@ async def session_status(session_id: str, db: Session | None = Depends(_optional
     if session.status == "pending":
         return {"status": "pending"}
     if session.status == "success":
-        return {"status": "success", "profile": session.profile}
+        return {"status": "success", "profile": session.profile, "mode": session.mode}
     return {
         "status": "error",
         "message": session.message or "로그인에 실패했어요.",

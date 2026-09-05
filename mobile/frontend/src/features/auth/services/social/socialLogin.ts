@@ -63,7 +63,7 @@ function notConfiguredReason(provider: 'google' | 'kakao'): string {
   return 'Google Client ID(EXPO_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았어요. mobile/docs/OAUTH_SETUP.md 안내를 참고하세요.';
 }
 
-async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLoginResult> {
+async function loginWithProvider(provider: 'google' | 'kakao', mode: 'signup' | 'login' = 'login'): Promise<SocialLoginResult> {
   // Google's "Web application" client type requires a client secret at the
   // authorization-code token exchange even with PKCE, which can't live in a
   // client bundle safely. On web we sidestep that entirely by using Google
@@ -78,7 +78,7 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
   // feature is enabled. The browser must never receive or send that secret,
   // so Web uses the existing server-side OAuth bridge just like Expo Go.
   if (provider === 'kakao' && Platform.OS === 'web') {
-    return loginWithProviderBridge('kakao');
+    return loginWithProviderBridge('kakao', mode);
   }
 
   // Expo Go can't use custom URL schemes or the Kakao/Naver native modules
@@ -88,7 +88,7 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
   // would otherwise hit the native SDK, which isn't linked in Expo Go and
   // throws immediately.
   if (Platform.OS !== 'web' && isExpoGo()) {
-    return loginWithProviderBridge(provider);
+    return loginWithProviderBridge(provider, mode);
   }
 
   // Kakao on native builds (Android and iOS) uses the native SDK
@@ -159,8 +159,8 @@ async function loginWithProvider(provider: 'google' | 'kakao'): Promise<SocialLo
   }
 }
 
-export const loginWithGoogle = () => loginWithProvider('google');
-export const loginWithKakao = () => loginWithProvider('kakao');
+export const loginWithGoogle = (mode: 'signup' | 'login' = 'login') => loginWithProvider('google', mode);
+export const loginWithKakao = (mode: 'signup' | 'login' = 'login') => loginWithProvider('kakao', mode);
 
 // Naver has no entry in SOCIAL_LOGIN below: web is a full-page redirect flow,
 // not a Promise that resolves in the same page load (see naverIdentityWeb.ts).
@@ -180,7 +180,7 @@ export async function loginWithNaver(
   // See the Expo Go branch in loginWithProvider() above — same reasoning
   // applies here, Naver's native SDK isn't linked in Expo Go either.
   if (isExpoGo()) {
-    return loginWithProviderBridge('naver');
+    return loginWithProviderBridge('naver', mode);
   }
   return loginWithNaverNative();
 }

@@ -120,6 +120,7 @@ serializer = URLSafeTimedSerializer(settings.SESSION_SIGNING_SECRET, salt="workp
 class OAuthSession:
     provider: str
     created_at: float
+    mode: str = "signup"
     status: str = "pending"  # pending | success | error
     profile: Optional[dict] = None
     message: Optional[str] = None
@@ -207,7 +208,7 @@ def build_app_redirect(return_url: str, oauth_status: str, session_id: str) -> s
 
 def _from_row(row: OAuthBridgeSession) -> OAuthSession:
     return OAuthSession(
-        provider=row.provider, created_at=row.created_at.timestamp(), status=row.status,
+        provider=row.provider, created_at=row.created_at.timestamp(), mode=row.mode or "signup", status=row.status,
         profile=row.profile, message=row.message, error_code=row.error_code,
         provider_error=row.provider_error, provider_error_code=row.provider_error_code,
         return_url=row.return_url,
@@ -227,6 +228,7 @@ def _save_row(db: Session, session_id: str, session: OAuthSession) -> None:
         row = OAuthBridgeSession(id=session_id, provider=session.provider)
         db.add(row)
     row.status = session.status
+    row.mode = session.mode
     row.profile = session.profile
     row.message = session.message
     row.error_code = session.error_code
@@ -237,12 +239,6 @@ def _save_row(db: Session, session_id: str, session: OAuthSession) -> None:
 
 
 def get_session(session_id: str, db: Session | None = None) -> Optional[OAuthSession]:
-    local_session = sessions.get(session_id)
-    if local_session is not None:
-        if time.time() - local_session.created_at > SESSION_TTL_SECONDS:
-            sessions.pop(session_id, None)
-            return None
-        return local_session
     if db is not None:
         row = db.get(OAuthBridgeSession, session_id)
         if row is not None:
@@ -251,15 +247,26 @@ def get_session(session_id: str, db: Session | None = None) -> Optional[OAuthSes
                 db.commit()
                 return None
             return _from_row(row)
-        # Keep the in-memory path for unit callers and older development data;
-        # production-created sessions are always persisted by the HTTP route.
+        local_session = sessions.get(session_id)
+        if local_session is not None:
+            if time.time() - local_session.created_at > SESSION_TTL_SECONDS:
+                sessions.pop(session_id, None)
+                return None
+            return local_session
+        return None
+    local_session = sessions.get(session_id)
+    if local_session is not None:
+        if time.time() - local_session.created_at > SESSION_TTL_SECONDS:
+            sessions.pop(session_id, None)
+            return None
+        return local_session
     return None
 
 
-def create_session_record(provider: str, return_url: Optional[str], db: Session | None = None) -> str:
+def create_session_record(provider: str, return_url: Optional[str], db: Session | None = None, mode: str = "signup") -> str:
     session_id = os.urandom(32).hex()
     session = OAuthSession(
-        provider=provider, created_at=time.time(), return_url=return_url
+        provider=provider, created_at=time.time(), return_url=return_url, mode=mode
     )
     sessions[session_id] = session
     if db is not None:

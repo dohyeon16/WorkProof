@@ -31,6 +31,7 @@ const AUTH_API_URL =
 // has already dropped.
 const POLL_TIMEOUT_MS = 8 * 60 * 1000;
 const POLL_INTERVAL_MS = 1500;
+const POPUP_CLOSE_GRACE_MS = 5000;
 
 type BridgeProvider = 'google' | 'kakao' | 'naver';
 
@@ -72,7 +73,8 @@ function sleep(ms: number): Promise<void> {
 
 async function createBridgeSession(
   provider: BridgeProvider,
-  returnUrl: string
+  returnUrl: string,
+  mode: 'signup' | 'login'
 ): Promise<CreateSessionResponse> {
   // return_url을 백엔드에 넘겨두면, provider 콜백 처리가 끝난 뒤 백엔드가 이
   // URL로 302 리디렉션한다. openAuthSessionAsync가 그 복귀 URL을 감지해 인증
@@ -80,7 +82,7 @@ async function createBridgeSession(
   const res = await fetch(`${AUTH_API_URL}/auth/session/${provider}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ return_url: returnUrl }),
+    body: JSON.stringify({ return_url: returnUrl, mode }),
   });
   if (!res.ok) {
     throw new Error(`로그인 세션을 만들지 못했어요. (${res.status})`);
@@ -128,7 +130,10 @@ function dismissAuthBrowser(): void {
   WebBrowser.dismissBrowser().catch(() => {});
 }
 
-export async function loginWithProviderBridge(provider: BridgeProvider): Promise<SocialLoginResult> {
+export async function loginWithProviderBridge(
+  provider: BridgeProvider,
+  mode: 'signup' | 'login' = 'login'
+): Promise<SocialLoginResult> {
   if (!AUTH_API_URL) {
     return notConfiguredResult();
   }
@@ -155,7 +160,7 @@ export async function loginWithProviderBridge(provider: BridgeProvider): Promise
 
   let session: CreateSessionResponse;
   try {
-    session = await createBridgeSession(provider, returnUrl);
+    session = await createBridgeSession(provider, returnUrl, mode);
   } catch (err) {
     webPopup?.close();
     return { status: 'error', code: (console.warn(describeForLog('provider', 'bridge', err)), classifySocialError(err)) };
@@ -176,6 +181,7 @@ export async function loginWithProviderBridge(provider: BridgeProvider): Promise
   // 성공/실패 판정은 아래 세션 폴링이 담당하므로 result 객체 자체는 보관하지
   // 않는다.
   let browserClosedWithoutRedirect = false;
+  let popupClosedAt: number | null = null;
   const authPromise = webPopup
     ? Promise.resolve()
     : WebBrowser.openAuthSessionAsync(loginUrl, returnUrl)
@@ -237,11 +243,18 @@ export async function loginWithProviderBridge(provider: BridgeProvider): Promise
       // (사용자가 직접 닫음) 취소로 처리한다. 복귀 URL 감지로 닫힌 경우
       // (type === 'success')는 이 플래그가 서지 않으므로, 다음 폴링에서 결과가
       // 곧 채워진다.
-      if (browserClosedWithoutRedirect) {
+      if (browserClosedWithoutRedirect && popupClosedAt === null) {
+        popupClosedAt = Date.now();
+      }
+      // A callback can finish on another Render instance just after the
+      // browser reports its popup closed. Keep polling briefly so a late
+      // success cannot be misclassified as user cancellation.
+      if (browserClosedWithoutRedirect && popupClosedAt !== null && Date.now() - popupClosedAt >= POPUP_CLOSE_GRACE_MS) {
         return finish({ status: 'cancelled' });
       }
       if (webPopup?.closed) {
-        return finish({ status: 'cancelled' });
+        if (popupClosedAt === null) popupClosedAt = Date.now();
+        if (Date.now() - popupClosedAt >= POPUP_CLOSE_GRACE_MS) return finish({ status: 'cancelled' });
       }
     }
   } catch (err) {

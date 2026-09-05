@@ -50,7 +50,7 @@ test('expoGoOAuth: 성공 시 bridgeSessionId를 결과에 담아 돌려준다',
 test('Kakao Web도 server-side OAuth bridge를 사용한다', () => {
   assert.match(
     socialLoginSrc,
-    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'\)/
+    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'/
   );
   assert.doesNotMatch(socialLoginSrc, /clientSecret:\s*config\.clientSecret/);
 });
@@ -75,11 +75,12 @@ test('authApi: POST /auth/bridge/exchange 로 실제 백엔드 세션을 교환�
     /bridge_session_id:\s*bridgeSessionId/,
     'bridge_session_id 를 요청 바디에 담아야 한다(서버 snake_case 계약)'
   );
+  assert.match(authApiSrc, /mode\s*\}/, 'signup/login mode? bridge exchange? ???? ??');
 });
 
 test('AuthContext: loginWithBridgeSession 을 공개해 화면이 canonical 세션을 갱신할 수 있다', () => {
-  assert.match(authContextSrc, /loginWithBridgeSession\(bridgeSessionId: string, bridgeApiUrl\?: string\): Promise<AuthUser>/);
-  assert.match(authContextSrc, /loginWithBridgeSession:\s*\(bridgeSessionId, bridgeApiUrl\)\s*=>\s*\r?\n?\s*session\.loginWithBridgeSession/);
+  assert.match(authContextSrc, /loginWithBridgeSession\(bridgeSessionId: string, bridgeApiUrl\?: string, mode\?: 'signup' \| 'login'\): Promise<AuthUser>/);
+  assert.match(authContextSrc, /loginWithBridgeSession:\s*\(bridgeSessionId, bridgeApiUrl, mode\)\s*=>[\s\S]*?session\.loginWithBridgeSession/);
 });
 
 test('bridge exchange uses the exact backend origin that created its process-local session', () => {
