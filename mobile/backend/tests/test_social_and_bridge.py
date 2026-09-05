@@ -32,6 +32,13 @@ def test_legacy_unknown_provider_contract_unchanged(client):
     assert r.json()["detail"] == "지원하지 않는 provider입니다."
 
 
+def test_bridge_session_persists_signup_or_login_mode(db, _clean_bridge):
+    signup_id = oauth_bridge.create_session_record("kakao", None, db, mode="signup")
+    login_id = oauth_bridge.create_session_record("kakao", None, db, mode="login")
+    assert oauth_bridge.get_session(signup_id, db).mode == "signup"
+    assert oauth_bridge.get_session(login_id, db).mode == "login"
+
+
 def test_bridge_error_exposes_only_sanitized_provider_codes(client, _clean_bridge):
     oauth_bridge.sessions["safe-error"] = oauth_bridge.OAuthSession(
         provider="kakao",
@@ -146,6 +153,37 @@ def test_bridge_handoff_survives_instance_boundary(client, db, _clean_bridge, mo
     assert oauth_bridge.get_session(session_id, db).status == "success"
     exchanged = auth_service.exchange_bridge_session(db, session_id)
     assert exchanged.user.primary_provider == "kakao"
+
+
+def test_db_success_wins_over_stale_process_local_pending(client, db, _clean_bridge):
+    """A callback and poll may hit different instances with the same session id."""
+    session_id = oauth_bridge.create_session_record("kakao", None, db, mode="signup")
+    stale = oauth_bridge.sessions[session_id]
+    # Simulate callback instance writing success while this process retains
+    # its old pending object.
+    persisted = oauth_bridge.get_session(session_id, db)
+    persisted.status = "success"
+    persisted.profile = {
+        "provider": "kakao", "providerUserId": "cross-instance-user", "name": "Kakao user", "email": None
+    }
+    oauth_bridge.persist_session(session_id, persisted, db)
+    oauth_bridge.sessions[session_id] = stale
+    polled = oauth_bridge.get_session(session_id, db)
+    assert polled is not None and polled.status == "success"
+
+
+def test_bridge_login_missing_account_is_domain_result(client, db, _clean_bridge):
+    _seed_bridge(
+        "sess-missing-login", "success",
+        {"provider": "kakao", "providerUserId": "never-registered", "name": "Kakao user", "email": None},
+    )
+    response = client.post(
+        "/api/v1/auth/bridge/exchange",
+        json={"bridge_session_id": "sess-missing-login", "mode": "login"},
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "가입된 계정이 없어요. 먼저 회원가입을 진행해주세요."
+    assert response.headers["X-WorkProof-Error-Code"] == "ACCOUNT_NOT_FOUND"
 
 
 # --------------------------- 직접 소셜 identity 위조 방지 ---------------------------

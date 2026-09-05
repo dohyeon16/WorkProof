@@ -54,7 +54,7 @@ test('Kakao Web은 Client Secret을 읽거나 브라우저에서 토큰 교환�
   assert.doesNotMatch(socialLogin, /clientSecret:/);
   assert.match(
     socialLogin,
-    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'\)/
+    /provider === 'kakao' && Platform\.OS === 'web'[\s\S]*?loginWithProviderBridge\('kakao'/
   );
   assert.match(bridge, /Platform\.OS === 'web'[\s\S]*?window\.open\('about:blank'/);
 });

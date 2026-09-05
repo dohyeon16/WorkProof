@@ -16,6 +16,7 @@ import { colors, fonts, radius, shadow, spacing, control, typography } from '../
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
 import type { AuthProvider } from '../../../types/domain';
 import { socialErrorMessage } from '../services/social/socialAuthErrors';
+import { ApiError } from '../../../services/api/errors';
 
 type Props = RootScreenProps<'Login'>;
 
@@ -84,12 +85,14 @@ export default function LoginScreen({ navigation, route }: Props) {
       return;
     }
 
-    const existing = await getAccount();
-    const isMatchingAccount =
-      existing?.provider === result.profile.provider && existing?.providerId === result.profile.providerId;
-    if (!isMatchingAccount) {
-      Alert.alert('가입된 계정이 없어요', '먼저 회원가입을 진행해주세요.');
-      return;
+    if (!result.bridgeSessionId) {
+      const existing = await getAccount();
+      const isMatchingAccount =
+        existing?.provider === result.profile.provider && existing?.providerId === result.profile.providerId;
+      if (!isMatchingAccount) {
+        Alert.alert('\uac00\uc785\ub41c \uacc4\uc815\uc774 \uc5c6\uc5b4\uc694', '\uba3c\uc800 \ud68c\uc6d0\uac00\uc785\uc744 \uc9c4\ud589\ud574\uc8fc\uc138\uc694.');
+        return;
+      }
     }
     // 소셜 provider 인증과 WorkProof 백엔드 인증을 한 단계로 마친 뒤에만 로컬
     // 로그인 플래그를 세운다. bridgeSessionId(Kakao Web/Expo Go)는 일회성 bridge
@@ -98,7 +101,7 @@ export default function LoginScreen({ navigation, route }: Props) {
     let backendSessionReady = true;
     try {
       if (result.bridgeSessionId) {
-        await loginWithBridgeSession(result.bridgeSessionId, result.bridgeApiUrl);
+        await loginWithBridgeSession(result.bridgeSessionId, result.bridgeApiUrl, 'login');
       } else if (result.providerCredential) {
         await loginWithSocialCredential({
           provider,
@@ -109,6 +112,11 @@ export default function LoginScreen({ navigation, route }: Props) {
         });
       }
     } catch (e) {
+      if (e instanceof ApiError && e.status === 404 && e.detail?.includes('\uac00\uc785\ub41c \uacc4\uc815\uc774 \uc5c6\uc5b4\uc694')) {
+        Alert.alert('\uac00\uc785\ub41c \uacc4\uc815\uc774 \uc5c6\uc5b4\uc694', '\uba3c\uc800 \ud68c\uc6d0\uac00\uc785\uc744 \uc9c4\ud589\ud574\uc8fc\uc138\uc694.');
+        return;
+      }
+
       backendSessionReady = false;
       console.warn('[LoginScreen] backend social session stage failed:', e instanceof Error ? e.name : typeof e);
     }
@@ -152,7 +160,7 @@ export default function LoginScreen({ navigation, route }: Props) {
       return;
     }
     try {
-      const result = await SOCIAL_LOGIN[provider]();
+      const result = await SOCIAL_LOGIN[provider]('login');
       await finishSocialLogin(provider, result);
     } finally {
       setSocialLoading(null);

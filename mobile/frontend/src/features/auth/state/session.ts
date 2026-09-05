@@ -44,7 +44,8 @@ export interface Session {
   loginWithBridgeSession(
     bridgeSessionId: string,
     deviceLabel?: string,
-    bridgeApiUrl?: string
+    bridgeApiUrl?: string,
+    mode?: 'signup' | 'login'
   ): Promise<AuthUser>;
   loginWithSocialCredential(input: SocialSessionInput): Promise<AuthUser>;
   refreshSession(): Promise<string>;
@@ -145,9 +146,10 @@ export function createSession({ api, store }: CreateSessionDeps): Session {
   async function loginWithBridgeSession(
     bridgeSessionId: string,
     deviceLabel?: string,
-    bridgeApiUrl?: string
+    bridgeApiUrl?: string,
+    mode: 'signup' | 'login' = 'signup'
   ): Promise<AuthUser> {
-    const session = await api.exchangeBridgeSession(bridgeSessionId, deviceLabel, bridgeApiUrl);
+    const session = await api.exchangeBridgeSession(bridgeSessionId, deviceLabel, bridgeApiUrl, mode);
     return applySession(session);
   }
 

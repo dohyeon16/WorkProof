@@ -12,6 +12,7 @@ class OAuthBridgeSession(Base):
 
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), nullable=False, server_default="signup")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="pending")
     profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)

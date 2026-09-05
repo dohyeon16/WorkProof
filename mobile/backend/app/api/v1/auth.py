@@ -78,10 +78,11 @@ def bridge_exchange(
     """
     try:
         tokens = auth_service.exchange_bridge_session(
-            db, req.bridge_session_id, device_label=req.device_label
+            db, req.bridge_session_id, device_label=req.device_label, mode=req.mode
         )
     except auth_service.BridgeExchangeError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        status_code = status.HTTP_404_NOT_FOUND if exc.code == "ACCOUNT_NOT_FOUND" else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code, str(exc), headers={"X-WorkProof-Error-Code": exc.code})
     return _token_pair(tokens)
 
 

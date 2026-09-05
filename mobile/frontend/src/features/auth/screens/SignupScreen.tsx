@@ -199,7 +199,7 @@ export default function SignupScreen({ navigation, route }: Props) {
       return;
     }
     try {
-      const result = await SOCIAL_LOGIN[provider]();
+      const result = await SOCIAL_LOGIN[provider]('signup');
       finishSocialSignup(provider, result);
     } finally {
       setSocialLoading(null);
@@ -260,7 +260,7 @@ export default function SignupScreen({ navigation, route }: Props) {
       let backendSessionReady = true;
       try {
         if (socialProfile.bridgeSessionId) {
-          await loginWithBridgeSession(socialProfile.bridgeSessionId, socialProfile.bridgeApiUrl);
+          await loginWithBridgeSession(socialProfile.bridgeSessionId, socialProfile.bridgeApiUrl, 'signup');
         } else if (socialProfile.providerCredential) {
           await loginWithSocialCredential({
             provider: socialProfile.provider as 'google' | 'kakao' | 'naver',

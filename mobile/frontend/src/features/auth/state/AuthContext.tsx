@@ -39,7 +39,7 @@ export interface AuthContextValue {
   register(input: Omit<RegisterInput, 'deviceLabel'>): Promise<AuthUser>;
   login(email: string, password: string): Promise<AuthUser>;
   /** Expo Go 소셜 로그인(Google/Kakao/Naver) 성공 후 받은 bridge session_id를 백엔드 인증 세션으로 교환한다. */
-  loginWithBridgeSession(bridgeSessionId: string, bridgeApiUrl?: string): Promise<AuthUser>;
+  loginWithBridgeSession(bridgeSessionId: string, bridgeApiUrl?: string, mode?: 'signup' | 'login'): Promise<AuthUser>;
   loginWithSocialCredential(input: Omit<SocialSessionInput, 'deviceLabel'>): Promise<AuthUser>;
   logout(): Promise<void>;
   refreshUser(): Promise<AuthUser>;
@@ -67,8 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register: (input) => session.register({ ...input }),
       login: (email, password) =>
         session.login({ email, password, deviceLabel: DEVICE_LABEL }),
-      loginWithBridgeSession: (bridgeSessionId, bridgeApiUrl) =>
-        session.loginWithBridgeSession(bridgeSessionId, DEVICE_LABEL, bridgeApiUrl),
+      loginWithBridgeSession: (bridgeSessionId, bridgeApiUrl, mode) =>
+        session.loginWithBridgeSession(bridgeSessionId, DEVICE_LABEL, bridgeApiUrl, mode),
       loginWithSocialCredential: (input) =>
         session.loginWithSocialCredential({ ...input, deviceLabel: DEVICE_LABEL }),
       logout: () => session.logout(),

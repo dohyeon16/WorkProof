@@ -92,7 +92,8 @@ export function createSessionApi(client: ApiClient): SessionApi {
     async exchangeBridgeSession(
       bridgeSessionId: string,
       deviceLabel?: string,
-      bridgeApiUrl?: string
+      bridgeApiUrl?: string,
+      mode: 'signup' | 'login' = 'signup'
     ): Promise<AuthSession> {
       // Bridge sessions are process-local on the backend. Exchange against the
       // exact origin that created the session even when the general API and
@@ -101,7 +102,7 @@ export function createSessionApi(client: ApiClient): SessionApi {
       const wire = await exchangeClient.request<WireTokenPair>('/auth/bridge/exchange', {
         method: 'POST',
         timeoutMs: AUTH_TIMEOUT_MS,
-        body: { bridge_session_id: bridgeSessionId, device_label: deviceLabel },
+        body: { bridge_session_id: bridgeSessionId, device_label: deviceLabel, mode },
       });
       return mapSession(wire);
     },

@@ -23,7 +23,7 @@ def test_single_head_is_workplace_policy():
 
     script = ScriptDirectory.from_config(_alembic_config())
     heads = list(script.get_heads())
-    assert heads == ["0005_oauth_bridge_sessions"], f"단일 head 여야 함: {heads}"
+    assert heads == ["0006_oauth_bridge_mode"], f"단일 head 여야 함: {heads}"
 
 
 def test_revision_chain_0004_to_0001_to_base():
