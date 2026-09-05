@@ -12,7 +12,7 @@ import type { RootScreenProps } from '../../../app/navigation/types';
 import { getAccount, isOnboardingDone, setLoggedIn } from '../../../services/storage/storage';
 import { useAuth } from '../state/AuthContext';
 import { authErrorMessage, SOCIAL_BACKEND_SESSION_FAILED } from '../services/authErrors';
-import { colors, fonts, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, fonts, radius, shadow, spacing, control, typography } from '../../../ui/design_system';
 import { SOCIAL_LOGIN, SOCIAL_LABEL, loginWithNaver, type SocialLoginResult } from '../services/social/socialLogin';
 import type { AuthProvider } from '../../../types/domain';
 import { socialErrorMessage } from '../services/social/socialAuthErrors';
@@ -210,7 +210,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         </View>
 
         <Pressable
-          style={[styles.primaryButton, (emailLoading || socialLoading !== null) && styles.socialButtonBusy]}
+          style={({ pressed }) => [[styles.primaryButton, (emailLoading || socialLoading !== null) && styles.socialButtonBusy], pressed && control.pressed]}
           onPress={handleLogin}
           disabled={emailLoading || socialLoading !== null}
           accessibilityRole="button"
@@ -226,7 +226,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         </View>
 
         <Pressable
-          style={[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy]}
+          style={({ pressed }) => [[styles.kakaoButton, socialLoading === 'kakao' && styles.socialButtonBusy], pressed && control.pressed]}
           onPress={() => handleSocial('kakao')}
           disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
@@ -239,7 +239,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         </Pressable>
 
         <Pressable
-          style={[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy]}
+          style={({ pressed }) => [[styles.googleButton, socialLoading === 'google' && styles.socialButtonBusy], pressed && control.pressed]}
           onPress={() => handleSocial('google')}
           disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
@@ -252,7 +252,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         </Pressable>
 
         <Pressable
-          style={[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy]}
+          style={({ pressed }) => [[styles.naverButton, socialLoading === 'naver' && styles.socialButtonBusy], pressed && control.pressed]}
           onPress={() => handleSocial('naver')}
           disabled={socialLoading !== null || emailLoading}
           accessibilityRole="button"
@@ -265,7 +265,7 @@ export default function LoginScreen({ navigation, route }: Props) {
         </Pressable>
 
         <Pressable
-          style={styles.footer}
+          style={({ pressed }) => [styles.footer, pressed && control.pressed]}
           onPress={() => navigation.navigate('Signup')}
           accessibilityRole="button"
           accessibilityLabel="회원가입 화면으로 이동"
@@ -280,10 +280,20 @@ export default function LoginScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  socialButtonBusy: { opacity: 0.6 },
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingTop: spacing.xl, alignItems: 'stretch' },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg },
+  socialButtonBusy: {
+    opacity: 0.6 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
+  content: {
+    padding: spacing.lg,
+    paddingTop: spacing.xl,
+    alignItems: 'stretch' },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.lg },
   logoBadge: {
     width: 28,
     height: 28,
@@ -292,42 +302,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
-  title: { fontSize: 24, fontWeight: '800', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.subtext, marginTop: 4, marginBottom: spacing.lg },
-  form: { marginTop: spacing.xs },
+  logo: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.primaryDark },
+  title: {
+    ...typography.title,
+    color: colors.text },
+  subtitle: {
+    ...typography.body,
+    color: colors.subtext,
+    marginTop: 4,
+    marginBottom: spacing.lg },
+  form: {
+    marginTop: spacing.xs },
   optionsRow: {
+    gap: spacing.sm,
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
-  link: { color: colors.subtext, fontSize: 13 },
+  link: {
+    paddingVertical: spacing.control,
+    minHeight: control.minTarget,
+    ...typography.caption,
+    color: colors.subtext,
+    },
   primaryButton: {
+    ...control.button,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     alignItems: 'center',
     marginTop: spacing.sm,
     ...shadow.card,
   },
-  primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg, gap: spacing.sm },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.subtext, fontSize: 12 },
+  primaryButtonText: {
+    ...typography.label,
+    color: colors.onPrimary,
+    },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    gap: spacing.sm },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border },
+  dividerText: {
+    color: colors.subtext,
+    fontSize: 12 },
   kakaoButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
     backgroundColor: '#FEE500',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     marginBottom: spacing.sm,
   },
-  kakaoButtonText: { color: '#1B1F1E', fontWeight: '700', fontSize: 15 },
+  kakaoButtonText: {
+    color: '#1B1F1E',
+    fontWeight: '700',
+    fontSize: 15 },
   googleButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -336,22 +381,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#747775',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
     marginBottom: spacing.sm,
   },
-  googleButtonText: { color: '#1F1F1F', fontFamily: fonts.medium, fontSize: 15 },
+  googleButtonText: {
+    color: '#1F1F1F',
+    fontFamily: fonts.medium,
+    fontSize: 15 },
   naverButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
     backgroundColor: '#03C75A',
     borderRadius: radius.md,
-    paddingVertical: spacing.sm + 6,
+    paddingVertical: spacing.control,
   },
-  naverLogo: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  naverButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  footer: { marginTop: spacing.xl, alignItems: 'center' },
-  footerText: { fontSize: 13, color: colors.subtext },
-  footerLink: { color: colors.primaryDark, fontWeight: '700' },
+  naverLogo: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 15 },
+  naverButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15 },
+  footer: {
+    justifyContent: 'center',
+    minHeight: control.minTarget,
+    marginTop: spacing.xl,
+    alignItems: 'center' },
+  footerText: {
+    ...typography.caption,
+    color: colors.subtext },
+  footerLink: {
+    color: colors.primaryDark,
+    fontWeight: '700' },
 });

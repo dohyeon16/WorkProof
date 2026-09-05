@@ -11,7 +11,7 @@ import { getUnreadCount } from '../../../services/notifications/notificationsFee
 import { AttendanceRecord, PayRecord, ScheduledShift, Workplace } from '../../../types/domain';
 import { calcMonthlySummary, formatMinutesAsHours, formatWorkDuration, formatWon, shiftWorkedMinutes } from '../../payroll/services/payCalc';
 import { currentYearMonth, formatDateWithWeekday, formatYearMonth, nextPayDate, todayDateString } from '../../../utils/date';
-import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, radius, shadow, spacing, control, surface, typography } from '../../../ui/design_system';
 import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 
 type Props = MainTabScreenProps<'Home'>;
@@ -67,7 +67,7 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.emptyTitle}>등록된 근무지가 없어요</Text>
         <Text style={styles.emptySubtitle}>근무지를 등록하면 근무 기록과 급여 비교를 시작할 수 있어요.</Text>
         <Pressable
-          style={styles.emptyButton}
+          style={({ pressed }) => [styles.emptyButton, pressed && control.pressed]}
           onPress={() => navigation.navigate('WorkplaceForm', {})}
           accessibilityRole="button"
           accessibilityLabel="근무지 등록하기"
@@ -97,6 +97,7 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.logo}>WorkProof</Text>
         </View>
         <Pressable
+          style={({ pressed }) => [control.iconButton, pressed && control.pressed]}
           onPress={() => navigation.navigate('Notifications')}
           hitSlop={8}
           accessibilityRole="button"
@@ -119,7 +120,7 @@ export default function HomeScreen({ navigation }: Props) {
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitleMain}>{monthLabel} 근무 현황</Text>
               <Pressable
-                style={styles.workplaceChip}
+                style={({ pressed }) => [styles.workplaceChip, pressed && control.pressed]}
                 onPress={() => navigation.navigate('WorkplaceSwitch')}
                 accessibilityRole="button"
                 accessibilityLabel="근무지 전환"
@@ -194,7 +195,7 @@ export default function HomeScreen({ navigation }: Props) {
             )}
 
             <Pressable
-              style={styles.checkInButton}
+              style={({ pressed }) => [styles.checkInButton, pressed && control.pressed]}
               onPress={() => navigation.navigate('AttendanceCheck', { workplaceId: workplace.id })}
               accessibilityRole="button"
               accessibilityLabel="출퇴근 기록하기"
@@ -204,7 +205,7 @@ export default function HomeScreen({ navigation }: Props) {
             </Pressable>
 
             <Pressable
-              style={styles.scheduleRow}
+              style={({ pressed }) => [styles.scheduleRow, pressed && control.pressed]}
               onPress={() =>
                 navigation.navigate('Schedule', {
                   workplaceId: workplace.id,
@@ -232,7 +233,7 @@ export default function HomeScreen({ navigation }: Props) {
             </Pressable>
 
             <Pressable
-              style={styles.payCompareRow}
+              style={({ pressed }) => [styles.payCompareRow, pressed && control.pressed]}
               onPress={() =>
                 navigation.navigate(payRecord ? 'PayCompare' : 'PayInput', { workplaceId: workplace.id, yearMonth })
               }
@@ -279,15 +280,20 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.page,
     paddingVertical: spacing.sm + 2,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs },
   logoBadge: {
     width: 22,
     height: 22,
@@ -296,7 +302,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: { fontSize: 17, fontWeight: '800', color: colors.primaryDark },
+  logo: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.primaryDark },
   badge: {
     position: 'absolute',
     top: -5,
@@ -309,16 +318,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800' },
+  listContent: {
+    padding: spacing.page,
+    paddingBottom: spacing.xl * 2 },
   sectionRow: {
+    gap: spacing.sm,
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  sectionTitleMain: { fontSize: 16, fontWeight: '800', color: colors.text, flexShrink: 1 },
+  sectionTitleMain: {
+    ...typography.section,
+    color: colors.text,
+    flexShrink: 1 },
   workplaceChip: {
+    minHeight: control.minTarget,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -328,43 +348,100 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     maxWidth: 150,
   },
-  workplaceChipText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark, flexShrink: 1 },
+  workplaceChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    flexShrink: 1 },
   summaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    ...surface.card,
     ...shadow.card,
   },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 },
-  summaryDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
-  summaryLabel: { fontSize: 13, color: colors.subtext },
-  summaryValue: { fontSize: 20, fontWeight: '800', color: colors.text },
-  summaryValuePrimary: { fontSize: 20, fontWeight: '800', color: colors.primaryDark },
-  summaryNetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
-  summaryNetLabel: { fontSize: 12, color: colors.subtext },
-  summaryNetValue: { fontSize: 14, fontWeight: '700', color: colors.text },
+  summaryRow: {
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm },
+  summaryLabel: {
+    ...typography.caption,
+    color: colors.subtext },
+  summaryValue: {
+    ...typography.section,
+    fontSize: 24,
+    lineHeight: 34,
+    color: colors.text },
+  summaryValuePrimary: {
+    ...typography.section,
+    fontSize: 24,
+    lineHeight: 34,
+    color: colors.primaryDark },
+  summaryNetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs },
+  summaryNetLabel: {
+    fontSize: 12,
+    color: colors.subtext },
+  summaryNetValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text },
   weekCard: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    ...surface.card,
     marginTop: spacing.sm,
   },
-  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  weekTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
-  weekExpected: { fontSize: 15, fontWeight: '800', color: colors.primaryDark },
-  weekBreakdown: { fontSize: 12, color: colors.subtext, marginTop: 2 },
-  weekBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
-  weekBadge: { borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  weekBadgeInfo: { backgroundColor: colors.primaryLight },
-  weekBadgeWarn: { backgroundColor: colors.accentLight },
-  weekBadgeTextInfo: { fontSize: 11, fontWeight: '700', color: colors.primaryDark },
-  weekBadgeTextWarn: { fontSize: 11, fontWeight: '700', color: colors.accent },
-  weekHelp: { fontSize: 11, color: colors.subtext, marginTop: spacing.sm },
-  summaryFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  weekHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center' },
+  weekTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text },
+  weekExpected: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primaryDark },
+  weekBreakdown: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
+  weekBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.sm },
+  weekBadge: {
+    borderRadius: radius.pill,
+    paddingVertical: 4,
+    paddingHorizontal: 10 },
+  weekBadgeInfo: {
+    backgroundColor: colors.primaryLight },
+  weekBadgeWarn: {
+    backgroundColor: colors.accentLight },
+  weekBadgeTextInfo: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryDark },
+  weekBadgeTextWarn: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent },
+  weekHelp: {
+    fontSize: 11,
+    color: colors.subtext,
+    marginTop: spacing.sm },
+  summaryFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between' },
   payDayChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,9 +451,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
   },
-  payDayChipText: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
-  todayShiftText: { fontSize: 12, color: colors.subtext, flexShrink: 1, textAlign: 'right' },
+  payDayChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark },
+  todayShiftText: {
+    fontSize: 12,
+    color: colors.subtext,
+    flexShrink: 1,
+    textAlign: 'right' },
   checkInButton: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -388,16 +473,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     marginTop: spacing.md,
   },
-  checkInButtonText: { color: colors.primaryDark, fontWeight: '700', fontSize: 14 },
+  checkInButtonText: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 14 },
   scheduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm + 4,
+    padding: spacing.md,
     marginTop: spacing.sm,
   },
   scheduleIconWrap: {
@@ -408,42 +496,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scheduleLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
-  scheduleValue: { fontSize: 13, fontWeight: '700', color: colors.primaryDark, marginTop: 2 },
-  scheduleSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
+  scheduleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text },
+  scheduleValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    marginTop: 2 },
+  scheduleSub: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
   payCompareRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm + 4,
+    padding: spacing.md,
     marginTop: spacing.sm,
     gap: spacing.sm,
   },
-  payCompareLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
-  payCompareValue: { fontSize: 14, fontWeight: '800', marginTop: 2 },
-  payCompareValueDanger: { color: colors.danger },
-  payCompareValueOk: { color: colors.primaryDark },
-  payCompareSub: { fontSize: 12, color: colors.subtext, marginTop: 2 },
-  sectionTitle: {
-    fontSize: 14,
+  payCompareLabel: {
+    fontSize: 13,
     fontWeight: '700',
+    color: colors.text },
+  payCompareValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2 },
+  payCompareValueDanger: {
+    color: colors.danger },
+  payCompareValueOk: {
+    color: colors.primaryDark },
+  payCompareSub: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2 },
+  sectionTitle: {
+    ...typography.section,
     color: colors.text,
     marginTop: spacing.lg,
     marginBottom: spacing.xs,
   },
-  empty: { color: colors.subtext, fontSize: 13, textAlign: 'center', marginTop: spacing.md },
+  empty: {
+    color: colors.subtext,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: spacing.md },
   recordRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm + 4,
+    padding: spacing.md,
     marginBottom: spacing.sm,
   },
   recordIconWrap: {
@@ -454,9 +566,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recordDate: { fontSize: 14, fontWeight: '700', color: colors.text },
-  recordTime: { fontSize: 12, color: colors.subtext, marginTop: 2 },
-  recordHours: { fontSize: 12, color: colors.primaryDark, fontWeight: '700' },
+  recordDate: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text },
+  recordTime: {
+    ...typography.caption,
+    color: colors.subtext,
+    marginTop: 2 },
+  recordHours: {
+    fontSize: 12,
+    color: colors.primaryDark,
+    fontWeight: '700' },
   emptyContainer: {
     flex: 1,
     backgroundColor: colors.background,
@@ -474,9 +595,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
-  emptySubtitle: { fontSize: 13, color: colors.subtext, textAlign: 'center', marginTop: 2 },
+  emptyTitle: {
+    ...typography.section,
+    color: colors.text },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.subtext,
+    textAlign: 'center',
+    marginTop: 2 },
   emptyButton: {
+    ...control.button,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm + 2,
@@ -484,5 +612,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     ...shadow.card,
   },
-  emptyButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14 },
 });

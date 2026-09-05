@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../display/Text';
 import { FieldInput } from './FieldInput';
-import { colors, radius, spacing } from '../../design_system';
+import { colors, control, radius, spacing, typography } from '../../design_system';
 
 export const EMAIL_DOMAINS = ['gmail.com', 'naver.com', 'daum.net', 'kakao.com', 'nate.com', 'icloud.com', 'outlook.com'];
 
@@ -64,19 +64,21 @@ export function EmailDomainField({
         {EMAIL_DOMAINS.map((d) => (
           <Pressable
             key={d}
-            style={[styles.domainChip, domain === d && styles.domainChipActive]}
+            style={({ pressed }) => [styles.domainChip, domain === d && styles.domainChipActive, pressed && control.pressed]}
             onPress={() => onDomainChange(d)}
             accessibilityRole="button"
             accessibilityLabel={`도메인 @${d} 선택`}
+            accessibilityState={{ selected: domain === d }}
           >
             <Text style={[styles.domainChipText, domain === d && styles.domainChipTextActive]}>@{d}</Text>
           </Pressable>
         ))}
         <Pressable
-          style={[styles.domainChip, domain === 'custom' && styles.domainChipActive]}
+          style={({ pressed }) => [styles.domainChip, domain === 'custom' && styles.domainChipActive, pressed && control.pressed]}
           onPress={() => onDomainChange('custom')}
           accessibilityRole="button"
           accessibilityLabel="도메인 직접 입력 선택"
+          accessibilityState={{ selected: domain === 'custom' }}
         >
           <Text style={[styles.domainChipText, domain === 'custom' && styles.domainChipTextActive]}>
             직접입력
@@ -107,10 +109,12 @@ const styles = StyleSheet.create({
   domainChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm + 2,
+    gap: spacing.sm,
+    marginBottom: spacing.control,
   },
   domainChip: {
+    minHeight: control.minTarget,
+    justifyContent: 'center',
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs + 2,
     borderRadius: radius.pill,
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  domainChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  domainChipText: { fontSize: 12, color: colors.subtext },
-  domainChipTextActive: { color: '#fff', fontWeight: '700' },
+  domainChipActive: { backgroundColor: colors.primaryLight, borderColor: colors.primaryDark },
+  domainChipText: { ...typography.caption, color: colors.subtext },
+  domainChipTextActive: { color: colors.primaryDark, fontWeight: '700' },
 });

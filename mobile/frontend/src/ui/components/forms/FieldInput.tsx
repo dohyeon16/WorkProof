@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../display/Text';
 import { TextInput } from './TextInput';
-import { colors, radius, spacing } from '../../design_system';
+import { colors, componentTokens, control, radius, spacing, typography } from '../../design_system';
 
 interface FieldInputProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -55,8 +55,9 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
   ref
 ) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
+  const [focused, setFocused] = useState(false);
   return (
-    <View style={[styles.wrap, error && styles.wrapError]}>
+    <View style={[styles.wrap, focused && styles.wrapFocused, error && styles.wrapError]}>
       {icon && <Ionicons name={icon} size={18} color={colors.subtext} style={styles.icon} />}
       <TextInput
         ref={ref}
@@ -71,7 +72,11 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
         accessibilityLabel={placeholder}
         returnKeyType={returnKeyType}
         onSubmitEditing={onSubmitEditing}
-        onFocus={onFocus}
+        onFocus={() => {
+          setFocused(true);
+          onFocus?.();
+        }}
+        onBlur={() => setFocused(false)}
         blurOnSubmit={blurOnSubmit}
         inputAccessoryViewID={inputAccessoryViewID}
       />
@@ -81,7 +86,7 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
         <Pressable
           onPress={() => setHidden((v) => !v)}
           hitSlop={8}
-          style={styles.eyeBtn}
+          style={({ pressed }) => [styles.eyeBtn, pressed && control.pressed]}
           accessibilityRole="button"
           accessibilityLabel={hidden ? '비밀번호 표시' : '비밀번호 숨기기'}
         >
@@ -94,23 +99,27 @@ export const FieldInput = forwardRef<RNTextInput, FieldInputProps>(function Fiel
 
 const styles = StyleSheet.create({
   wrap: {
+    minHeight: control.inputHeight,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.sm + 4,
-    marginBottom: spacing.sm + 2,
+    paddingHorizontal: spacing.control,
+    marginBottom: spacing.control,
   },
+  wrapFocused: { borderColor: componentTokens.input.borderFocus },
   wrapError: { borderColor: colors.danger },
   icon: { marginRight: spacing.xs + 2 },
   input: {
+    ...typography.body,
     flex: 1,
-    paddingVertical: spacing.sm + 6,
-    fontSize: 15,
+    minWidth: 0,
+    minHeight: control.inputHeight,
+    paddingVertical: spacing.control,
     color: colors.text,
   },
-  suffix: { fontSize: 13, color: colors.subtext, marginLeft: spacing.xs },
-  eyeBtn: { padding: spacing.xs },
+  suffix: { ...typography.caption, color: colors.subtext, marginLeft: spacing.xs },
+  eyeBtn: { ...control.iconButton, marginRight: -spacing.sm },
 });

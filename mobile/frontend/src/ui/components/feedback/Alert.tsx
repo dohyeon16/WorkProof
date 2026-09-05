@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../display/Text';
-import { colors, spacing } from '../../design_system';
+import { colors, control, spacing, surface, typography } from '../../design_system';
 
 export interface AlertButtonSpec {
   text: string;
@@ -75,33 +75,37 @@ export function AlertHost() {
           { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg + insets.bottom },
         ]}
       >
-        <View style={styles.card}>
-          <Text style={styles.title}>{state.title}</Text>
-          {state.message ? <Text style={styles.message}>{state.message}</Text> : null}
-          <View style={styles.buttonList}>
-            {state.buttons.map((b, i) => (
-              <Pressable
-                key={i}
-                style={styles.button}
-                accessibilityRole="button"
-                accessibilityLabel={b.text}
-                onPress={() => {
-                  close();
-                  b.onPress?.();
-                }}
-              >
-                <Text
-                  style={[
-                    styles.buttonText,
-                    b.style === 'cancel' && styles.buttonTextCancel,
-                    b.style === 'destructive' && styles.buttonTextDestructive,
-                  ]}
+        <View style={styles.card} accessibilityViewIsModal onAccessibilityEscape={close}>
+          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.copy}>
+              <Text style={styles.title} accessibilityRole="header">{state.title}</Text>
+              {state.message ? <Text style={styles.message}>{state.message}</Text> : null}
+            </View>
+            <View style={styles.buttonList}>
+              {state.buttons.map((b, i) => (
+                <Pressable
+                  key={i}
+                  style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={b.text}
+                  onPress={() => {
+                    close();
+                    b.onPress?.();
+                  }}
                 >
-                  {b.text}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      b.style === 'cancel' && styles.buttonTextCancel,
+                      b.style === 'destructive' && styles.buttonTextDestructive,
+                    ]}
+                  >
+                    {b.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -111,36 +115,38 @@ export function AlertHost() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: surface.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
   card: {
+    ...surface.modal,
     width: '100%',
-    maxWidth: 320,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    maxWidth: 360,
+    maxHeight: '90%',
     overflow: 'hidden',
   },
-  title: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  scroll: { flexGrow: 0 },
+  copy: { paddingTop: spacing.lg, paddingHorizontal: spacing.lg },
+  title: { ...typography.section, color: colors.text, textAlign: 'center' },
   message: {
-    fontSize: 13,
+    ...typography.body,
     color: colors.subtext,
     textAlign: 'center',
     marginTop: spacing.sm,
-    lineHeight: 19,
   },
-  buttonList: { marginTop: spacing.lg, marginHorizontal: -spacing.lg },
+  buttonList: { marginTop: spacing.lg },
   button: {
-    paddingVertical: spacing.sm + 6,
+    minHeight: control.minTarget,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     alignItems: 'center',
   },
-  buttonText: { fontSize: 15, fontWeight: '700', color: colors.primaryDark },
+  buttonPressed: { backgroundColor: colors.muted },
+  buttonText: { ...typography.label, color: colors.primaryDark, textAlign: 'center' },
   buttonTextCancel: { color: colors.subtext, fontWeight: '600' },
   buttonTextDestructive: { color: colors.danger },
 });

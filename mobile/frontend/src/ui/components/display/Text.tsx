@@ -12,5 +12,6 @@ export function Text({ style, ...props }: TextProps) {
   const weight = flat.fontWeight;
   const bold =
     weight === 'bold' || weight === '700' || weight === '800' || weight === '900' || Number(weight) >= 700;
-  return <RNText style={[{ fontFamily: bold ? fonts.bold : fonts.regular }, style]} {...props} />;
+  const medium = Number(weight) >= 500;
+  return <RNText style={[{ fontFamily: bold ? fonts.bold : medium ? fonts.medium : fonts.regular }, style]} {...props} />;
 }

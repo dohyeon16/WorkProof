@@ -20,7 +20,7 @@ import {
   updateEvidenceAnalysis,
 } from '../../../services/storage/storage';
 import { EvidenceFile, EvidenceKind, Workplace } from '../../../types/domain';
-import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, radius, shadow, spacing, control, surface, typography } from '../../../ui/design_system';
 import { LoadingScreen } from '../../../ui/components/feedback/LoadingScreen';
 import { openStoredUriInNewTab, shareStoredUri } from '../../../utils/webOpen';
 import { analyzeEvidenceFile, maskFileName, mimeTypeForKind } from '../services/analyzeContract';
@@ -457,7 +457,7 @@ export default function VaultScreen(_props: Props) {
       <FlatList
         data={files}
         keyExtractor={(f) => f.id}
-        numColumns={3}
+        numColumns={2}
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top + spacing.md }]}
         ListHeaderComponent={<Text style={styles.title}>증빙 보관함</Text>}
         ListEmptyComponent={
@@ -470,6 +470,7 @@ export default function VaultScreen(_props: Props) {
         renderItem={({ item }) => (
           <View style={styles.fileCell}>
             <Pressable
+              style={({ pressed }) => [styles.fileOpen, pressed && control.pressed]}
               onPress={() => handleOpen(item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name} 열기`}
@@ -477,37 +478,39 @@ export default function VaultScreen(_props: Props) {
               <View style={styles.fileIconWrap}>
                 <Ionicons name={iconFor(item.kind)} size={26} color={colors.primaryDark} />
               </View>
-              <Text style={styles.fileName} numberOfLines={1}>
+              <Text style={styles.fileName} numberOfLines={2}>
                 {item.name}
               </Text>
               <Text style={styles.fileMeta}>{formatBytes(item.size)}</Text>
             </Pressable>
+            <View style={styles.fileActions}>
             {item.aiSummary ? (
               <Pressable
-                style={styles.summaryBadge}
+                style={({ pressed }) => [styles.summaryBadge, pressed && control.pressed]}
                 onPress={() => setSummaryTarget(item)}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.name} AI 요약 보기`}
               >
-                <Ionicons name="sparkles" size={11} color="#fff" />
+                <Ionicons name="sparkles" size={18} color={colors.primaryDark} />
               </Pressable>
             ) : null}
             <Pressable
-              style={styles.menuButton}
+              style={({ pressed }) => [styles.menuButton, pressed && control.pressed]}
               onPress={() => handleMenu(item)}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${item.name} 더보기 (AI 분석, 이름 변경, 공유, 삭제)`}
             >
-              <Ionicons name="ellipsis-vertical" size={14} color={colors.subtext} />
+              <Ionicons name="ellipsis-horizontal" size={18} color={colors.subtext} />
             </Pressable>
+            </View>
           </View>
         )}
       />
       <View style={styles.fabContainer} pointerEvents="box-none">
         <Pressable
-          style={styles.fab}
+          style={({ pressed }) => [styles.fab, pressed && control.pressed]}
           onPress={handleAdd}
           hitSlop={8}
           accessibilityRole="button"
@@ -520,7 +523,7 @@ export default function VaultScreen(_props: Props) {
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewBackdrop}>
           <Pressable
-            style={styles.previewCloseButton}
+            style={({ pressed }) => [styles.previewCloseButton, pressed && control.pressed]}
             onPress={() => setPreviewImage(null)}
             hitSlop={8}
             accessibilityRole="button"
@@ -541,7 +544,7 @@ export default function VaultScreen(_props: Props) {
             <FieldInput value={renameValue} onChangeText={setRenameValue} placeholder="파일 이름" />
             <View style={styles.renameButtonRow}>
               <Pressable
-                style={styles.renameCancelButton}
+                style={({ pressed }) => [styles.renameCancelButton, pressed && control.pressed]}
                 onPress={() => setRenaming(null)}
                 accessibilityRole="button"
                 accessibilityLabel="취소"
@@ -549,7 +552,7 @@ export default function VaultScreen(_props: Props) {
                 <Text style={styles.renameCancelText}>취소</Text>
               </Pressable>
               <Pressable
-                style={styles.renameSaveButton}
+                style={({ pressed }) => [styles.renameSaveButton, pressed && control.pressed]}
                 onPress={confirmRename}
                 accessibilityRole="button"
                 accessibilityLabel="저장"
@@ -589,6 +592,7 @@ export default function VaultScreen(_props: Props) {
                 </Text>
               </View>
               <Pressable
+                style={({ pressed }) => [control.iconButton, pressed && control.pressed]}
                 onPress={() => setSummaryTarget(null)}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -619,7 +623,7 @@ export default function VaultScreen(_props: Props) {
               ) : null}
             </ScrollView>
             <Pressable
-              style={styles.summaryModalRetry}
+              style={({ pressed }) => [styles.summaryModalRetry, pressed && control.pressed]}
               onPress={() => {
                 const target = summaryTarget;
                 if (!target) return;
@@ -640,13 +644,43 @@ export default function VaultScreen(_props: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, position: 'relative' },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.md, width: '100%' },
-  emptyListWrap: { width: '100%', alignItems: 'center', marginTop: spacing.xl, gap: 4 },
-  empty: { color: colors.text, fontSize: 14, fontWeight: '600', textAlign: 'center' },
-  emptySub: { color: colors.subtext, fontSize: 12, textAlign: 'center' },
-  fileCell: { width: '33%', alignItems: 'center', padding: spacing.xs, marginBottom: spacing.sm },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    position: 'relative' },
+  listContent: {
+    padding: spacing.page,
+    paddingBottom: spacing.xl * 2 },
+  title: {
+    ...typography.title,
+    color: colors.text,
+    marginBottom: spacing.md,
+    width: '100%' },
+  emptyListWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    gap: 4 },
+  empty: {
+    ...typography.label,
+    color: colors.text,
+    textAlign: 'center' },
+  emptySub: {
+    ...typography.caption,
+    color: colors.subtext,
+    textAlign: 'center' },
+  fileCell: {
+    width: '50%',
+    alignItems: 'center',
+    padding: spacing.sm,
+    marginBottom: spacing.sm },
+  fileOpen: {
+    alignItems: 'center',
+    width: '100%' },
+  fileActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm },
   fileIconWrap: {
     width: 64,
     height: 64,
@@ -658,12 +692,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuButton: {
-    position: 'absolute',
-    top: -6,
-    right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    ...control.iconButton,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -671,20 +700,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   summaryBadge: {
-    position: 'absolute',
-    top: -6,
-    left: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
-    borderWidth: 2,
-    borderColor: colors.background,
+    ...control.iconButton,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fileName: { fontSize: 11, color: colors.text, marginTop: spacing.xs, maxWidth: 90 },
-  fileMeta: { fontSize: 10, color: colors.subtext, marginTop: 1 },
+  fileName: {
+    ...typography.caption,
+    color: colors.text,
+    marginTop: spacing.xs,
+    maxWidth: '100%' },
+  fileMeta: {
+    lineHeight: 18,
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 1 },
   fabContainer: {
     position: 'absolute',
     left: 0,
@@ -702,7 +734,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow.raised,
   },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  emptyContainer: {
+    padding: spacing.lg,
+    backgroundColor: colors.background,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm },
   emptyIconCircle: {
     width: 64,
     height: 64,
@@ -711,7 +749,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  emptyTitle: {
+    ...typography.section,
+    color: colors.text },
   previewBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',
@@ -719,30 +759,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewCloseButton: {
+    ...control.iconButton,
     position: 'absolute',
     top: spacing.xl,
     right: spacing.md,
     zIndex: 1,
     padding: spacing.xs,
   },
-  previewImage: { width: '100%', height: '80%' },
+  previewImage: {
+    width: '100%',
+    height: '80%' },
   renameBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: surface.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
   renameCard: {
+    ...surface.modal,
     width: '100%',
     maxWidth: 320,
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
   },
-  renameTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: spacing.md },
-  renameButtonRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  renameTitle: {
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.md },
+  renameButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm },
   renameCancelButton: {
+    ...control.button,
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.sm + 4,
@@ -750,46 +801,60 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  renameCancelText: { color: colors.subtext, fontWeight: '700', fontSize: 14 },
+  renameCancelText: {
+    color: colors.subtext,
+    fontWeight: '700',
+    fontSize: 14 },
   renameSaveButton: {
+    ...control.button,
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.sm + 4,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },
-  renameSaveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  renameSaveText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14 },
   analyzingBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: surface.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
   analyzingCard: {
+    ...surface.modal,
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     gap: spacing.sm,
     maxWidth: 280,
   },
-  analyzingText: { fontSize: 14, fontWeight: '700', color: colors.text },
-  analyzingSub: { fontSize: 12, color: colors.subtext, maxWidth: 200 },
+  analyzingText: {
+    ...typography.label,
+    color: colors.text },
+  analyzingSub: {
+    ...typography.caption,
+    color: colors.subtext,
+    maxWidth: 200 },
   summaryBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: surface.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
   summaryModalCard: {
+    ...surface.modal,
     width: '100%',
     maxWidth: 400,
     maxHeight: '80%',
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
   },
   summaryModalHeader: {
@@ -798,12 +863,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  summaryModalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  summaryModalTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
-  summaryModalScroll: { flexGrow: 0 },
-  summaryModalAnalyzedAt: { fontSize: 11, color: colors.subtext, marginBottom: spacing.xs },
-  summaryModalText: { fontSize: 13, color: colors.text, lineHeight: 20 },
-  summaryModalEmpty: { fontSize: 13, color: colors.subtext, lineHeight: 20 },
+  summaryModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1 },
+  summaryModalTitle: {
+    ...typography.section,
+    color: colors.text },
+  summaryModalScroll: {
+    flexGrow: 0 },
+  summaryModalAnalyzedAt: {
+    fontSize: 11,
+    color: colors.subtext,
+    marginBottom: spacing.xs },
+  summaryModalText: {
+    ...typography.body,
+    color: colors.text,
+    },
+  summaryModalEmpty: {
+    ...typography.body,
+    color: colors.subtext,
+    },
   summaryModalSectionLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -811,8 +892,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
-  summaryModalOcr: { fontSize: 12, color: colors.subtext, lineHeight: 18 },
+  summaryModalOcr: {
+    ...typography.caption,
+    color: colors.subtext,
+    },
   summaryModalRetry: {
+    ...control.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -822,5 +907,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },
-  summaryModalRetryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  summaryModalRetryText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14 },
 });

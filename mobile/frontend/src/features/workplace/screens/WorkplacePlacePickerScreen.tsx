@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Alert } from '../../../ui/components/feedback/Alert';
 import type { RootScreenProps } from '../../../app/navigation/types';
-import { colors, radius, shadow, spacing } from '../../../ui/design_system';
+import { colors, radius, shadow, spacing, control, typography } from '../../../ui/design_system';
 import LocationMapPicker from '../components/LocationMapPicker';
 import { searchPlaces } from '../services/places/kakaoPlaces';
 import { PLACE_CATEGORY_CHIPS } from '../services/places/placeCategories';
@@ -130,6 +130,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm + 2 }]}>
         <Pressable
+          style={({ pressed }) => [control.iconButton, pressed && control.pressed]}
           onPress={() => navigation.goBack()}
           hitSlop={8}
           accessibilityRole="button"
@@ -138,7 +139,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
           <Ionicons name="close" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>근무지 선택</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: control.minTarget }} />
       </View>
 
       {selected ? (
@@ -155,7 +156,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
               onPress={() => setSelected(null)}
               accessibilityRole="button"
               accessibilityLabel="다시 검색"
-              style={styles.backToSearch}
+              style={({ pressed }) => [styles.backToSearch, pressed && control.pressed]}
             >
               <Ionicons name="arrow-back" size={14} color={colors.subtext} />
               <Text style={styles.backToSearchText}>다시 검색</Text>
@@ -165,7 +166,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
             <Text style={styles.selectedAddress}>{selected.address || '주소 정보 없음'}</Text>
             <Text style={styles.help}>정확한 위치가 다르면 지도를 탭하거나 핀을 드래그해서 조정하세요.</Text>
             <Pressable
-              style={styles.confirmButton}
+              style={({ pressed }) => [styles.confirmButton, pressed && control.pressed]}
               onPress={handleConfirm}
               accessibilityRole="button"
               accessibilityLabel="이 장소로 등록"
@@ -182,6 +183,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
               style={styles.searchInput}
               placeholder="상호명으로 검색 (예: 스타벅스 강남점)"
               placeholderTextColor={colors.subtext}
+              accessibilityLabel="근무지 상호명 검색"
               value={queryText}
               onChangeText={setQueryText}
               onSubmitEditing={handleSearchSubmit}
@@ -205,7 +207,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
             {PLACE_CATEGORY_CHIPS.map((chip) => (
               <Pressable
                 key={chip.label}
-                style={[styles.chip, activeChip === chip.label && styles.chipActive]}
+                style={({ pressed }) => [[styles.chip, activeChip === chip.label && styles.chipActive], pressed && control.pressed]}
                 onPress={() => {
                   setActiveChip(chip.label);
                   setQueryText('');
@@ -228,8 +230,9 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
 
           <View style={styles.resultsWrap}>
             {searching ? (
-              <View style={styles.centerFill}>
+              <View style={styles.centerFill} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite">
                 <ActivityIndicator color={colors.primary} />
+                <Text style={styles.emptyText}>근무지를 찾고 있어요</Text>
               </View>
             ) : !searched ? (
               <View style={styles.centerFill}>
@@ -245,7 +248,7 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
                 {results.map((place) => (
                   <Pressable
                     key={place.id}
-                    style={styles.resultRow}
+                    style={({ pressed }) => [styles.resultRow, pressed && control.pressed]}
                     onPress={() => setSelected(place)}
                     accessibilityRole="button"
                     accessibilityLabel={`${place.name} 선택`}
@@ -271,7 +274,9 @@ export default function WorkplacePlacePickerScreen({ navigation, route }: Props)
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,7 +287,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
   },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  headerTitle: {
+    ...typography.section,
+    color: colors.text },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -295,10 +302,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm + 4,
   },
-  searchInput: { flex: 1, paddingVertical: spacing.sm + 4, fontSize: 15, color: colors.text },
-  chipScroll: { flexGrow: 0 },
-  chipRow: { paddingHorizontal: spacing.md, gap: spacing.xs, paddingBottom: spacing.sm },
+  searchInput: {
+    minWidth: 0,
+    minHeight: control.inputHeight,
+    ...typography.body,
+    flex: 1,
+    paddingVertical: spacing.sm + 4,
+    color: colors.text },
+  chipScroll: {
+    flexGrow: 0 },
+  chipRow: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    paddingBottom: spacing.sm },
   chip: {
+    justifyContent: 'center',
+    minHeight: control.minTarget,
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 2,
     borderRadius: radius.pill,
@@ -306,43 +325,94 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  chipTextActive: { color: '#fff' },
-  resultsWrap: { flex: 1 },
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg },
-  emptyText: { fontSize: 13, color: colors.subtext, textAlign: 'center' },
-  resultsList: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl },
+  chipActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primaryDark },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text },
+  chipTextActive: {
+    color: colors.primaryDark },
+  resultsWrap: {
+    flex: 1 },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg },
+  emptyText: {
+    fontSize: 13,
+    color: colors.subtext,
+    textAlign: 'center' },
+  resultsList: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl },
   resultRow: {
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.sm + 4,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  resultName: { fontSize: 14, fontWeight: '700', color: colors.text },
-  resultMeta: { fontSize: 12, color: colors.subtext, marginTop: 2 },
-  resultDistance: { fontSize: 12, color: colors.subtext },
-  mapWrap: { flex: 1 },
+  resultName: {
+    ...typography.label,
+    color: colors.text },
+  resultMeta: {
+    ...typography.caption,
+    color: colors.subtext,
+    marginTop: 2 },
+  resultDistance: {
+    fontSize: 12,
+    color: colors.subtext },
+  mapWrap: {
+    flex: 1 },
   footer: {
     padding: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.card,
   },
-  backToSearch: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.xs, alignSelf: 'flex-start' },
-  backToSearchText: { fontSize: 12, color: colors.subtext, fontWeight: '600' },
-  selectedName: { fontSize: 15, fontWeight: '800', color: colors.text },
-  selectedCategory: { fontSize: 12, color: colors.primaryDark, marginTop: 2 },
-  selectedAddress: { fontSize: 13, color: colors.subtext, marginTop: 2 },
-  help: { fontSize: 12, color: colors.subtext, marginTop: spacing.xs, marginBottom: spacing.sm },
+  backToSearch: {
+    minHeight: control.minTarget,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.xs,
+    alignSelf: 'flex-start' },
+  backToSearchText: {
+    fontSize: 12,
+    color: colors.subtext,
+    fontWeight: '600' },
+  selectedName: {
+    ...typography.section,
+    color: colors.text },
+  selectedCategory: {
+    fontSize: 12,
+    color: colors.primaryDark,
+    marginTop: 2 },
+  selectedAddress: {
+    ...typography.caption,
+    color: colors.subtext,
+    marginTop: 2 },
+  help: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm },
   confirmButton: {
+    ...control.button,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.sm + 6,
     alignItems: 'center',
     ...shadow.card,
   },
-  confirmButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  confirmButtonText: {
+    ...typography.label,
+    color: '#fff',
+    },
 });

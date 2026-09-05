@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from './types';
@@ -8,7 +8,7 @@ import RecordsCalendarScreen from '../../features/attendance/screens/RecordsCale
 import AnalysisScreen from '../../features/payroll/screens/AnalysisScreen';
 import VaultScreen from '../../features/evidence/screens/VaultScreen';
 import MoreScreen from '../../features/settings/screens/MoreScreen';
-import { colors, fonts } from '../../ui/design_system';
+import { colors, control, fonts, spacing } from '../../ui/design_system';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -30,6 +30,7 @@ const LABELS: Record<keyof MainTabParamList, string> = {
 
 export default function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -41,7 +42,7 @@ export default function MainTabs() {
         // 고정 height/paddingBottom은 제스처 내비게이션 바(홈 인디케이터) 영역을
         // 가려서 마지막 탭이 시스템 바 밑에 깔릴 수 있다. insets.bottom을 더해
         // 기기별 안전영역을 확보한다.
-        tabBarStyle: [styles.tabBar, { height: 56 + insets.bottom, paddingBottom: 10 + insets.bottom }],
+        tabBarStyle: [styles.tabBar, { height: Math.max(64, 44 + 20 * fontScale) + insets.bottom, paddingBottom: spacing.sm + insets.bottom }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarIcon: ({ color, size, focused }) => (
           <Ionicons name={ICONS[route.name][focused ? 0 : 1]} size={size} color={color} />
@@ -59,17 +60,19 @@ export default function MainTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 76,
-    paddingTop: 6,
-    paddingBottom: 10,
+    backgroundColor: colors.card,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    paddingTop: spacing.sm,
   },
   tabBarItem: {
+    minHeight: control.minTarget,
     paddingVertical: 0,
   },
   tabBarLabel: {
     fontFamily: fonts.medium,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 2,
     includeFontPadding: true,
   },
