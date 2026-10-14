@@ -28,7 +28,10 @@ export async function persistPickedFile(input: PersistFileInput): Promise<string
   const dir = evidenceDir();
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const dest = new File(dir, `${unique}${extensionFor(input.name, input.mimeType)}`);
-  new File(input.uri).copy(dest);
+  // File.copy is asynchronous in Expo SDK 57. Wait until the bytes are
+  // present before returning the URI; otherwise immediate OCR reads (most
+  // visible with iOS DocumentPicker PDFs) race the copy and see a missing file.
+  await new File(input.uri).copy(dest);
   return dest.uri;
 }
 
